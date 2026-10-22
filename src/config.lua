@@ -20,10 +20,15 @@ M.EDITABLE = { 'raceLaps', 'raceMinutes', 'compoundChoice', 'fuelMarginPct', 'fu
   'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
--- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom.
+-- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
+-- (« on a du mal à les différencier ») : nom choisi, sinon « SetupLab », puis le genre (Qualif, Course) et
+-- « Pluie » sous la pluie ; versions « _vN », numérotées à la suite sur le circuit.
 M.exportTestPrefix = 'SetupLab_Test_'
-M.exportQualiPrefix = 'SetupLab_TourRapide_'
-M.exportRacePrefix = 'SetupLab_Race_'
+M.fileDefaultName = 'SetupLab'
+M.fileGenre = { quali = 'Qualif', race = 'Course' }
+M.fileWet = 'Pluie'
+M.exportQualiPrefix = M.fileDefaultName .. '_' .. M.fileGenre.quali .. '_'
+M.exportRacePrefix = M.fileDefaultName .. '_' .. M.fileGenre.race .. '_'
 -- Copie du setup en cours écrite juste avant un chargement dans la voiture (réversibilité).
 M.exportBackupPrefix = 'SetupLab_Avant_chargement_'
 
@@ -133,6 +138,9 @@ M.K = {
   maxWings = 16,
   maxReportChars = 120000,
   exportMaxSuffix = 99,       -- suffixes -2…-99 essayés avant de renoncer (jamais d'écrasement)
+  fileOpsMax = 64,            -- rangement des fichiers (Corbeille, meilleur tour dans le nom) : opérations en attente
+  backupsMax = 64,            -- copies « Avant chargement » de la séance suivies (rangement à la validation)
+  scanMaxFiles = 2000,        -- fichiers du dossier lus pour numéroter les versions à la suite
   refineRetryDelay = 10,      -- affinage en continu : délai avant un nouvel essai après un calcul refusé (s)
   refineMinGain = 0.05,       -- affinage : gain prévu (s) à partir duquel un setup est proposé (en dessous : conservé)
   alertSeconds = 8,           -- affinage : durée de l'annonce à l'écran d'une version prête (ac.setMessage, s)

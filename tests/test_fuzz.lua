@@ -275,7 +275,8 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
       saved = saved + 1
       T.ok(path:find('/setups/', 1, true) and path:match('%.ini$'), 'fichier écrit hors des setups : ' .. path)
     end
-    T.eq(h.writeCalls, saved, 'aucune écriture interdite (D8)')
+    -- rangement (D8 amendé le 22/10/2026) : un fichier parti à la Corbeille avait été écrit
+    T.eq(h.writeCalls, saved + #h.recycled, 'aucune écriture interdite (D8)')
     -- chargements (D8 amendé) : seulement un setup qualification ou course écrit par SetupLab (aucun nom
     -- choisi ici : préfixe SetupLab), chacun précédé d'une copie de sauvegarde du setup en cours
     local copies = 0
@@ -286,15 +287,21 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
       T.ok(h.written[path] and (path:find('/' .. Config.exportQualiPrefix, 1, true)
         or path:find('/' .. Config.exportRacePrefix, 1, true)), 'chargement d\'un fichier étranger : ' .. path)
     end
-    T.ok(copies >= #h.loadCalls, 'copie de sauvegarde avant chaque chargement')
-    -- journal ordonné : chaque chargement suit immédiatement l'écriture de sa copie de sauvegarde
+    -- copie inutile quand la voiture roule avec un fichier gardé de SetupLab (réponse de Vincent du 22/10/2026)
+    local skipped = app.backupsSkipped or 0
+    T.ok(copies + #h.recycled + skipped >= #h.loadCalls, 'copie de sauvegarde avant chaque chargement')
+    -- journal ordonné : chaque chargement suit immédiatement l'écriture de sa copie de sauvegarde, sauf copie
+    -- inutile (setup en cours déjà enregistré par SetupLab, compté par l'app)
+    local without = 0
     for i, event in ipairs(h.events) do
       if event[1] == 'load' then
         local previous = h.events[i - 1]
-        T.ok(previous and previous[1] == 'save' and previous[2]:find(Config.exportBackupPrefix, 1, true),
-          'chargement sans copie de sauvegarde juste avant : ' .. event[2])
+        if not (previous and previous[1] == 'save' and previous[2]:find(Config.exportBackupPrefix, 1, true)) then
+          without = without + 1
+        end
       end
     end
+    T.ok(without <= skipped, 'chargement sans copie de sauvegarde juste avant : ' .. without .. ' pour ' .. skipped .. ' inutiles')
     seen.loads = seen.loads + #h.loadCalls
     for key, def in pairs(Config.validate(app.settings)) do T.eq(app.settings[key], def, 'réglage ' .. key .. ' valide') end
     h.tab, h.sliders, h.click = nil, nil, nil

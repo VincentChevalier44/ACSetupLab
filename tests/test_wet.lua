@@ -145,7 +145,7 @@ tests['PL02 tours rangés par état de piste : calibration pluie sur les seuls t
   h.click = 'Enregistrer le setup tour rapide'
   frames(h, 1)
   T.ok(app.quali.saved and app.quali.saved.ok, tostring(app.ui.message))
-  T.ok(app.quali.saved.name:find('^SetupLab_TourRapide_Pluie_'), app.quali.saved.name)
+  T.ok(app.quali.saved.name:find('^SetupLab_Qualif_Pluie_'), app.quali.saved.name)
   T.eq(app.proposalBuckets.quali, 'pluie')
   -- piste qui sèche : résultat signalé « calculé ailleurs »
   rain(h, 0, 0, 0)

@@ -54,7 +54,10 @@ local app = {
   refine = nil,              -- mode affinage : genre, phase, tours comptés, versions enregistrées (historique)
   auto = false,              -- SetupLab actif (case à cocher, décision de Vincent du 21/10/2026) : affinage automatique du
                              -- genre de la séance ; pour ce lancement d'AC seulement (rien d'écrit avant le clic)
-  names = { quali = '', race = '' }, -- nom choisi pour les fichiers de chaque genre (vide : nom horodaté)
+  names = { quali = '', race = '' }, -- nom choisi pour les fichiers de chaque genre (vide : « SetupLab »)
+  backups = {},              -- copies « Avant chargement » écrites pendant ce lancement : nom, empreinte, valeurs
+  fileOps = {},              -- rangement des fichiers en attente (voiture arrêtée) : Corbeille, meilleur tour dans le nom
+  filesNote = nil,           -- dernier rangement fait (affiché sous le nom du setup)
   written = {},              -- nom de fichier -> empreinte du contenu écrit par SetupLab (chargeable, D8 amendé)
   memory = {},               -- « séance|état » -> setup validé de ce circuit (figé ou non), fichier relu et vérifié
   memoryFiles = {},          -- chemin -> fichier de la mémoire relu (empreinte, texte, signature, instant de la relecture)
@@ -140,6 +143,19 @@ end
 local function customName(kind)
   return Util.fileNameFrom(app.names[kind], K.nameMaxChars)
 end
+
+-- Base des noms de fichiers (décision de Vincent du 22/10/2026 : « on a du mal à les différencier ») : nom
+-- choisi, sinon « SetupLab », puis le genre (Qualif, Course ; pas répété si le nom choisi finit déjà par lui)
+-- et « Pluie » sous la pluie.
+local function fileBase(kind, bucket)
+  local custom = customName(kind)
+  local genre = Config.fileGenre[kind]
+  local base = custom ~= '' and custom or Config.fileDefaultName
+  local low = base:lower()
+  if not (low == genre:lower() or low:sub(-#genre - 1) == '_' .. genre:lower()) then base = base .. '_' .. genre end
+  return base .. (bucket == 'pluie' and ('_' .. Config.fileWet) or '')
+end
+app.fileBase = fileBase
 
 -- Clés stockées de la voiture et du circuit (disposition comprise) de la découverte.
 local function storeKey(kind, d, ...)
@@ -968,6 +984,8 @@ local function onLap(lap)
   log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (lap.valid and 'valide' or
     ('rejeté (' .. tostring(lap.reason) .. ')')))
   if not lap.valid then return end
+  -- meilleur tour réel dans le nom des fichiers de qualification (renommés voiture arrêtée)
+  if app.queueBestRename then app.queueBestRename(lap) end
   -- affinage : tours propres avec le même setup, comptés depuis la fin du dernier calcul ; version roulée
   local r = app.refine
   if r and r.active then
@@ -1071,6 +1089,13 @@ local function update(dt)
   end
   if app.auto and app.autoTick then app.autoTick() end
   if app.refine and app.refine.active then app.refineTick() end
+  if #app.fileOps > 0 and app.fileOpsTick then
+    local okF, errF = pcall(app.fileOpsTick)
+    if not okF then
+      app.perf.errors = app.perf.errors + 1
+      log('ERROR', 'files', errF)
+    end
+  end
   if app.inert or not Util.schedulerBusy(app.scheduler) then return end
   if app.perf.skipNext then
     app.perf.guardSkips = app.perf.guardSkips + 1
@@ -1416,9 +1441,10 @@ local function saveResult(kind)
   local d, text, proposedSignature, bucket = p.d, p.text, p.signature, p.bucket
   local note = p.changed and (' Le setup du jeu a changé depuis le calcul (' .. p.changed .. ') : le fichier reprend le '
     .. 'setup du calcul, avec les changements proposés.') or ''
-  -- nom choisi (demande de Vincent du 21/10/2026), sinon préfixe horodaté ; jamais d'écrasement (-2, -3…)
+  -- nom choisi (demande de Vincent du 21/10/2026), sinon horodaté ; genre et pluie dans le nom (22/10/2026) ;
+  -- jamais d'écrasement (-2, -3…)
   local custom = customName(kind)
-  local name = custom ~= '' and custom or (spec.prefix .. (bucket == 'pluie' and 'Pluie_' or '') .. fileStamp())
+  local name = fileBase(kind, bucket) .. (custom ~= '' and '' or ('_' .. fileStamp()))
   local r = Exporter.writeNew(host, name, text)
   -- texte écrit conservé : un chargement dans la voiture exige le fichier relu identique
   local hash = Util.hashString(text)
@@ -1457,7 +1483,9 @@ local function saveResult(kind)
     local r2 = app.refine
     if r2 and r2.kind == kind then
       for _, e in ipairs(r2.history) do
-        if e.signature == proposedSignature then e.file, e.path, e.text, e.hash = r.name, r.path, text, hash end
+        if e.signature == proposedSignature then
+          e.file, e.path, e.text, e.hash, e.ownFile = r.name, r.path, text, hash, false
+        end
       end
     end
     local m = app.memory[memoryGroup(kind) .. '|' .. bucket]
@@ -1530,6 +1558,238 @@ local function liveHasValues(target)
   end
   return true
 end
+
+-- ---------------------------------------------------------------------------
+-- Fichiers de SetupLab rangés (décision de Vincent du 22/10/2026 : « à partir du moment où on a validé la V1 ou
+-- la V2 ou la V3, il faut qu'il ne reste que les fichiers V1, V2, V3, pas les intermédiaires » ; « le meilleur
+-- temps réel qui a été effectué avec ce setup », qualification seulement). Seuls des fichiers que SetupLab a
+-- écrits, prouvés par leur nom et l'empreinte de leur contenu, intacts : jamais vos fichiers, jamais un fichier
+-- gardé (référence de la mémoire, figée ou non, versions validées, setup à charger). Corbeille de Windows
+-- (io.recycle ; avant CSP 0.3, suppression définitive) et renommage (io.move, jamais d'écrasement) : un fichier
+-- par image, voiture arrêtée, aucun chargement en cours (jamais d'à-coup en roulant).
+-- ---------------------------------------------------------------------------
+
+-- Fichiers gardés de ce circuit : référence de la mémoire, versions validées de l'affinage et référence
+-- qu'elles ont remplacée ; kindFilter : 'quali' ou 'race' (tous sinon).
+local function keptFiles(kindFilter)
+  local list, seen = {}, {}
+  local function add(rec, kind)
+    if rec and rec.file and rec.text and rec.hash and not seen[rec.file] and app.written[rec.file] == rec.hash
+        and (kindFilter == nil or kind == kindFilter) then
+      seen[rec.file] = true
+      list[#list + 1] = { name = rec.file, text = rec.text, hash = rec.hash, family = rec.family, bucket = rec.bucket,
+        kind = kind }
+    end
+  end
+  for _, m in pairs(app.memory) do
+    if not m.problem then add(m, m.group == 'course' and 'race' or 'quali') end
+  end
+  local r = app.refine
+  if r then
+    for _, e in ipairs(r.history) do
+      if e.version and e.status == 'validée' then
+        add(e, r.kind)
+        if e.replaced then add(e.replaced, e.replaced.group == 'course' and 'race' or 'quali') end
+      end
+    end
+  end
+  return list
+end
+
+local function isKept(name)
+  for _, f in ipairs(keptFiles()) do
+    if f.name == name then return true end
+  end
+  return false
+end
+
+-- Deux setups identiques, hors réglages changés en roulant (carburant, répartition de freinage) et aides (le jeu
+-- peut les remplacer).
+local SAME_IGNORED = { ABS = true, TRACTION_CONTROL = true }
+local function sameSetup(a, b)
+  for name, value in pairs(a) do
+    if not (K.familyIgnored[name] or SAME_IGNORED[name]) then
+      local other = b[name]
+      if type(value) == 'number' and type(other) == 'number' then
+        if math.abs(value - other) > 1e-9 then return false end
+      elseif value ~= other then
+        return false
+      end
+    end
+  end
+  for name in pairs(b) do
+    if not (K.familyIgnored[name] or SAME_IGNORED[name]) and a[name] == nil then return false end
+  end
+  return true
+end
+
+-- Le setup en cours est-il déjà un fichier gardé de SetupLab, intact sur le disque ? Son nom, ou nil : une copie
+-- de sauvegarde n'apporterait rien (réponse de Vincent : copie « seulement si utile »).
+local function liveKeptFile()
+  local ok, text = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+  if not (ok and type(text) == 'string') then return nil end
+  local folder = Exporter.targetFolder(host)
+  if folder == nil then return nil end
+  local live = setupValues(text)
+  for _, f in ipairs(keptFiles()) do
+    if sameSetup(live, setupValues(f.text)) then
+      local okL, back = Util.call(Util.get(host.io, 'load'), folder .. '/' .. f.name)
+      if okL and back == f.text then return f.name end
+    end
+  end
+  return nil
+end
+
+local function queueFileOp(op)
+  for _, o in ipairs(app.fileOps) do
+    if o.op == op.op and o.name == op.name then
+      if op.time and (o.time == nil or op.time < o.time) then o.time = op.time end
+      return
+    end
+  end
+  if #app.fileOps < K.fileOpsMax then app.fileOps[#app.fileOps + 1] = op end
+end
+
+-- Validation : les copies « Avant chargement » de ce lancement identiques à un fichier gardé partent à la
+-- Corbeille ; une copie qui contient autre chose (vos retouches non enregistrées) reste.
+local function queueBackupCleanup()
+  local kept = keptFiles()
+  for _, f in ipairs(kept) do f.values = setupValues(f.text) end
+  for _, b in ipairs(app.backups) do
+    if not b.queued then
+      for _, f in ipairs(kept) do
+        if f.name ~= b.name and sameSetup(b.values, f.values) then
+          b.queued = true
+          queueFileOp({ op = 'corbeille', name = b.name, hash = b.hash, dupOf = f.name, why = 'copie identique à ' .. f.name })
+          break
+        end
+      end
+    end
+  end
+end
+
+-- Meilleur tour réel dans le nom des fichiers gardés de tour rapide de la même famille de setup et du même état
+-- de piste, quand il bat le temps déjà dans le nom (renommés voiture arrêtée).
+local function queueBestRename(lap)
+  if not (lap and lap.valid and lap.family) then return end
+  local f = app.recorder.laps.family[Recorder.bestKey(lap.family, lap.bucket)]
+  if not (f and Util.isFinite(f.best) and f.best > 0) then return end
+  for _, k in ipairs(keptFiles('quali')) do
+    if k.family == lap.family and (k.bucket or 'sec') == lap.bucket then
+      local named = Util.lapFromFileName(k.name)
+      if named == nil or f.best < named - 0.0005 then
+        queueFileOp({ op = 'nom', name = k.name, hash = k.hash, time = f.best })
+      end
+    end
+  end
+end
+app.queueBestRename, app.queueFileOp, app.setupValues = queueBestRename, queueFileOp, setupValues
+
+-- Un fichier parti à la Corbeille : plus rien ne le désigne.
+local function forgetFile(name)
+  app.written[name] = nil
+  for i = #app.backups, 1, -1 do
+    if app.backups[i].name == name then table.remove(app.backups, i) end
+  end
+  local r = app.refine
+  if r then
+    for _, e in ipairs(r.history) do
+      if e.file == name then e.file, e.path, e.recycled = nil, nil, true end
+    end
+  end
+  for kind, last in pairs(app.lastSaved or {}) do
+    if last and last.file == name then
+      app.lastSaved[kind] = nil
+      local key = storeKey('last', app.discovery, kind)
+      if key then Store.remove(app.store, key) end
+    end
+  end
+  for path in pairs(app.memoryFiles) do
+    if path:sub(-#name - 1) == '/' .. name then app.memoryFiles[path] = nil end
+  end
+end
+
+-- Un fichier renommé : tout ce qui le désignait suit (versions, mémoire, setup à charger, setup chargé).
+local function followRename(old, new, path)
+  app.written[new], app.written[old] = app.written[old], nil
+  local function move(rec)
+    if rec and rec.file == old then rec.file, rec.path = new, path end
+  end
+  local r = app.refine
+  if r then
+    for _, e in ipairs(r.history) do
+      move(e)
+      move(e.replaced)
+    end
+  end
+  for _, m in pairs(app.memory) do
+    if m.file == old then
+      move(m)
+      memoryPut(m)
+    end
+  end
+  for _, saved in pairs(app.saved) do
+    if saved.name == old then saved.name, saved.path = new, path end
+  end
+  for _, loaded in pairs(app.loaded) do
+    if loaded.name == old then loaded.name = new end
+  end
+  for kind, last in pairs(app.lastSaved or {}) do
+    if last and last.file == old then
+      last.file = new
+      local key = storeKey('last', app.discovery, kind)
+      if key then Store.put(app.store, key, last, stamp()) end
+    end
+  end
+  for oldPath, cached in pairs(app.memoryFiles) do
+    if oldPath:sub(-#old - 1) == '/' .. old then
+      app.memoryFiles[oldPath] = nil
+      app.memoryFiles[path] = cached
+      break
+    end
+  end
+end
+
+local function runFileOp(op)
+  -- garde revérifiée au moment d'agir : un fichier devenu gardé (ou à charger) ne part pas ; une copie ne part
+  -- que si le fichier qu'elle double est toujours gardé ; seul un fichier gardé est renommé
+  if op.op == 'corbeille' then
+    -- seulement un fichier écrit par SetupLab pendant ce lancement (version, copie de sauvegarde), même empreinte
+    local own = app.written[op.name] ~= nil and app.written[op.name] == op.hash
+    for _, b in ipairs(app.backups) do own = own or (b.name == op.name and b.hash == op.hash) end
+    local target = false
+    for _, saved in pairs(app.saved) do target = target or saved.name == op.name end
+    if not own or target or isKept(op.name) or (op.dupOf and not isKept(op.dupOf)) then return end
+    local w = Exporter.recycleOwn(host, op.name, op.hash)
+    if not w.ok then
+      log('INFO', 'files', op.name .. ' laissé tel quel : ' .. tostring(w.reason) .. '.')
+      return
+    end
+    forgetFile(op.name)
+    app.filesNote = 'Rangé : ' .. op.name .. ' à la Corbeille (' .. tostring(op.why) .. ').'
+  else
+    local base = isKept(op.name) and Util.withLapTime(op.name, op.time)
+    if not base then return end
+    local w = Exporter.renameOwn(host, op.name, op.hash, base)
+    if not w.ok then
+      log('INFO', 'files', op.name .. ' non renommé : ' .. tostring(w.reason) .. '.')
+      return
+    end
+    followRename(op.name, w.name, w.path)
+    app.filesNote = 'Renommé avec votre meilleur tour : ' .. w.name .. '.'
+  end
+  log('INFO', 'files', app.filesNote)
+end
+
+-- À chaque image : un rangement au plus, voiture arrêtée, sans chargement armé ni en cours.
+local function fileOpsTick()
+  if #app.fileOps == 0 or app.inert or app.loadArm or app.loadCheck or app.perf.skipNext then return end
+  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  local speed = okC and Util.get(car, 'speedMs') or nil
+  if not (Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh) then return end
+  runFileOp(table.remove(app.fileOps, 1))
+end
+app.fileOpsTick = fileOpsTick
 
 -- Mémoire du circuit relue à chaque découverte (nouvelle séance, voiture ou circuit) : chaque fichier est
 -- relu et comparé à son empreinte ; absent ou modifié : dit, jamais chargé. Sans clé stockable (identifiants
@@ -1641,29 +1901,40 @@ local function confirmLoad(kind)
   local target = setupValues(saved.text)
   -- état d'avant l'appel : un setup déjà identique au fichier ne prouve rien (constat non concluant)
   local already = liveHasValues(target)
-  -- copie de sauvegarde du setup en cours (nouveau fichier, relu) : le chargement reste réversible
-  local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, Config.exportBackupPrefix, fileStamp())
-  app.writeTest = backup
-  if not backup.ok then
-    app.ui.message = 'Chargement annulé : copie de sauvegarde du setup en cours impossible (' .. tostring(backup.reason) .. ').'
-    log('WARN', 'load', app.ui.message)
-    refreshCaps()
-    return
+  -- copie de sauvegarde du setup en cours (nouveau fichier, relu) : le chargement reste réversible ; inutile
+  -- quand la voiture roule avec un fichier gardé de SetupLab, intact (réponse de Vincent du 22/10/2026)
+  local kept = liveKeptFile()
+  local backupNote
+  if kept then
+    backupNote = 'setup précédent déjà enregistré : ' .. kept
+    app.backupsSkipped = (app.backupsSkipped or 0) + 1
+  else
+    local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, Config.exportBackupPrefix, fileStamp())
+    app.writeTest = backup
+    if not backup.ok then
+      app.ui.message = 'Chargement annulé : copie de sauvegarde du setup en cours impossible (' .. tostring(backup.reason) .. ').'
+      log('WARN', 'load', app.ui.message)
+      refreshCaps()
+      return
+    end
+    if #app.backups >= K.backupsMax then table.remove(app.backups, 1) end
+    app.backups[#app.backups + 1] = { name = backup.name, hash = Util.hashString(backup.text), values = setupValues(backup.text) }
+    backupNote = 'setup précédent sauvegardé : ' .. backup.name
   end
   local r = Exporter.loadIntoCar(host, saved.path, saved.text, app.written)
   if not r.ok then
     -- issue de ac.loadSetup (capacité) seulement si la fonction a été appelée
     if r.called then app.loadTest = { ok = false, kind = kind, path = saved.path, reason = r.reason } end
-    app.ui.message = 'Chargement impossible : ' .. tostring(r.reason) .. ' (copie du setup en cours : ' .. backup.name .. ').'
+    app.ui.message = 'Chargement impossible : ' .. tostring(r.reason) .. ' (' .. backupNote .. ').'
     app.loadNote = { kind = kind, text = app.ui.message }
     log('WARN', 'load', app.ui.message)
     refreshCaps()
     return
   end
   app.loadCheck = { kind = kind, path = saved.path, target = target, already = already, frames = K.loadVerifyFrames,
-    backup = backup.name }
+    backup = backupNote }
   app.ui.message = 'Chargement demandé : vérification du setup en cours…'
-  log('INFO', 'load', 'ac.loadSetup accepté : ' .. saved.path .. ' ; copie préalable : ' .. backup.path)
+  log('INFO', 'load', 'ac.loadSetup accepté : ' .. saved.path .. ' ; ' .. backupNote)
 end
 
 -- À chaque image affichée : échéance et gardes du chargement armé ; constat du setup chargé.
@@ -1738,13 +2009,13 @@ local function loadTick()
       app.loadTest = { ok = false, kind = check.kind, path = check.path,
         reason = 'non concluant : le setup en cours était déjà celui du fichier' }
       app.ui.message = 'Setup ' .. label .. ' en place, mais le chargement n\'est pas constaté : la voiture avait déjà ce '
-        .. 'setup (copie du setup précédent : ' .. check.backup .. ').'
+        .. 'setup (' .. check.backup .. ').'
     else
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
       -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
       app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
       app.loadVerified = app.loadTest
-      app.ui.message = 'Setup ' .. label .. ' chargé et vérifié dans la voiture (setup précédent sauvegardé : ' .. check.backup
+      app.ui.message = 'Setup ' .. label .. ' chargé et vérifié dans la voiture (' .. check.backup
         .. '). Le prochain calcul relancera la découverte sur ce setup ; ses tours servent à la validation.'
       -- affinage : nouvelle découverte tout de suite, voiture au stand ; tours comptés avec ce setup
       local r = app.refine
@@ -1768,8 +2039,7 @@ local function loadTick()
     app.loadTest = { ok = false, kind = check.kind, path = check.path,
       reason = 'écart : setup en cours différent du fichier chargé (' .. tostring(section or 'setup illisible') .. ')' }
     app.ui.message = 'Écart : le jeu a accepté le chargement, mais le setup en cours diffère du setup ' .. label .. ' ('
-      .. tostring(section or 'setup illisible') .. ') : vérifier dans le menu de setup (setup précédent sauvegardé : '
-      .. check.backup .. ').'
+      .. tostring(section or 'setup illisible') .. ') : vérifier dans le menu de setup (' .. check.backup .. ').'
     log('WARN', 'load', app.ui.message)
     refreshCaps()
   end
@@ -2016,8 +2286,25 @@ app.refineTick = function()
   end
 end
 
+-- Numéros de version continus sur le circuit (décision de Vincent du 22/10/2026) : le plus grand « _vN » du genre
+-- déjà dans le dossier (sec et pluie), sinon 0.
+local function lastVersionOnDisk(kind)
+  local folder = Exporter.targetFolder(host)
+  if folder == nil then return 0 end
+  local ok, list = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
+  if not (ok and type(list) == 'table') then return 0 end
+  local top = 0
+  for i = 1, math.min(#list, K.scanMaxFiles) do
+    local v = Util.versionInName(list[i], Config.fileGenre[kind])
+    if v and v > top then top = v end
+  end
+  return top
+end
+
 local function refineStart(kind)
-  app.refine = { kind = kind, active = true, phase = 'tours', version = 0, laps = 0, history = {}, rejected = {} }
+  local base = lastVersionOnDisk(kind)
+  app.refine = { kind = kind, active = true, phase = 'tours', version = base, base = base, laps = 0, history = {},
+    rejected = {} }
   log('INFO', 'refine', 'Affinage ' .. COMPUTE[kind].label .. ' lancé')
   refineCompute(app.refine)
   if app.refine.phase == 'calcul' then
@@ -2031,7 +2318,7 @@ local function refineStop()
   local r = app.refine
   if not (r and r.active) then return end
   r.active, r.phase, r.due, r.needsDiscovery = false, 'arrêté', false, false
-  app.ui.message = 'Affinage arrêté' .. (r.version > 0 and (' : dernière version v' .. r.version .. '.') or '.')
+  app.ui.message = 'Affinage arrêté' .. (r.version > (r.base or 0) and (' : dernière version v' .. r.version .. '.') or '.')
   log('INFO', 'refine', app.ui.message)
 end
 
@@ -2061,20 +2348,17 @@ local function memoryKind(group)
 end
 
 -- Écrit le fichier d'une version, à sa validation seulement (décision de Vincent du 21/10/2026) : nom choisi
--- « _vN », sinon nom daté ; jamais d'écrasement. Elle devient le setup à charger au stand. Renvoie vrai, ou
--- faux et la raison.
+-- (sinon « SetupLab »), genre, pluie, « _vN » (22/10/2026) ; jamais d'écrasement. Elle devient le setup à charger
+-- au stand. Renvoie vrai, ou faux et la raison.
 local function writeVersion(r, e)
   if e.file then
     setLoadTarget(r.kind, e)
     return true
   end
   if app.inert then return false, app.inert end
-  local custom = customName(r.kind)
-  local name = custom ~= '' and (custom .. '_v' .. e.version)
-    or (COMPUTE[r.kind].prefix .. (e.bucket == 'pluie' and 'Pluie_' or '') .. fileStamp())
-  local w = Exporter.writeNew(host, name, e.text)
+  local w = Exporter.writeNew(host, fileBase(r.kind, e.bucket) .. '_v' .. e.version, e.text)
   if not w.ok then return false, tostring(w.reason) end
-  e.file, e.path, e.hash = w.name, w.path, Util.hashString(e.text)
+  e.file, e.path, e.hash, e.ownFile = w.name, w.path, Util.hashString(e.text), true
   app.written[w.name] = e.hash
   setLoadTarget(r.kind, e)
   -- tours roulés avec elle : calibration et validation en jeu (§14.1)
@@ -2107,8 +2391,9 @@ local function refineValidate(r, e)
   if m and not same then e.replaced = m end
   local entry = { group = e.group, bucket = e.bucket, file = e.file, hash = e.hash, version = e.version, gain = e.gain,
     time = e.timeProposed, locked = same and m.locked or false, path = e.path, text = e.text, signature = e.signature,
-    origin = e.origin, carId = e.carId }
+    origin = e.origin, carId = e.carId, family = e.family }
   memoryPut(entry)
+  queueBackupCleanup()
   app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
     .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
       or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
@@ -2126,6 +2411,10 @@ local function refineReject(r, e)
   end
   e.status = 'écartée'
   r.rejected[e.signature] = true
+  -- son fichier, écrit à sa validation, part à la Corbeille voiture arrêtée (réponse de Vincent du 22/10/2026) ;
+  -- un fichier enregistré à la main reste
+  local recycle = e.file ~= nil and e.ownFile == true and e.hash ~= nil
+  if recycle then queueFileOp({ op = 'corbeille', name = e.file, hash = e.hash, why = 'v' .. e.version .. ' non gardée' }) end
   -- référence validée puis écartée (après l'essai) : la référence d'avant revient, sinon plus de référence
   if m and m.signature == e.signature then
     local previous = e.replaced
@@ -2145,8 +2434,9 @@ local function refineReject(r, e)
     app.saved[r.kind] = nil
     if app.loadArm and app.loadArm.kind == r.kind then app.loadArm = nil end
   end
-  app.ui.message = 'v' .. e.version .. ' non gardée : ni réutilisée ni reproposée' .. (e.file and (' (son fichier '
-    .. e.file .. ' reste : rien n\'est effacé).') or ' (jamais enregistrée).')
+  app.ui.message = 'v' .. e.version .. ' non gardée : ni réutilisée ni reproposée'
+    .. (recycle and (' (son fichier ' .. e.file .. ' part à la Corbeille dès que la voiture est arrêtée).')
+      or (e.file and (' (son fichier ' .. e.file .. ' reste : enregistré à la main).') or ' (jamais enregistrée).'))
     .. (back and (' Setup de référence à charger au stand : ' .. back.file .. '.') or ' Aucun setup de référence validé.')
     .. (r.driven == e.version and ' Elle est encore dans la voiture.'
       or ' SetupLab repart de votre setup actuel : nouvelle proposition avec vos prochains tours.')

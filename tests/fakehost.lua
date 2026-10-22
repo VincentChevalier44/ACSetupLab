@@ -724,12 +724,31 @@ function F.new(opts)
   }
   h.ac.INIConfig.currentSetup = function() return { sections = F.parseIniCsp(stringifySetup(h), mode) } end
   -- Système de fichiers simulé : les écritures sont enregistrées dans h.written (chemin -> contenu)
-  -- et comptées dans h.writeCalls ; suppression, déplacement et copie restent interdits.
+  -- et comptées dans h.writeCalls ; suppression définitive et copie restent interdites. Rangement (décision de
+  -- Vincent du 22/10/2026) : Corbeille (h.recycled) et renommage (h.moves), comptés dans h.fileOpCalls.
   local function forbiddenWrite()
     h.writeCalls = h.writeCalls + 1
     error('opération interdite (aucune suppression, aucun déplacement)')
   end
   h.written, h.dirs, h.refreshes = {}, {}, 0
+  h.recycled, h.moves, h.fileOpCalls = {}, {}, 0
+  local function listDir(dir, mask)
+    local pattern = '^' .. (mask or '*'):gsub('[%.%-%+%[%]%(%)%%%^%$]', '%%%0'):gsub('%*', '.*'):gsub('%?', '.') .. '$'
+    local list, seen = {}, {}
+    local function add(path)
+      local folder, name = path:match('^(.*)/([^/]+)$')
+      if folder == dir and name:match(pattern) and not seen[name] then
+        seen[name] = true
+        list[#list + 1] = name
+      end
+    end
+    for path in pairs(h.written) do add(path) end
+    for path, present in pairs(opts.existing or {}) do
+      if present then add(path) end
+    end
+    table.sort(list)
+    return list
+  end
   h.io = {
     available = function() return true end,
     load = function(path)
@@ -757,8 +776,24 @@ function F.new(opts)
     end,
     isFileNameAcceptable = function(name) return name:find('[<>:"/\\|%?%*]') == nil end,
     fileExists = function(path) return h.written[path] ~= nil or (opts.existing or {})[path] == true end,
-    saveAsync = forbiddenWrite, createDir = forbiddenWrite, deleteFile = forbiddenWrite,
-    move = forbiddenWrite, copyFile = forbiddenWrite,
+    saveAsync = forbiddenWrite, createDir = forbiddenWrite, deleteFile = forbiddenWrite, copyFile = forbiddenWrite,
+    recycle = function(path)
+      h.fileOpCalls = h.fileOpCalls + 1
+      if h.written[path] == nil then return false end
+      h.written[path] = nil
+      h.recycled[#h.recycled + 1] = path
+      h.events[#h.events + 1] = { 'recycle', path }
+      return true
+    end,
+    move = function(from, to, replace)
+      h.fileOpCalls = h.fileOpCalls + 1
+      if h.written[from] == nil or ((h.written[to] ~= nil or (opts.existing or {})[to]) and replace ~= true) then return false end
+      h.written[to], h.written[from] = h.written[from], nil
+      h.moves[#h.moves + 1] = { from = from, to = to }
+      h.events[#h.events + 1] = { 'move', from, to }
+      return true
+    end,
+    scanDir = function(dir, mask) return listDir(dir, mask) end,
   }
   h.ac.refreshSetups = function()
     h.refreshes = h.refreshes + 1

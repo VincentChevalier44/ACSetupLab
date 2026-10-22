@@ -536,11 +536,11 @@ tests['Q14 recalculer et enregistrer autant de fois que voulu : heure locale, is
   app.settings.optBudgetEvalsQ = 60
   compute()
   save()
-  T.eq(app.quali.saved.name, 'SetupLab_TourRapide_2026-10-19_02h00m00s.ini', 'heure locale dans le nom')
-  T.ok(under('Enregistré : SetupLab_TourRapide_2026-10-19_02h00m00s.ini'), 'issue affichée sous le bouton')
+  T.eq(app.quali.saved.name, 'SetupLab_Qualif_2026-10-19_02h00m00s.ini', 'heure locale dans le nom')
+  T.ok(under('Enregistré : SetupLab_Qualif_2026-10-19_02h00m00s.ini'), 'issue affichée sous le bouton')
   -- même résultat, même seconde : un autre fichier
   save()
-  T.eq(app.quali.saved.name, 'SetupLab_TourRapide_2026-10-19_02h00m00s-2.ini')
+  T.eq(app.quali.saved.name, 'SetupLab_Qualif_2026-10-19_02h00m00s-2.ini')
   T.ok(under('(2 fichiers pour ce calcul)'))
   -- en piste : carburant consommé, répartition touchée au volant ; nouveau calcul (découverte relancée)
   h.sim.systemTime = h.sim.systemTime + 75
@@ -556,8 +556,8 @@ tests['Q14 recalculer et enregistrer autant de fois que voulu : heure locale, is
   setSpinner('FUEL', -1)
   save()
   T.ok(app.quali.saved and app.quali.saved.ok, tostring(app.ui.message))
-  T.eq(app.quali.saved.name, 'SetupLab_TourRapide_2026-10-19_02h01m15s.ini')
-  T.ok(under('Enregistré : SetupLab_TourRapide_2026-10-19_02h01m15s.ini'), 'nouveau calcul : compteur repart à 1')
+  T.eq(app.quali.saved.name, 'SetupLab_Qualif_2026-10-19_02h01m15s.ini')
+  T.ok(under('Enregistré : SetupLab_Qualif_2026-10-19_02h01m15s.ini'), 'nouveau calcul : compteur repart à 1')
   T.contains(app.quali.saveStatus.text, 'a changé depuis le calcul')
   local written = Util.parseIni(h.written[app.quali.saved.path])
   T.eq(tonumber(Util.iniGet(written, 'FRONT_BIAS', 'VALUE')), bias, 'répartition du calcul')
@@ -577,14 +577,14 @@ tests['Q14 recalculer et enregistrer autant de fois que voulu : heure locale, is
   h.sim.systemTime = h.sim.systemTime + 1
   app.nextContextAt = 0
   save()
-  T.ok(app.quali.saved.ok and under('Enregistré : SetupLab_TourRapide_2026-10-19_02h01m16s.ini'))
+  T.ok(app.quali.saved.ok and under('Enregistré : SetupLab_Qualif_2026-10-19_02h01m16s.ini'))
   T.eq(#files(), 4)
   -- sans heure locale : UTC, dit dans le nom
   app.utcOffset = nil
   h.sim.systemTime = h.sim.systemTime + 1
   app.nextContextAt = 0
   save()
-  T.eq(app.quali.saved.name, 'SetupLab_TourRapide_2026-10-19_00h01m17sUTC.ini')
+  T.eq(app.quali.saved.name, 'SetupLab_Qualif_2026-10-19_00h01m17sUTC.ini')
 end
 
 return tests

@@ -1,7 +1,9 @@
 -- SetupLab — écriture des fichiers de setup (§12.3, D8, D17).
 -- Seul module (avec store au J7) autorisé à écrire. Règles : un fichier écrit est toujours
 -- nouveau (aucun écrasement), et tout fichier écrit est relu et comparé au contenu voulu. L'hôte est
--- injecté par la colle.
+-- injecté par la colle. D8 amendé le 22/10/2026 (décision de Vincent : « il ne reste que les fichiers V1,
+-- V2, V3, pas les intermédiaires » ; meilleur tour réel dans le nom) : seul ce module peut aussi mettre à la
+-- Corbeille ou renommer un fichier, et seulement un fichier écrit par SetupLab, intact (empreinte).
 -- D8 amendé le 20/10/2026 (décision de Vincent) : seul ce module peut charger dans la voiture un
 -- setup que SetupLab a écrit (ac.loadSetup), au stand, menu de setup ouvert, après confirmation et copie
 -- de sauvegarde du setup en cours (contrôles de la colle). Aucun fichier n'est modifié ;
@@ -115,7 +117,52 @@ function M.saveCopy(host, epochSeconds, prefix, stamp)
   if not okT or type(text) ~= 'string' or #text == 0 then
     return { ok = false, reason = 'setup courant illisible (ac.stringifyCurrentSetup)' }
   end
-  return M.writeNew(host, (prefix or Config.exportTestPrefix) .. (stamp or Util.formatStamp(epochSeconds)), text)
+  local r = M.writeNew(host, (prefix or Config.exportTestPrefix) .. (stamp or Util.formatStamp(epochSeconds)), text)
+  if r.ok then r.text = text end
+  return r
+end
+
+-- Fichier name du dossier de la voiture et du circuit, écrit par SetupLab et intact (hash : empreinte du
+-- contenu écrit) : son chemin et son contenu, ou nil et la raison.
+function M.ownFile(host, name, hash)
+  local folder, why = M.targetFolder(host)
+  if folder == nil then return nil, why end
+  if type(name) ~= 'string' or not name:match('%.ini$') or name:find('[/\\]') or name:find('..', 1, true) then
+    return nil, 'nom refusé'
+  end
+  local path = folder .. '/' .. name
+  local okL, text = call(get(host.io, 'load'), path)
+  if not (okL and type(text) == 'string') then return nil, 'absent' end
+  if hash == nil or Util.hashString(text) ~= hash then return nil, 'modifié depuis son écriture' end
+  return path, text
+end
+
+-- Met à la Corbeille de Windows un fichier écrit par SetupLab, intact (io.recycle ; avant CSP 0.3 : suppression
+-- définitive, SDK). Renvoie { ok, reason }.
+function M.recycleOwn(host, name, hash)
+  local path, text = M.ownFile(host, name, hash)
+  if path == nil then return { ok = false, reason = text } end
+  local okR, done = call(get(host.io, 'recycle'), path)
+  if not (okR and done == true) then return { ok = false, reason = 'io.recycle : ' .. tostring(okR and 'refus' or done) } end
+  call(get(host.ac, 'refreshSetups'))
+  return { ok = true }
+end
+
+-- Renomme un fichier écrit par SetupLab, intact, en base.ini (premier nom libre : jamais d'écrasement), puis
+-- relit le nouveau fichier. Renvoie { ok, name, path, reason }.
+function M.renameOwn(host, name, hash, base)
+  local path, text = M.ownFile(host, name, hash)
+  if path == nil then return { ok = false, reason = text } end
+  local folder = M.targetFolder(host)
+  local newName, why = M.freeName(host, folder, Util.sanitizeFileName(base))
+  if newName == nil then return { ok = false, reason = why } end
+  local newPath = folder .. '/' .. newName
+  local okM, moved = call(get(host.io, 'move'), path, newPath, false)
+  if not (okM and moved == true) then return { ok = false, reason = 'io.move : ' .. tostring(okM and 'refus' or moved) } end
+  local okL, back = call(get(host.io, 'load'), newPath)
+  if not (okL and back == text) then return { ok = false, reason = 'relecture différente après renommage' } end
+  call(get(host.ac, 'refreshSetups'))
+  return { ok = true, name = newName, path = newPath }
 end
 
 -- Raison de refuser le chargement dans la voiture du fichier path, écrit par SetupLab (expected :

@@ -32,7 +32,7 @@ SetupLab calcule, pour chaque couple voiture × circuit, un setup de **tour rapi
 - **Mémoire du circuit** : le setup validé ou figé (cadenas) est gardé par voiture, circuit, séance (essai ou journée circuit, qualification, course) et état de piste (sec, pluie), et proposé à la visite suivante.
 - **Pluie** (météo de CSP, Pure compris) : choix du composé (slicks, intermédiaires, pluie), pressions, aileron, aides au pilotage plus strictes ; calibration à part du sec.
 - **Composé de pneus** choisi selon la température mesurée de vos pneus, ou imposé.
-- **Nom du setup** au choix (sinon nom daté) ; jamais d'écrasement.
+- **Fichiers clairs** : `SetupLab_Qualif_v1.ini`, `SetupLab_Course_Pluie_v3.ini`… (votre nom à la place de « SetupLab » si vous en choisissez un), numérotés à la suite sur le circuit ; votre meilleur tour réel avec une version de qualification s'ajoute à son nom (`SetupLab_Qualif_v2_1.41.792.ini`). Il ne reste que les versions gardées : les copies inutiles et les versions non gardées partent à la Corbeille.
 
 ## Installation
 
@@ -54,8 +54,9 @@ Le détail de chaque bouton, des onglets et des réglages est dans la [notice d'
 
 ## Ce que SetupLab ne fait jamais
 
-- Il ne modifie jamais un fichier existant ni la physique du jeu, et n'écrase jamais un setup : chaque enregistrement est un **nouveau fichier** du dossier des setups de la voiture et du circuit.
-- Il n'écrit que **sur votre clic** : « Enregistrer », « Valider », « Figer », plus une copie de sauvegarde du setup en cours juste avant un chargement.
+- Il ne modifie jamais le contenu d'un fichier ni la physique du jeu, et n'écrase jamais un setup : chaque enregistrement est un **nouveau fichier** du dossier des setups de la voiture et du circuit.
+- Il n'écrit que **sur votre clic** : « Enregistrer », « Valider », « Figer », plus une copie de sauvegarde du setup en cours juste avant un chargement, quand elle est utile (pas quand la voiture a déjà un setup gardé de SetupLab).
+- Il ne touche jamais à vos propres fichiers. Il ne range que les fichiers qu'il a écrits, intacts (reconnus à leur nom et à l'empreinte de leur contenu), voiture arrêtée : à la **Corbeille de Windows**, une version que vous ne gardez pas (« Recommencer ») et, à la validation, les copies « Avant chargement » identiques à un fichier gardé ; il **renomme** une version de qualification gardée pour y mettre votre meilleur tour. Avec CSP 0.2.11, la Corbeille n'existe pas encore pour les apps : ces fichiers sont supprimés définitivement.
 - Le setup de la voiture ne change que sur votre demande explicite : au stand, voiture arrêtée, menu de setup ouvert, en deux clics, après une copie de sauvegarde ; seul un fichier écrit par SetupLab (reconnu à son nom et à l'empreinte de son contenu) peut être chargé.
 - Aucun accès réseau, aucun `os.*`, `loadstring` ni `dofile`.
 - Il est inactif en ligne et en replay.

@@ -203,30 +203,31 @@ tests['AU01 SetupLab actif : veille au démarrage ; coché : affinage du genre d
   T.eq(app.perf.errors, 0)
 end
 
-tests['AU02 nom choisi : sans accent ni espace, versions _v1 ; renommer : nouveau fichier ; chargé au stand'] = function()
+tests['AU02 nom choisi : sans accent ni espace, genre ajouté, versions _v1 ; renommer : nouveau fichier ; chargé au stand'] = function()
   local h, app = ready()
   local folder = folderOf(h)
   h.inputs = { ['Nom du setup (facultatif)'] = 'Mon réglage Monza' }
   frames(h, 1)
   T.eq(app.names.quali, 'Mon réglage Monza')
   frames(h, 1)
-  T.ok(shown(h, 'Fichier : Mon_reglage_Monza.ini'), 'nom de fichier annoncé')
+  T.ok(shown(h, 'Fichier : Mon_reglage_Monza_Qualif.ini'), 'nom de fichier annoncé, genre ajouté')
   h.click = 'Affinage automatique (tour rapide)'
   frames(h, 1)
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   T.eq(r.history[1].file, nil, 'rien d\'écrit avant « Valider »')
   frames(h, 1)
-  T.ok(shown(h, 'Fichier : Mon_reglage_Monza_v1.ini, à la validation'), 'nom annoncé')
+  T.ok(shown(h, 'Fichier : Mon_reglage_Monza_Qualif_v1.ini, à la validation'), 'nom annoncé')
   h.click = 'Valider v1'
   frames(h, 1)
-  T.eq(r.history[1].file, 'Mon_reglage_Monza_v1.ini')
-  T.ok(h.written[folder .. '/Mon_reglage_Monza_v1.ini'], 'fichier écrit à la validation')
+  T.eq(r.history[1].file, 'Mon_reglage_Monza_Qualif_v1.ini')
+  T.ok(h.written[folder .. '/Mon_reglage_Monza_Qualif_v1.ini'], 'fichier écrit à la validation')
   h.click = 'Arrêter l\'affinage (tour rapide)'
   frames(h, 1)
   T.no(r.active)
   T.ok(waitFor(h, function() return app.quali and app.quali.state == 'done' end), 'calcul en cours terminé')
-  -- renommer : le même setup sous le nouveau nom (nouveau fichier, l'ancien reste, D8)
+  -- renommer : le même setup sous le nouveau nom (nouveau fichier, l'ancien reste) ; le nom finit déjà par le
+  -- genre : pas répété
   h.inputs = { ['Nom du setup (facultatif)'] = 'Monza qualif.ini' }
   frames(h, 2)
   T.ok(shown(h, 'Fichier : Monza_qualif.ini'))
@@ -234,7 +235,7 @@ tests['AU02 nom choisi : sans accent ni espace, versions _v1 ; renommer : nouvea
   frames(h, 1)
   T.eq(app.saved.quali.name, 'Monza_qualif.ini', tostring(app.ui.message))
   T.eq(r.history[1].file, 'Monza_qualif.ini', 'la version suit le nouveau nom')
-  T.ok(h.written[folder .. '/Mon_reglage_Monza_v1.ini'], 'ancien fichier gardé')
+  T.ok(h.written[folder .. '/Mon_reglage_Monza_Qualif_v1.ini'], 'ancien fichier gardé')
   h.click = 'Enregistrer le setup tour rapide'
   frames(h, 1)
   T.eq(app.saved.quali.name, 'Monza_qualif-2.ini', 'jamais d\'écrasement')
@@ -392,10 +393,15 @@ tests['AU05 mémoire par séance et état de piste : qualification, essai, pluie
   T.ok(app.memory['qualif|sec'] and app.memory['qualif|sec'].text, 'qualification gardée')
   h.click = 'Relancer l\'affinage (tour rapide)'
   frames(h, 1)
-  T.ok(waitFor(h, function() return app.refine.version >= 1 and app.refine.phase == 'tours' end))
-  h.click = 'Valider v1'
+  -- numérotation à la suite sur le circuit (décision de Vincent du 22/10/2026) : SetupLab_Qualif_v1 existe déjà
+  T.eq(app.refine.base, 1, 'v1 déjà dans le dossier')
+  T.ok(waitFor(h, function() return app.refine.version >= 2 and app.refine.phase == 'tours' end))
+  T.eq(app.refine.version, 2)
+  h.click = 'Valider v2'
   frames(h, 1)
   T.ok(app.memory['essai|sec'], 'essai, sec')
+  -- même setup que v1 (mêmes conditions) : son fichier sert, aucun SetupLab_Qualif_v1-2
+  T.no(app.memory['essai|sec'].file:find('-2', 1, true), app.memory['essai|sec'].file)
   T.eq(#storedKeys(app, ':essai:sec'), 1)
   T.eq(#storedKeys(app, ':qualif:sec'), 1)
   -- pluie : setup validé à part
@@ -447,15 +453,20 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient ; ri
   T.eq(app.memory['qualif|sec'].signature, v2.signature, 'v2 référence')
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.eq(r.driven, 2)
-  -- essayée, écartée : v1 redevient la référence et le setup à charger ; le fichier de v2 reste
-  local writes = 0
-  for _ in pairs(h.written) do writes = writes + 1 end
+  -- essayée, écartée : v1 redevient la référence et le setup à charger ; le fichier de v2 part à la Corbeille,
+  -- voiture arrêtée (réponse de Vincent du 22/10/2026), et plus rien ne le désigne
+  local writes = h.writeCalls
+  local v2file = v2.file
   h.click = 'Recommencer (ne pas garder v2)'
   frames(h, 1)
   T.eq(v2.status, 'écartée', tostring(app.ui.message))
   T.contains(app.ui.message, 'encore dans la voiture')
-  T.contains(app.ui.message, 'son fichier ' .. v2.file .. ' reste')
-  T.ok(h.written[folderOf(h) .. '/' .. v2.file], 'rien n\'est effacé')
+  T.contains(app.ui.message, 'son fichier ' .. v2file .. ' part à la Corbeille')
+  T.ok(waitFor(h, function() return h.written[folderOf(h) .. '/' .. v2file] == nil end, 10), 'à la Corbeille, voiture arrêtée')
+  T.eq(h.recycled[#h.recycled], folderOf(h) .. '/' .. v2file)
+  T.eq(app.written[v2file], nil, 'plus rien ne le désigne')
+  T.eq(v2.file, nil)
+  T.ok(h.written[folderOf(h) .. '/' .. v1.file], 'la référence reste')
   T.eq(app.memory['qualif|sec'].signature, v1.signature, 'la référence d\'avant revient')
   T.eq(#storedKeys(app, ':qualif:sec'), 1)
   T.eq(app.saved.quali.signature, v1.signature, 'repli sur la référence')
@@ -464,9 +475,7 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient ; ri
     local last = r.history[#r.history]
     return r.phase == 'tours' and last.note ~= nil and last.note:find('version non gardée', 1, true) ~= nil
   end), 'calcul parti de v2 : rien de proposé')
-  local after = 0
-  for _ in pairs(h.written) do after = after + 1 end
-  T.eq(after, writes, 'aucun nouveau fichier')
+  T.eq(h.writeCalls, writes, 'aucun nouveau fichier')
   T.contains(r.waiting, 'charger la référence')
   frames(h, 1)
   T.ok(shown(h, 'v2 non gardée : pas reproposée. Encore dans la voiture'))

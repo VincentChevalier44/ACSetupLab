@@ -157,6 +157,42 @@ function M.fileNameFrom(s, maxLength)
   return (r:gsub('[_%.%-]+$', ''))
 end
 
+-- Temps au tour dans un nom de fichier, à la façon d'AC (« 1.41.792 ») ; nil si non fini ou nul.
+function M.formatLapFile(t)
+  if not M.isFinite(t) or t <= 0 then return nil end
+  local ms = math.floor(t * 1000 + 0.5)
+  return string.format('%d.%02d.%03d', math.floor(ms / 60000), math.floor(ms / 1000) % 60, ms % 1000)
+end
+
+-- Nom de fichier sans extension, sans suffixe d'unicité (-2, -3…) ni temps au tour final.
+local function fileStem(name)
+  local stem = tostring(name):gsub('%.[iI][nN][iI]$', '')
+  stem = stem:gsub('%-%d+$', '')
+  return stem
+end
+
+-- Temps au tour lu à la fin d'un nom de fichier (« …_1.41.792.ini »), ou nil.
+function M.lapFromFileName(name)
+  local m, s, ms = fileStem(name):match('_(%d+)%.(%d%d)%.(%d%d%d)$')
+  if m == nil then return nil end
+  return tonumber(m) * 60 + tonumber(s) + tonumber(ms) / 1000
+end
+
+-- Nom (sans extension) d'un fichier avec le temps t à la fin, à la place de l'ancien ; nil si t est invalide.
+function M.withLapTime(name, t)
+  local token = M.formatLapFile(t)
+  if token == nil then return nil end
+  local stem = fileStem(name):gsub('_%d+%.%d%d%.%d%d%d$', '')
+  return stem .. '_' .. token
+end
+
+-- Numéro de version d'un nom de fichier du genre (« …_Qualif_v3… », « …_Qualif_Pluie_v3… »), ou nil.
+function M.versionInName(name, genre)
+  local s = tostring(name)
+  local v = s:match('_' .. genre .. '_v(%d+)[%._%-]') or s:match('_' .. genre .. '_Pluie_v(%d+)[%._%-]')
+  return v and tonumber(v) or nil
+end
+
 -- Identifiant de contenu AC (dossier voiture/circuit) : refuse tout séparateur de chemin.
 function M.isSafeId(s)
   return type(s) == 'string' and #s > 0 and #s <= M.LIMITS.idChars and s:find('^[%w_%-%.]+$') ~= nil

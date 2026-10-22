@@ -37,11 +37,12 @@ CORE = {'util', 'config', 'track_model', 'car_model', 'setup_space', 'laptime_si
 IO = {'caps', 'datasource', 'recorder', 'exporter', 'store'}
 UI = {'ui'}
 
-# Fonctions d'écriture : seulement là où le PDR les place.
+# Fonctions d'écriture : seulement là où le PDR les place. D8 amendé le 22/10/2026 (décision de Vincent) : Corbeille
+# et renommage des fichiers écrits par SetupLab, depuis l'exporteur seulement ; suppression définitive jamais.
 WRITE_API = {
     'save': {'exporter', 'store'}, 'saveAsync': {'exporter', 'store'}, 'createDir': {'exporter'},
-    'createFileDir': {'exporter'}, 'deleteFile': set(), 'deleteDir': set(), 'move': set(),
-    'copyFile': set(), 'replaceFile': set(), 'recycle': set(), 'setAndSave': set(),
+    'createFileDir': {'exporter'}, 'deleteFile': set(), 'deleteDir': set(), 'move': {'exporter'},
+    'copyFile': set(), 'replaceFile': set(), 'recycle': {'exporter'}, 'setAndSave': set(),
     'setClipboardText': {'SetupLab', 'exporter'}, 'setActiveSetupName': set(), 'refreshSetups': {'exporter'},
 }
 # D8 : ne jamais modifier le setup en cours par cran ni l'enregistrer par-dessus un fichier.

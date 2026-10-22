@@ -288,7 +288,7 @@
     <thead><tr><th>Bouton</th><th>Effet</th></tr></thead>
     <tbody>
       <tr><td><span class="btn primary">Valider vN</span></td><td>Enregistre la version dans un nouveau fichier et en fait le setup de référence de la séance (gardé dans la mémoire du circuit). C'est l'étape avant de l'essayer : le jeu ne charge un setup que depuis un fichier.</td></tr>
-      <tr><td><span class="btn plain">Recommencer (ne pas garder vN)</span></td><td>La version n'est ni gardée ni réutilisée, et ne sera jamais reproposée. SetupLab repart de votre setup actuel et propose autre chose avec vos prochains tours. Si la version avait été validée puis essayée, votre setup de référence d'avant revient (son fichier reste : rien n'est effacé). Le bouton passe en rouge quand la version est plus lente en réalité.</td></tr>
+      <tr><td><span class="btn plain">Recommencer (ne pas garder vN)</span></td><td>La version n'est ni gardée ni réutilisée, et ne sera jamais reproposée. SetupLab repart de votre setup actuel et propose autre chose avec vos prochains tours. Si la version avait été validée puis essayée, votre setup de référence d'avant revient, et le fichier de la version part à la Corbeille de Windows dès que la voiture est arrêtée. Le bouton passe en rouge quand la version est plus lente en réalité.</td></tr>
       <tr><td><span class="btn plain">Figer vN (cadenas)</span></td><td>Valide et verrouille la version : c'est le setup final de cette séance pour ce circuit. L'affinage automatique s'arrête ; le setup est proposé à chaque visite. « Déverrouiller », dans la mémoire du circuit, relance l'affinage.</td></tr>
       <tr><td><span class="btn go">Charger le setup … dans la voiture</span></td><td>Arme le chargement du setup enregistré (voir <a href="#chargement">Charger un setup</a>).</td></tr>
       <tr><td><span class="btn go">Confirmer le chargement</span></td><td>Second clic, dans le temps indiqué : le setup est chargé dans la voiture, après une copie de sauvegarde du setup en cours.</td></tr>
@@ -311,7 +311,7 @@
   <ol>
     <li>Cliquer <span class="btn go">Charger le setup … dans la voiture</span>.</li>
     <li>Lire l'avertissement, puis cliquer <span class="btn go">Confirmer le chargement</span> avant la fin du temps restant affiché (sinon le chargement se désarme ; « Annuler le chargement » le désarme aussi).</li>
-    <li>SetupLab copie d'abord le setup en cours dans <code>SetupLab_Avant_chargement_….ini</code>, charge le fichier, puis vérifie que la voiture a bien le setup prévu.</li>
+    <li>SetupLab copie d'abord le setup en cours dans <code>SetupLab_Avant_chargement_….ini</code>, charge le fichier, puis vérifie que la voiture a bien le setup prévu. La copie n'est pas faite quand la voiture a déjà un setup gardé de SetupLab, intact (une version validée, la référence de la mémoire) : il existe déjà dans son fichier.</li>
   </ol>
   <div class="note">Seul un fichier écrit par SetupLab peut être chargé : il le reconnaît à son nom et à l'empreinte de son contenu. Un fichier modifié depuis est refusé.</div>
 </section>
@@ -399,18 +399,28 @@
   <h2>14. Fichiers et noms</h2>
   <p>Les setups sont écrits dans le dossier des setups de la voiture et du circuit (<code>Documents/Assetto Corsa/setups/&lt;voiture&gt;/&lt;circuit&gt;/</code>), visibles dans le menu de setup d'AC.</p>
   <ul>
-    <li>Le champ <strong>Nom du setup</strong> nomme les fichiers : « Monza qualif » donne <code>Monza_qualif.ini</code>, et les versions de l'affinage <code>Monza_qualif_v1.ini</code>, <code>_v2</code>… Les accents et les espaces sont retirés.</li>
-    <li>Sans nom : <code>SetupLab_TourRapide_2026-10-22_14h32m05s.ini</code> (<code>SetupLab_Race_…</code> pour la course, <code>…_Pluie_…</code> sous la pluie).</li>
+    <li>Versions de l'affinage : <code>SetupLab_Qualif_v1.ini</code>, <code>SetupLab_Qualif_v2.ini</code>, <code>SetupLab_Course_v1.ini</code>, <code>SetupLab_Course_Pluie_v3.ini</code> sous la pluie. Les numéros continuent d'une séance à l'autre sur le même circuit.</li>
+    <li>Le champ <strong>Nom du setup</strong> remplace « SetupLab » : « Test Setup » donne <code>Test_Setup_Qualif_v1.ini</code>. Les accents et les espaces sont retirés ; le genre n'est pas répété si votre nom finit déjà par lui (« Monza qualif » donne <code>Monza_qualif_v1.ini</code>).</li>
+    <li><strong>Votre meilleur tour</strong> : une version de qualification gardée reçoit à la fin de son nom votre meilleur tour réel fait avec elle, au format d'AC : <code>SetupLab_Qualif_v2_1.41.792.ini</code>. Le nom suit vos progrès ; il change voiture arrêtée, jamais en roulant. Pas de temps pour la course.</li>
+    <li>« Enregistrer » à la main (sans affinage) : <code>SetupLab_Qualif_2026-10-22_14h32m05s.ini</code>, ou votre nom suivi du genre.</li>
     <li>Jamais d'écrasement : un nom déjà pris reçoit <code>-2</code>, <code>-3</code>…</li>
     <li>Renommer : changer le nom puis « Enregistrer » écrit le même setup sous le nouveau nom ; l'ancien fichier reste.</li>
   </ul>
+  <h3>Rangement automatique</h3>
+  <p>Il ne reste que les versions que vous gardez. Voiture arrêtée, un fichier à la fois, SetupLab met à la <strong>Corbeille de Windows</strong> :</p>
+  <ul>
+    <li>le fichier d'une version que vous ne gardez pas (« Recommencer ») ;</li>
+    <li>à chaque validation, les copies « Avant chargement » identiques à un fichier gardé (hors carburant, répartition de freinage et aides). Une copie qui contient vos retouches non enregistrées reste.</li>
+  </ul>
+  <div class="note">SetupLab ne touche jamais à vos propres fichiers ni à ceux du jeu : seulement aux fichiers qu'il a écrits pendant la séance, intacts (un fichier enregistré par-dessus dans le menu d'AC n'est plus le sien). Avec CSP 0.2.11, la Corbeille n'existe pas encore pour les apps : ces fichiers sont alors supprimés définitivement. Les fichiers des versions d'avant la bêta 1.2 ne sont pas rangés.</div>
 </section>
 
 <section id="jamais">
   <h2>15. Ce que SetupLab ne fait jamais</h2>
   <ul>
-    <li>Modifier un fichier existant, ou la physique du jeu.</li>
-    <li>Écrire sans votre clic : seuls « Enregistrer », « Valider », « Figer » et la copie de sauvegarde avant un chargement écrivent un fichier.</li>
+    <li>Modifier le contenu d'un fichier, ou la physique du jeu.</li>
+    <li>Toucher à vos propres fichiers : il ne range (Corbeille, meilleur tour dans le nom) que des fichiers qu'il a écrits, intacts, voir <a href="#fichiers">Fichiers et noms</a>.</li>
+    <li>Écrire sans votre clic : seuls « Enregistrer », « Valider », « Figer » et la copie de sauvegarde avant un chargement (quand elle est utile) écrivent un fichier.</li>
     <li>Changer le setup de la voiture sans votre confirmation au stand.</li>
     <li>Accéder au réseau.</li>
     <li>Fonctionner en ligne ou en replay.</li>

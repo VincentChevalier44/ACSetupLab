@@ -880,8 +880,9 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     if actionButton(host, app.ui, palette, 'Valider ' .. v .. suffix, 'primary', true) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    tip(host, 'Enregistre le fichier (nom choisi « _v' .. e.version .. ' », sinon daté) et en fait le setup de référence de '
-      .. 'cette séance, gardé en mémoire pour ce circuit ; au stand, « Charger » pour l\'essayer.')
+    tip(host, 'Enregistre le fichier ' .. (app.fileBase and (app.fileBase(kind, e.bucket) .. '_v' .. e.version .. '.ini') or '')
+      .. ' et en fait le setup de référence de cette séance, gardé en mémoire pour ce circuit ; au stand, « Charger » pour '
+      .. 'l\'essayer. Les copies « Avant chargement » identiques à un fichier gardé partent alors à la Corbeille.')
   else
     stepsLine(host, palette, driven and ((mine and mine.count > 0) and 4 or 3) or 2)
     wrapped(host, v .. ' : ' .. tostring(e.file) .. ' — ' .. e.status .. (driven and ' (en piste)' or ''),
@@ -912,8 +913,8 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   end
   tip(host, e.status == nil and ('Cette version n\'est ni gardée ni réutilisée (rien n\'est enregistré) ; SetupLab repart de '
     .. 'votre setup actuel et propose autre chose avec vos prochains tours.')
-    or ('Cette version n\'est plus réutilisée : la référence d\'avant redevient le setup à charger ; son fichier reste '
-      .. '(rien n\'est effacé).'))
+    or ('Cette version n\'est plus réutilisée : la référence d\'avant redevient le setup à charger ; son fichier part à la '
+      .. 'Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).'))
   nextInline(host, lock)
   padlock(host, true)
   if ui.button(lock) then intents.refineLock = e.version end
@@ -930,7 +931,7 @@ local function refineCard(host, app, intents, kind, palette)
   local ui = host.ui
   local name = KIND[kind].name
   card(host, app.ui, palette[r.active and 'accent' or 'na'], function()
-    colored(host, 'Affinage ' .. name .. (r.active and '' or ' (arrêté)') .. (r.version > 0 and (' — v' .. r.version) or ''),
+    colored(host, 'Affinage ' .. name .. (r.active and '' or ' (arrêté)') .. (r.version > (r.base or 0) and (' — v' .. r.version) or ''),
       palette[r.active and 'accent' or 'na'])
     tip(host, 'Un calcul ' .. (app.settings.refineLaps > 1 and ('tous les ' .. app.settings.refineLaps .. ' tours propres')
       or 'à chaque tour propre') .. ' ; chaque setup proposé est annoncé à l\'écran ; rien n\'est enregistré avant « Valider » ; '
@@ -1246,8 +1247,9 @@ local function memoryCard(host, app, intents, kind, palette)
 end
 
 -- Nom du setup (demande de Vincent du 21/10/2026 : « pouvoir le nommer directement ») : fichiers nommés
--- ainsi (versions de l'affinage : _v1, _v2…) ; changer le nom puis « Enregistrer » écrit le même setup sous
--- le nouveau nom (l'ancien fichier reste : aucun fichier n'est renommé ni effacé, D8).
+-- ainsi, avec le genre et la pluie (22/10/2026) ; versions de l'affinage _v1, _v2… à la suite sur le circuit ;
+-- changer le nom puis « Enregistrer » écrit le même setup sous le nouveau nom (l'ancien fichier reste). Sous le
+-- nom : rangement des fichiers en attente (voiture arrêtée) et dernier rangement fait.
 local function nameRow(host, app, intents, kind, palette)
   local ui = host.ui
   if ui.inputText == nil then return end
@@ -1256,17 +1258,26 @@ local function nameRow(host, app, intents, kind, palette)
   -- libellé affiché dans le champ vide (ui.InputTextFlags.Placeholder)
   local ok, text, changed = Util.call(ui.inputText, 'Nom du setup (facultatif)###name_' .. kind, current, 0x400000)
   if ok and changed and type(text) == 'string' then intents.name = { kind = kind, text = text } end
-  tip(host, 'Accents et espaces retirés du nom de fichier ; jamais d\'écrasement (-2, -3… si le nom existe). Changer le nom '
-    .. 'puis « Enregistrer » : le même setup sous le nouveau nom (l\'ancien fichier reste). Sans nom : SetupLab_…_date_heure.ini.')
-  local base = app.customName and app.customName(kind) or ''
-  if base ~= '' then
-    local r = app.refine
-    local refining = r and r.active and r.kind == kind
-    local n = refining and r.version or 0
-    local last = refining and r.history[#r.history]
-    if refining and not (last and last.version == r.version and last.status == nil) then n = r.version + 1 end
-    small(host, 'Fichier : ' .. base .. (refining and ('_v' .. n .. '.ini, à la validation') or '.ini'), palette.muted)
+  tip(host, 'Accents et espaces retirés ; le genre (Qualif, Course) et « Pluie » s\'ajoutent au nom ; jamais d\'écrasement '
+    .. '(-2, -3… si le nom existe). Changer le nom puis « Enregistrer » : le même setup sous le nouveau nom (l\'ancien fichier '
+    .. 'reste). Sans nom : SetupLab_….' .. (kind == 'quali' and (' Voiture arrêtée, votre meilleur tour réel avec une version '
+      .. 'gardée s\'ajoute à la fin de son nom (ex. _v2_1.41.792).') or ''))
+  local base = app.fileBase and app.fileBase(kind, app.wet and app.wet.state or 'sec') or nil
+  local r = app.refine
+  local refining = r and r.active and r.kind == kind
+  if base and refining then
+    local n = r.version
+    local last = r.history[#r.history]
+    if not (last and last.version == r.version and last.status == nil) then n = r.version + 1 end
+    small(host, 'Fichier : ' .. base .. '_v' .. n .. '.ini, à la validation', palette.muted)
+  elseif base and app.customName and app.customName(kind) ~= '' then
+    small(host, 'Fichier : ' .. base .. '.ini', palette.muted)
   end
+  local waiting = app.fileOps and #app.fileOps or 0
+  if waiting > 0 then
+    small(host, 'Rangement des fichiers dès que la voiture est arrêtée : ' .. waiting .. ' en attente.', palette.muted)
+  end
+  if app.filesNote then small(host, app.filesNote, palette.muted) end
 end
 
 local function kindSection(host, app, intents, kind, palette)
@@ -1573,8 +1584,8 @@ function M.autoLine(app)
         return 'Actif : v' .. e.version .. ' validée (' .. where .. ') — à charger au stand.', 'accent'
       end
     end
-    return 'Actif : affinage ' .. KIND[kind].name .. ' (' .. where .. ')' .. (r.version > 0 and (', v' .. r.version) or '') .. '.',
-      'accent'
+    local shownVersion = r.version > (r.base or 0) and (', v' .. r.version) or ''
+    return 'Actif : affinage ' .. KIND[kind].name .. ' (' .. where .. ')' .. shownVersion .. '.', 'accent'
   end
   return 'Actif : affinage ' .. KIND[kind].name .. ' au démarrage…', 'pending'
 end

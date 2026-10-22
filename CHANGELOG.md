@@ -8,6 +8,14 @@ Demande de Vincent : l'app doit fonctionner avec la version gratuite de Custom S
 - **Installation** : l'archive contient le dossier `SetupLab/` ; la bêta 1 disait de la décompresser dans `apps/lua/SetupLab/`, ce qui donnait `SetupLab/SetupLab/` et une app introuvable. Il faut la décompresser dans `apps/lua/` (README, notice).
 - **Tests** : AU12 (CSP 0.2.11 simulée : découverte, calcul, Valider, chargement).
 
+Demande de Vincent (« il faut qu'il ne reste que les fichiers V1, V2, V3, pas les intermédiaires » ; « on a du mal à les différencier » ; « en plus du nom, le meilleur temps réel qui a été effectué avec ce setup », qualification seulement). Ses réponses : noms « Qualif / Course », copies « seulement si utiles », « Recommencer » met le fichier à la Corbeille, le tout dans la bêta 1.2.
+- **Noms** : `<nom ou SetupLab>_<Qualif|Course>[_Pluie]_vN.ini` (le genre n'est pas répété si le nom choisi finit par lui) ; enregistrement à la main `…_Qualif_<date>.ini`. Numéros de version continus sur le circuit : le plus grand `_vN` du genre déjà dans le dossier (`io.scanDir`), plus de `_v1-2`.
+- **Meilleur tour dans le nom** (qualification) : une version gardée (validée, référence de la mémoire) est renommée `…_v2_1.41.792.ini` quand votre meilleur tour réel avec elle (famille de setup, même état de piste) bat le temps de son nom ; versions, mémoire du circuit (stockée), setup à charger et setup chargé suivent le nouveau nom.
+- **Copies « Avant chargement »** : plus de copie quand la voiture a déjà un setup gardé de SetupLab, intact (hors carburant, répartition de freinage et aides) ; à chaque validation, les copies du lancement identiques à un fichier gardé partent à la Corbeille, celles qui contiennent autre chose restent.
+- **Recommencer** : le fichier de la version, écrit à sa validation, part à la Corbeille (un fichier enregistré à la main reste).
+- **Sûreté** : seulement des fichiers écrits par SetupLab pendant ce lancement, intacts (empreinte), jamais un fichier gardé ni le setup à charger, gardes revérifiées au moment d'agir ; un fichier par image, voiture arrêtée, aucun chargement armé ou en cours (jamais d'à-coup en roulant) ; `io.recycle` et `io.move` seulement dans `exporter.lua` (linter) ; suppression définitive (`io.deleteFile`) jamais. Avant CSP 0.3, `io.recycle` supprime définitivement (SDK).
+- **Tests** : RG01 à RG06 (noms, numérotation, meilleur tour, copies, sûreté, `io.recycle` absente) ; AU02, AU05, AU06, Q14, PL02 et F05 suivent les nouveaux noms et la Corbeille.
+
 ## 1.0.0-beta.1 — 22/10/2026 — première bêta publique (v1.0, bêta 1)
 
 Première version publiée sur GitHub (décision de Vincent : « on la présentera comme la version bêta numéro un, v1.0 »). Elle reprend tout le développement interne ci-dessous (versions 0.1.0 à 1.7.0), dont :
