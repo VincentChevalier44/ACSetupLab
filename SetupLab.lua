@@ -517,6 +517,24 @@ local function restoreRoughness(d, rough)
   return nil
 end
 
+-- Fichier renommé (meilleur tour dans le nom) avant que CSP n'écrive le stockage (AC quitté juste après, relecture
+-- du 22/10/2026) : retrouvé par son nom sans temps au tour et, si connue, l'empreinte de son contenu. Renvoie le
+-- nouveau nom et le contenu, ou nil.
+local function findRenamed(folder, name, hash)
+  local ok, list = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
+  if not (ok and type(list) == 'table') then return nil end
+  local root = Util.fileRoot(name)
+  for i = 1, math.min(#list, K.scanMaxFiles) do
+    local candidate = list[i]
+    if type(candidate) == 'string' and candidate ~= name and Util.fileRoot(candidate) == root then
+      if hash == nil then return candidate, nil end
+      local okL, text = Util.call(Util.get(host.io, 'load'), folder .. '/' .. candidate)
+      if okL and type(text) == 'string' and Util.hashString(text) == hash then return candidate, text end
+    end
+  end
+  return nil
+end
+
 local function restoreStored(d)
   local now = stamp()
   local index = d.compoundIndex or -1
@@ -543,7 +561,17 @@ local function restoreStored(d)
     log('INFO', 'store', app.storeNote)
   end
   app.lastSaved = {}
-  for _, kind in ipairs({ 'quali', 'race' }) do app.lastSaved[kind] = Store.get(app.store, storeKey('last', d, kind), now) end
+  local folder = Exporter.targetFolder(host)
+  for _, kind in ipairs({ 'quali', 'race' }) do
+    local last = Store.get(app.store, storeKey('last', d, kind), now)
+    -- renommé depuis (meilleur tour dans le nom) : le nom affiché suit
+    if last and last.file and folder then
+      local okE, exists = Util.call(Util.get(host.io, 'fileExists'), folder .. '/' .. last.file)
+      local renamed = okE and exists ~= true and findRenamed(folder, last.file, nil)
+      if renamed then last.file = renamed end
+    end
+    app.lastSaved[kind] = last
+  end
   if app.refreshMemory then app.refreshMemory() end
 end
 
@@ -1815,6 +1843,14 @@ local function refreshMemory()
           ok, text = true, cached.text
         elseif path then
           ok, text = Util.call(Util.get(host.io, 'load'), path)
+          if not (ok and type(text) == 'string') then
+            local renamed, renamedText = findRenamed(folder, e.file, e.hash)
+            if renamed then
+              log('INFO', 'memory', 'Fichier de la mémoire retrouvé sous son nouveau nom : ' .. renamed)
+              e.file, m.file, m.adopted = renamed, renamed, true
+              path, ok, text = folder .. '/' .. renamed, true, renamedText
+            end
+          end
         end
         if folder == nil then
           m.problem = 'dossier des setups inconnu'
@@ -1835,6 +1871,10 @@ local function refreshMemory()
           app.memoryFiles[path] = { hash = e.hash, text = text, signature = m.signature, family = m.family, at = app.now }
         end
         app.memory[g.key .. '|' .. bucket] = m
+        if m.adopted and m.problem == nil then
+          m.adopted = nil
+          memoryPut(m)
+        end
       elseif key then
         app.memory[g.key .. '|' .. bucket] = nil
       end

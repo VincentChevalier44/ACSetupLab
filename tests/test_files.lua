@@ -243,6 +243,46 @@ tests['RG03 meilleur tour réel dans le nom (qualification) : renommé voiture a
   T.eq(app.perf.errors, 0)
 end
 
+-- Relecture du 22/10/2026 : renommé au stand puis AC quitté avant que CSP n'écrive le stockage : la mémoire
+-- stockée garde l'ancien nom ; à la visite suivante, le fichier est retrouvé (nom sans temps, empreinte) et adopté.
+tests['RG07 renommé puis AC quitté avant l\'écriture du stockage : la mémoire retrouve le fichier'] = function()
+  local h, app = ready()
+  local r, v1 = v1Loaded(h, app)
+  local old = v1.file
+  local profile = drivenProfile(h, app)
+  T.ok(waitFor(h, function()
+    local f = app.recorder.laps.family[v1.family]
+    return f ~= nil and f.count >= 1
+  end, 120000, profile), 'un tour propre avec v1')
+  stop(h)
+  T.ok(waitFor(h, function() return #h.moves >= 1 end, 10), 'renommé')
+  local name = v1.file
+  T.ok(name ~= old)
+  -- stockage d'avant le renommage (jamais écrit sur le disque), nouvelle visite : mémoire relue
+  local key = Store.entryKey('mem', app.discovery.car.id, 'monza', '-', 'qualif', 'sec')
+  local stored = Store.get(app.store, key)
+  stored.file = old
+  Store.put(app.store, key, stored)
+  app.memory, app.memoryFiles, app.written = {}, {}, {}
+  app.refreshMemory()
+  local m = app.memory['qualif|sec']
+  T.ok(m, 'référence relue')
+  T.eq(m.problem, nil, tostring(m.problem))
+  T.eq(m.file, name, 'retrouvée sous son nouveau nom')
+  T.eq(Store.get(app.store, key).file, name, 'stockée de nouveau')
+  T.eq(app.written[name], v1.hash, 'chargeable')
+  -- un fichier au même nom de base mais au contenu différent n'est jamais adopté
+  stored = Store.get(app.store, key)
+  stored.file = 'SetupLab_Qualif_v1.ini'
+  stored.hash = (stored.hash + 1) % 2147483647
+  Store.put(app.store, key, stored)
+  app.memory, app.memoryFiles = {}, {}
+  app.refreshMemory()
+  T.eq(app.memory['qualif|sec'].problem, 'fichier introuvable')
+  T.eq(r.driven, v1.version)
+  T.eq(app.perf.errors, 0)
+end
+
 tests['RG04 copies « Avant chargement » : seulement si utiles ; à la validation, une copie en double part à la Corbeille'] = function()
   local h, app = ready()
   local folder = folderOf(h)

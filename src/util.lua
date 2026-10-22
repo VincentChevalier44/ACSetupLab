@@ -178,6 +178,11 @@ function M.lapFromFileName(name)
   return tonumber(m) * 60 + tonumber(s) + tonumber(ms) / 1000
 end
 
+-- Nom d'un fichier sans extension, suffixe d'unicité ni temps au tour : le même pour un fichier et ses renommages.
+function M.fileRoot(name)
+  return (fileStem(name):gsub('_%d+%.%d%d%.%d%d%d$', ''))
+end
+
 -- Nom (sans extension) d'un fichier avec le temps t à la fin, à la place de l'ancien ; nil si t est invalide.
 function M.withLapTime(name, t)
   local token = M.formatLapFile(t)

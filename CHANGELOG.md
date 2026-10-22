@@ -14,7 +14,9 @@ Demande de Vincent (« il faut qu'il ne reste que les fichiers V1, V2, V3, pas l
 - **Copies « Avant chargement »** : plus de copie quand la voiture a déjà un setup gardé de SetupLab, intact (hors carburant, répartition de freinage et aides) ; à chaque validation, les copies du lancement identiques à un fichier gardé partent à la Corbeille, celles qui contiennent autre chose restent.
 - **Recommencer** : le fichier de la version, écrit à sa validation, part à la Corbeille (un fichier enregistré à la main reste).
 - **Sûreté** : seulement des fichiers écrits par SetupLab pendant ce lancement, intacts (empreinte), jamais un fichier gardé ni le setup à charger, gardes revérifiées au moment d'agir ; un fichier par image, voiture arrêtée, aucun chargement armé ou en cours (jamais d'à-coup en roulant) ; `io.recycle` et `io.move` seulement dans `exporter.lua` (linter) ; suppression définitive (`io.deleteFile`) jamais. Avant CSP 0.3, `io.recycle` supprime définitivement (SDK).
-- **Tests** : RG01 à RG06 (noms, numérotation, meilleur tour, copies, sûreté, `io.recycle` absente) ; AU02, AU05, AU06, Q14, PL02 et F05 suivent les nouveaux noms et la Corbeille.
+- **Renommé puis AC quitté** avant que CSP n'écrive le stockage (quelques secondes) : à la visite suivante, la mémoire du circuit retrouve le fichier par son nom sans temps au tour et l'empreinte de son contenu, puis le stocke sous son nouveau nom (relecture du 22/10/2026).
+- Limite connue : une répartition de freinage changée au stand n'est pas gardée dans une copie « Avant chargement » (réglage changé en roulant, ignoré comme le carburant) ; elle est gardée comme retouche par les calculs suivants.
+- **Tests** : RG01 à RG07 (noms, numérotation, meilleur tour, copies, sûreté, `io.recycle` absente, renommage puis AC quitté) ; AU02, AU05, AU06, Q14, PL02 et F05 suivent les nouveaux noms et la Corbeille.
 
 ## 1.0.0-beta.1 — 22/10/2026 — première bêta publique (v1.0, bêta 1)
 
