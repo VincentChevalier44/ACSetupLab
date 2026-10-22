@@ -2795,6 +2795,16 @@ function script.SETUPLAB__MAIN(_)
   end
 end
 
+-- Overlay en jeu (bêta 1.3) : verdict sur vos tours, réglages changés et leur gain prévu.
+function script.SETUPLAB__OVERLAY(_)
+  if app.released then return end
+  local ok, err = measure(Ui.overlay, host, app)
+  if not ok then
+    app.perf.errors = app.perf.errors + 1
+    log('ERROR', 'ui_overlay', err)
+  end
+end
+
 function script.SETUPLAB__DEBUG(_)
   if app.released then return end
   local ok, err = measure(Ui.debug, host, app)

@@ -202,7 +202,7 @@
 
 <header class="top">
   <div class="inner">
-    <span class="badge">Version 1.0 — bêta 1.2</span>
+    <span class="badge">Version 1.0 — bêta 1.3</span>
     <h1>SetupLab — notice d'utilisation</h1>
     <p class="lead">L'app Custom Shaders Patch qui calcule, explique et affine vos setups dans Assetto Corsa, en se calant sur vos propres tours.</p>
   </div>
@@ -221,6 +221,7 @@
     <li><a href="#boutons">Les boutons, un par un</a></li>
     <li><a href="#chargement">Charger un setup dans la voiture</a></li>
     <li><a href="#temps">Vos temps</a></li>
+    <li><a href="#overlay">Overlay en jeu</a></li>
     <li><a href="#retouches">Vos retouches au stand</a></li>
     <li><a href="#memoire">Mémoire du circuit et cadenas</a></li>
     <li><a href="#manuel">Calcul à la main</a></li>
@@ -329,8 +330,20 @@
   <div class="tip">Seuls les tours <strong>valides</strong> comptent : tour de sortie des stands, tour invalidé par AC, passage par la voie des stands ou sortie de piste sont écartés (la raison s'affiche dans l'onglet Mesure). Un tour roulé après avoir touché la répartition de freinage au volant compte pour la version chargée.</div>
 </section>
 
+<section id="overlay">
+  <h2>8. Overlay en jeu</h2>
+  <p>La fenêtre <strong>SetupLab Overlay</strong> s'ouvre depuis la barre d'apps de CSP, comme les autres fenêtres. Elle a un fond translucide ; placez-la où vous voulez, CSP retient sa place. Elle se met à jour à chaque tour.</p>
+  <ul>
+    <li><strong>En haut, le verdict sur vos tours</strong> : le setup en piste (par exemple <em>v3 en piste</em>), votre meilleur tour avec lui et avec le setup d'avant (votre tour moyen en course), puis <strong>Mieux de …</strong> en vert ou <strong>Moins bien de …</strong> en rouge. C'est une mesure réelle, sur le setup entier.</li>
+    <li>Votre <strong>dernier tour</strong> et son écart avec votre meilleur.</li>
+    <li><strong>Au milieu, les réglages changés</strong> qui comptent le plus : ancienne › nouvelle valeur, et le gain prévu par le modèle (vert : gain, rouge : perte, orange suivi de « ? » : à confirmer). Les autres réglages sont regroupés sur une ligne.</li>
+    <li><strong>En bas</strong>, la version suivante quand elle est prête, avec son gain prévu.</li>
+  </ul>
+  <div class="note">Un réglage seul ne se mesure pas en piste quand plusieurs changent en même temps : le gain par réglage est celui que prévoit SetupLab, le verdict du haut vient de vos temps.</div>
+</section>
+
 <section id="retouches">
-  <h2>8. Vos retouches au stand</h2>
+  <h2>9. Vos retouches au stand</h2>
   <p>Après un chargement par SetupLab, vous pouvez retoucher le setup à votre goût dans le menu de setup. SetupLab le détecte à la découverte suivante et <strong>garde chaque réglage retouché à votre valeur</strong> dans les calculs suivants : si vous l'avez changé, c'est que vous êtes plus à l'aise ainsi.</p>
   <ul>
     <li>La ligne « <strong>Vos retouches gardées</strong> : … » liste les réglages concernés.</li>
@@ -341,7 +354,7 @@
 </section>
 
 <section id="memoire">
-  <h2>9. Mémoire du circuit et cadenas</h2>
+  <h2>10. Mémoire du circuit et cadenas</h2>
   <p>Le setup que vous validez est gardé, d'un lancement d'AC à l'autre, pour cette voiture sur ce circuit (disposition comprise), par :</p>
   <ul>
     <li><strong>séance</strong> : essai ou journée circuit (hotlap et time attack compris), qualification, course ;</li>
@@ -351,7 +364,7 @@
 </section>
 
 <section id="manuel">
-  <h2>10. Calcul à la main</h2>
+  <h2>11. Calcul à la main</h2>
   <p>Sans l'affinage automatique, dans l'onglet <strong>Tour rapide</strong> ou <strong>Course</strong> :</p>
   <ol>
     <li><strong>Calculer le setup…</strong> : la durée estimée s'affiche avant (en orange au-delà de 40 s : baisser le budget dans l'onglet Réglages pour aller plus vite). Le calcul peut être annulé à tout moment.</li>
@@ -363,12 +376,12 @@
 </section>
 
 <section id="course">
-  <h2>11. Setup de course</h2>
+  <h2>12. Setup de course</h2>
   <p>L'onglet <strong>Course</strong> simule le relais complet : carburant embarqué, usure des pneus par essieu, trafic (DRS dans l'air sale). Régler la durée de course dans l'onglet <strong>Réglages</strong> si la séance n'en a pas. Faire 2 ou 3 tours avant le calcul : la consommation et l'usure sont alors mesurées. Le composé n'est changé que si l'usure a été mesurée.</p>
 </section>
 
 <section id="pluie">
-  <h2>12. Pluie</h2>
+  <h2>13. Pluie</h2>
   <p>La pluie de CSP, et celle de Pure, qui passe par CSP, est lue directement. Dès que la piste mouille, le bandeau l'indique et chaque calcul propose un <strong>setup pluie</strong> :</p>
   <ul>
     <li>composé choisi entre slicks, intermédiaires et pneus pluie ;</li>
@@ -379,7 +392,7 @@
 </section>
 
 <section id="onglets">
-  <h2>13. Les onglets</h2>
+  <h2>14. Les onglets</h2>
   <div class="table-wrap">
   <table>
     <thead><tr><th>Onglet</th><th>Contenu</th></tr></thead>
@@ -396,7 +409,7 @@
 </section>
 
 <section id="fichiers">
-  <h2>14. Fichiers et noms</h2>
+  <h2>15. Fichiers et noms</h2>
   <p>Les setups sont écrits dans le dossier des setups de la voiture et du circuit (<code>Documents/Assetto Corsa/setups/&lt;voiture&gt;/&lt;circuit&gt;/</code>), visibles dans le menu de setup d'AC.</p>
   <ul>
     <li>Versions de l'affinage : <code>SetupLab_Qualif_v1.ini</code>, <code>SetupLab_Qualif_v2.ini</code>, <code>SetupLab_Course_v1.ini</code>, <code>SetupLab_Course_Pluie_v3.ini</code> sous la pluie. Les numéros continuent d'une séance à l'autre sur le même circuit.</li>
@@ -416,7 +429,7 @@
 </section>
 
 <section id="jamais">
-  <h2>15. Ce que SetupLab ne fait jamais</h2>
+  <h2>16. Ce que SetupLab ne fait jamais</h2>
   <ul>
     <li>Modifier le contenu d'un fichier, ou la physique du jeu.</li>
     <li>Toucher à vos propres fichiers : il ne range (Corbeille, meilleur tour dans le nom) que des fichiers qu'il a écrits, intacts, voir <a href="#fichiers">Fichiers et noms</a>.</li>
@@ -428,7 +441,7 @@
 </section>
 
 <section id="faq">
-  <h2>16. Questions fréquentes</h2>
+  <h2>17. Questions fréquentes</h2>
   <details>
     <summary>Je clique sur « Charger » et rien ne se passe.</summary>
     <p>Regarder l'état du stand affiché au-dessus du bouton : il faut être au stand, voiture arrêtée, <strong>menu de setup ouvert</strong>. La raison d'un refus s'affiche juste sous le bouton. Après le premier clic, confirmer dans le temps restant indiqué.</p>
@@ -456,7 +469,7 @@
 </section>
 
 <section id="limites">
-  <h2>17. Limites de la bêta</h2>
+  <h2>18. Limites de la bêta</h2>
   <ul>
     <li>La fidélité du tour simulé à AC reste à confirmer sur plus de voitures : tant que la calibration n'atteint pas ses seuils, l'app affiche « Confiance basse : modèle non calibré ».</li>
     <li>Le modèle pluie repose sur des hypothèses (la physique pluie de CSP n'est pas documentée) ; vos tours mouillés le calibrent.</li>
@@ -470,7 +483,7 @@
 
 <footer>
   <div class="inner">
-    SetupLab 1.0 — bêta 1.2 (<code>1.0.0-beta.1.2</code>) · Licence MIT ·
+    SetupLab 1.0 — bêta 1.3 (<code>1.0.0-beta.1.3</code>) · Licence MIT ·
     <a href="https://github.com/VincentChevalier44/ACSetupLab">github.com/VincentChevalier44/ACSetupLab</a><br>
     Assetto Corsa est une marque de Kunos Simulazioni. SetupLab est un projet indépendant.
   </div>

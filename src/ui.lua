@@ -25,6 +25,7 @@ local STATUS_COLOR = {
   muted = { 0.6, 0.63, 0.68, 1 },
   accent = { 0.42, 0.7, 1.0, 1 },
   tile = { 1, 1, 1, 0.055 },
+  overlay = { 0.04, 0.05, 0.07, 0.62 }, -- fond de l'overlay en jeu (fenêtre sans fond : lisible sur la piste)
   -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles)
   primaryButton = { 0.16, 0.42, 0.78, 1 }, primaryButtonHovered = { 0.22, 0.51, 0.9, 1 },
   primaryButtonActive = { 0.12, 0.34, 0.66, 1 },
@@ -1697,6 +1698,150 @@ function M.capsSection(host, app, intents, palette)
     small(host, 'Écriture non testée.', palette.muted)
   end
   small(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone, palette.muted)
+end
+
+-- ---------------------------------------------------------------------------
+-- Overlay en jeu (bêta 1.3)
+-- ---------------------------------------------------------------------------
+-- Demande de Vincent du 22/10/2026 : « un petit overlay qui va permettre d'avoir une petite synthèse des
+-- réglages qui ont été changés, de voir directement s'il y a un gain ou s'il y a une perte au niveau de chaque
+-- réglage », « si le setup est mieux ou moins bien ». Réponses : compact (verdict, les réglages qui comptent le
+-- plus, le reste sur une ligne) ; gain prévu chiffré par réglage. Le verdict vient de vos tours (le setup
+-- entier) ; le gain d'un réglage est celui que prévoit le modèle (un réglage seul ne se mesure pas en piste).
+local OVERLAY_ROWS = 4
+
+-- Setup de SetupLab dans la voiture : version de l'affinage roulée, sinon référence de la mémoire chargée ;
+-- et la version en attente de validation.
+local function overlaySetup(app, kind)
+  local r = app.refine
+  local driven, pending = nil, nil
+  if r and r.kind == kind then
+    for _, e in ipairs(r.history) do
+      if e.version and e.version == r.driven then driven = e end
+      if e.version and e.version == r.version and e.status == nil then pending = e end
+    end
+  end
+  local loaded = app.loaded and app.loaded[kind]
+  if driven == nil and loaded then
+    for _, m in pairs(app.memory or {}) do
+      if m.file == loaded.name then driven = { file = m.file, family = m.family, bucket = m.bucket, fromMemory = true } end
+    end
+  end
+  return driven, pending
+end
+
+-- Réglages changés d'une version, du plus au moins important (gain prévu), triés une fois.
+local function overlayChanges(e)
+  if e.overlayChanges == nil then
+    local list = {}
+    for _, c in ipairs(e.changeList or {}) do list[#list + 1] = c end
+    table.sort(list, function(a, b) return math.abs(a.contribution or 0) > math.abs(b.contribution or 0) end)
+    e.overlayChanges = list
+  end
+  return e.overlayChanges
+end
+
+local function signedGain(gain)
+  return (gain >= 0 and '+' or '-') .. Util.fmt(math.abs(gain), 3)
+end
+
+-- Flèche (icône de CSP) avant le texte suivant ; sans icône, rien.
+local function arrow(host, up, color)
+  local ui = host.ui
+  local icon = Util.get(Util.get(ui, 'Icons'), up and 'ArrowUp' or 'ArrowDown')
+  if icon ~= nil and Util.call(ui.icon, icon, K.uiIconSize, color) then ui.sameLine() end
+end
+
+function M.overlay(host, app)
+  local ui = host.ui
+  local palette = colors(app.ui, host)
+  local okS, size = Util.call(ui.windowSize)
+  local origin = vec(host, app.ui, 'overlayOrigin')
+  if okS and size and origin and palette.overlay then Util.call(ui.drawRectFilled, origin, size, palette.overlay, 6) end
+  if app.inert then
+    colored(host, 'SetupLab · en veille : ' .. tostring(app.inert), palette.muted)
+    return
+  end
+  local r = app.refine
+  local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
+  local e, pending = overlaySetup(app, kind)
+  local last = app.recorder and app.recorder.laps and app.recorder.laps.last
+  local tMine = nil
+  if e == nil then
+    colored(host, 'SetupLab · aucun setup de SetupLab en piste', palette.muted)
+    small(host, app.auto and 'Actif : chaque setup proposé s\'annonce ici ; le valider puis le charger au stand.'
+      or 'Cocher « SetupLab actif » pour l\'affinage pendant que vous roulez.', palette.muted)
+  else
+    local name = e.version and ('v' .. e.version) or tostring(e.file)
+    local where = (kind == 'race' and 'Course' or 'Qualif') .. ', ' .. (e.bucket == 'pluie' and 'pluie' or 'sec')
+    colored(host, 'SetupLab · ' .. name .. ' en piste (' .. where .. ')', palette.accent)
+    if e.status == 'écartée' then small(host, name .. ' non gardée : charger la référence au stand.', palette.pending) end
+    -- verdict sur vos tours (le setup entier)
+    local mine, before = realLaps(app, e.family, e.bucket), realLaps(app, e.originFamily, e.bucket)
+    local tBefore = realTime(before, kind)
+    tMine = realTime(mine, kind)
+    local word = kind == 'race' and 'Moyenne ' or 'Meilleur '
+    if tMine and tBefore then
+      colored(host, word .. M.lapTime(tMine) .. '   avant ' .. M.lapTime(tBefore), palette.text)
+      local gain = tBefore - tMine
+      if math.abs(gain) < 0.001 then
+        colored(host, 'Identique au setup d\'avant', palette.muted)
+      else
+        local color = palette[gain > 0 and 'available' or 'unavailable']
+        arrow(host, gain > 0, color)
+        colored(host, (gain > 0 and 'Mieux de ' or 'Moins bien de ') .. Util.fmt(math.abs(gain), 3) .. ' s', color)
+      end
+    elseif tMine then
+      colored(host, word .. M.lapTime(tMine) .. ' (' .. mine.count .. ' tour' .. (mine.count > 1 and 's' or '') .. ')'
+        .. (e.fromMemory and '' or ' ; avant : aucun tour'), palette.text)
+    else
+      colored(host, 'Un tour propre avec ' .. name .. ' : verdict sur vos temps.', palette.muted)
+    end
+  end
+  if last and Util.isFinite(last.time) and last.time > 0 then
+    local text = 'Dernier tour ' .. M.lapTime(last.time)
+    if not last.valid then
+      text = text .. ' (non valide)'
+    elseif tMine and e and last.family == e.family then
+      local delta = last.time - tMine
+      text = text .. (math.abs(delta) < 0.0005 and kind ~= 'race' and ' (votre meilleur)' or (' (' .. signedGain(delta) .. ')'))
+    end
+    small(host, text, palette.muted)
+  end
+  if e then
+    ui.separator()
+    local list = e.fromMemory and {} or overlayChanges(e)
+    if e.fromMemory then
+      small(host, 'Setup de la mémoire du circuit : ' .. tostring(e.file), palette.muted)
+    elseif #list == 0 then
+      small(host, 'Aucun réglage changé.', palette.muted)
+    else
+      local rows = {}
+      for i = 1, math.min(#list, OVERLAY_ROWS) do
+        local c = list[i]
+        -- optimum en limite de la plage explorée : gain prévu suivi de « ? » (à confirmer)
+        local gain = { text = signedGain(c.contribution or 0) .. (c.atBound and ' ?' or ''),
+          color = palette[c.atBound and 'pending' or ((c.contribution or 0) >= 0 and 'available' or 'unavailable')],
+          tip = c.atBound and 'À confirmer : optimum en limite de la plage explorée.' or nil }
+        rows[#rows + 1] = { { text = c.var.label, tip = c.explanation },
+          M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to), gain }
+      end
+      grid(host, 'overlay', { 0.42, 0.36, 0.22 }, rows)
+      if #list > OVERLAY_ROWS then
+        local rest = 0
+        for i = OVERLAY_ROWS + 1, #list do rest = rest + (list[i].contribution or 0) end
+        local n = #list - OVERLAY_ROWS
+        small(host, '+ ' .. n .. ' autre' .. (n > 1 and 's' or '') .. ' réglage' .. (n > 1 and 's' or '') .. ' : '
+          .. signedGain(rest), palette[rest >= 0 and 'available' or 'unavailable'])
+      end
+    end
+  end
+  if pending and pending ~= e then
+    ui.separator()
+    colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Valider puis Charger',
+      palette.accent)
+  end
+  if e and not e.fromMemory then small(host, 'Par réglage : gain prévu par le modèle ; en haut : vos tours.', palette.muted) end
 end
 
 function M.debug(host, app)

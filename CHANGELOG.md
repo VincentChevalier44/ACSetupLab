@@ -1,5 +1,12 @@
 # Journal des versions
 
+## 1.0.0-beta.1.3 — 22/10/2026 — bêta 1.3 : overlay en jeu
+
+Demande de Vincent : « un petit overlay qui va permettre d'avoir une petite synthèse des réglages qui ont été changés, de voir directement s'il y a un gain ou s'il y a une perte au niveau de chaque réglage », « si le setup est mieux ou moins bien ». Ses réponses : overlay compact ; gain prévu chiffré par réglage.
+- **Fenêtre « SetupLab Overlay »** (`[WINDOW_2]`, `FLAGS=MAIN,NO_BACKGROUND,FADING`, comme la fenêtre de drapeaux d'ACAdvancedIA vue en jeu) avec un fond translucide dessiné par l'app : le setup de SetupLab en piste (version roulée de l'affinage, sinon référence de la mémoire chargée), le verdict sur vos tours (meilleur tour en qualification, moyenne en course, avec et avant : « Mieux de … » en vert, « Moins bien de … » en rouge, flèche de CSP), le dernier tour, les quatre réglages changés au plus grand gain prévu (ancienne › nouvelle valeur, gain prévu signé, « ? » en limite de plage), les autres sur une ligne, et la version suivante prête.
+- Le verdict est réel (setup entier) ; le gain par réglage est celui du modèle, dit dans l'overlay et la notice.
+- **Tests** : OV01, OV02.
+
 ## 1.0.0-beta.1.2 — 22/10/2026 — bêta 1.2 : compatible avec la CSP gratuite (0.2.11)
 
 Demande de Vincent : l'app doit fonctionner avec la version gratuite de Custom Shaders Patch, pas seulement avec la preview payante.

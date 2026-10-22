@@ -1,6 +1,6 @@
 # SetupLab — générateur de setups pour Assetto Corsa
 
-**Version 1.0 — bêta 1.2** (`1.0.0-beta.1.2`) · App Lua pour Custom Shaders Patch (version gratuite 0.2.11 ou plus récente) · Licence MIT
+**Version 1.0 — bêta 1.3** (`1.0.0-beta.1.3`) · App Lua pour Custom Shaders Patch (version gratuite 0.2.11 ou plus récente) · Licence MIT
 
 SetupLab calcule, pour chaque couple voiture × circuit, un setup de **tour rapide** (essai, journée circuit, hotlap, time attack, qualification) et un setup de **course** (relais). Il explique chaque réglage, se cale sur vos propres tours, et l'affine pendant que vous roulez : il vous propose une version, vous la validez puis l'essayez, ou vous recommencez.
 
@@ -29,6 +29,7 @@ SetupLab calcule, pour chaque couple voiture × circuit, un setup de **tour rapi
 - **Vos temps d'abord** : votre meilleur tour (ou votre tour moyen en course), l'objectif estimé (votre temps moins le gain prévu) et le gain réel de chaque version. Le modèle est calibré sur vos tours.
 - **Affinage pendant que vous roulez** : cochez **SetupLab actif**, roulez. Chaque setup proposé s'annonce à l'écran ; **Valider** l'enregistre, **Charger** le met dans la voiture au stand, **Recommencer** l'abandonne. Rien n'est enregistré sans votre validation.
 - **Vos retouches gardées** : un réglage que vous modifiez à la main au stand après un chargement n'est plus changé par les calculs suivants.
+- **Overlay en jeu** (fenêtre « SetupLab Overlay ») : en roulant, le setup en piste est-il mieux ou moins bien que celui d'avant, sur vos tours ; les réglages changés qui comptent le plus, avec leur gain prévu ; la version suivante quand elle est prête.
 - **Mémoire du circuit** : le setup validé ou figé (cadenas) est gardé par voiture, circuit, séance (essai ou journée circuit, qualification, course) et état de piste (sec, pluie), et proposé à la visite suivante.
 - **Pluie** (météo de CSP, Pure compris) : choix du composé (slicks, intermédiaires, pluie), pressions, aileron, aides au pilotage plus strictes ; calibration à part du sec.
 - **Composé de pneus** choisi selon la température mesurée de vos pneus, ou imposé.
