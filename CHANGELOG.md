@@ -1,5 +1,13 @@
 # Journal des versions
 
+## 1.0.0-beta.1.4 — 22/10/2026 — bêta 1.4 : analyse jusqu'au retour au stand
+
+Demande de Vincent : « qu'il donne juste un message en disant j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les stands, on continue d'analyser les données. Ce qui donnera plus de pertinence ».
+- **En piste**, une version proposée reste provisoire : une seule annonce par version, « vN en préparation » (« J'ai le minimum d'informations ; je continue d'analyser vos tours »), puis chaque tour propre la recalcule sans nouvelle annonce.
+- **Au stand** (ou dans la voie des stands), elle est annoncée prête, « vN prêt », avec le nombre de tours propres analysés. Un calcul en cours à l'entrée au stand est annoncé à sa fin. Recalculée en piste et changée depuis : annoncée de nouveau au stand suivant ; même setup recalculé : elle reste prête, sans nouvelle annonce.
+- Carte d'affinage, ligne d'état de « SetupLab actif » et overlay : « en préparation (provisoire), N tours analysés, prête au retour au stand ». « Valider » reste possible à tout moment.
+- **Tests** : AU13 (v1 validée et chargée, v2 en préparation en piste, mise à jour silencieuse, prête au stand, deuxième passage).
+
 ## 1.0.0-beta.1.3 — 22/10/2026 — bêta 1.3 : overlay en jeu
 
 Demande de Vincent : « un petit overlay qui va permettre d'avoir une petite synthèse des réglages qui ont été changés, de voir directement s'il y a un gain ou s'il y a une perte au niveau de chaque réglage », « si le setup est mieux ou moins bien ». Ses réponses : overlay compact ; gain prévu chiffré par réglage.

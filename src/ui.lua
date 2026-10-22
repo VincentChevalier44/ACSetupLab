@@ -865,13 +865,21 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   end
   local verdict = nil
   if e.status == nil then
+    -- en piste : provisoire, l'analyse continue jusqu'au retour au stand (décision de Vincent du 22/10/2026)
+    local ready = e.ready ~= false
+    local analyzed = before and before.count or 0
     stepsLine(host, palette, 1)
-    wrapped(host, v .. ' prête : gain prévu ' .. Util.fmt(e.gain, 3) .. ' s'
+    wrapped(host, v .. (ready and ' prête : gain prévu ' or ' en préparation : gain prévu provisoire ') .. Util.fmt(e.gain, 3) .. ' s'
       .. (tBefore and (' ; objectif estimé ' .. M.lapTime(tBefore - e.gain) .. ' (votre ' .. M.lapTime(tBefore)
         .. ' moins le gain prévu)') or ' ; roulez un tour propre pour un objectif sur vos temps')
       .. (e.file and (' — déjà enregistrée : ' .. e.file) or ''), palette.accent)
-    small(host, (e.updates or 0) > 0 and ('Mise à jour ' .. e.updates .. ' fois avec vos tours ; la suivante au prochain tour propre.')
-      or 'Mise à jour au prochain tour propre, avec les données de ce tour.', palette.muted)
+    if not ready then
+      small(host, 'SetupLab continue d\'analyser vos tours (' .. analyzed .. ' analysé' .. (analyzed > 1 and 's' or '')
+        .. ') ; elle sera prête à votre retour au stand. Vous pouvez déjà la valider.', palette.pending)
+    else
+      small(host, (e.updates or 0) > 0 and ('Mise à jour ' .. e.updates .. ' fois avec vos tours ; la suivante au prochain tour propre.')
+        or 'Mise à jour au prochain tour propre, avec les données de ce tour.', palette.muted)
+    end
     if e.changeList then
       section(host, 'Réglages de ' .. v, 'version_' .. kind .. '_' .. e.version, true, function()
         changesTable(host, kind .. '_version', { changes = e.changeList, refined = e.refined or 1 }, palette)
@@ -1576,6 +1584,12 @@ function M.autoLine(app)
     for _, e in ipairs(r.history) do
       if e.version and e.version == r.version and e.status == nil then pending = e end
     end
+    if pending and pending.ready == false then
+      local f = realLaps(app, pending.originFamily, pending.bucket)
+      local n = f and f.count or 0
+      return 'Actif : v' .. pending.version .. ' en préparation (' .. where .. ', ' .. n .. ' tour' .. (n > 1 and 's' or '')
+        .. ' analysé' .. (n > 1 and 's' or '') .. ') — prête au retour au stand.', 'pending'
+    end
     if pending then
       return 'Actif : v' .. pending.version .. ' prête (' .. where .. ') — à valider ou recommencer.', 'accent'
     end
@@ -1838,8 +1852,16 @@ function M.overlay(host, app)
   end
   if pending and pending ~= e then
     ui.separator()
-    colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Valider puis Charger',
-      palette.accent)
+    if pending.ready == false then
+      local f = realLaps(app, pending.originFamily, pending.bucket)
+      local n = f and f.count or 0
+      colored(host, 'v' .. pending.version .. ' en préparation : ' .. signedGain(pending.gain or 0) .. ' s prévu (provisoire), '
+        .. n .. ' tour' .. (n > 1 and 's' or '') .. ' analysé' .. (n > 1 and 's' or ''), palette.pending)
+      small(host, 'Prête à votre retour au stand.', palette.muted)
+    else
+      colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Valider puis Charger',
+        palette.accent)
+    end
   end
   if e and not e.fromMemory then small(host, 'Par réglage : gain prévu par le modèle ; en haut : vos tours.', palette.muted) end
 end

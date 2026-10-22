@@ -2150,13 +2150,49 @@ local function refinePending(r)
   return nil
 end
 
--- Annonce à l'écran, pendant la conduite (messages d'AC en haut de l'écran), une seule fois par version.
+-- Version prête au retour au stand (décision de Vincent du 22/10/2026 : « qu'il donne juste un message en disant
+-- j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les stands, on continue
+-- d'analyser les données ») : en piste, la version en attente reste provisoire et chaque tour propre la met à
+-- jour ; elle est annoncée prête au stand (voie des stands comprise), de nouveau si elle a changé depuis.
+local function carAtPit()
+  local ok, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  if not (ok and car) then return true end
+  return Util.get(car, 'isInPit') == true or Util.get(car, 'isInPitlane') == true
+end
+
+-- Tours propres analysés pour une version : vos tours avec le setup dont elle part, même état de piste.
+local function lapsAnalyzed(e)
+  local f = e.originFamily and app.recorder.laps.family[Recorder.bestKey(e.originFamily, e.bucket)]
+  return f and f.count or 0
+end
+
+local function lapsText(n)
+  local s = n > 1 and 's' or ''
+  return n .. ' tour' .. s .. ' propre' .. s .. ' analysé' .. s
+end
+
+-- Annonce à l'écran (messages d'AC en haut de l'écran) : version prête, au stand.
 local function refineAnnounce(r, e)
-  if r.announced == e.version then return end
-  r.announced = e.version
+  if e.ready and e.readyAt == e.updates then return end
+  -- déjà annoncée : ses mises à jour en piste restent silencieuses jusqu'au stand suivant
+  e.ready, e.readyAt, e.noticed = true, e.updates, true
+  local n = lapsAnalyzed(e)
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' prêt'
-  local text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s. Au stand, dans SetupLab : Valider (enregistre), puis Charger ; '
-    .. 'ou Recommencer (ne pas la garder).'
+  local text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s' .. (n > 0 and (', d\'après ' .. lapsText(n)) or '')
+    .. '. Dans SetupLab : Valider (enregistre), puis Charger ; ou Recommencer (ne pas la garder).'
+  Util.call(Util.get(host.ac, 'setMessage'), title, text, nil, K.alertSeconds)
+  log('INFO', 'refine', title .. ' — ' .. text)
+end
+
+-- En piste : version provisoire ; une seule annonce par version (le minimum d'informations est là).
+local function refinePreparing(r, e)
+  -- inchangée depuis son annonce au stand (même setup recalculé) : elle reste prête
+  if e.ready and e.readyAt == e.updates then return end
+  e.ready = false
+  if e.noticed then return end
+  e.noticed = true
+  local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' en préparation'
+  local text = 'J\'ai le minimum d\'informations ; je continue d\'analyser vos tours. Le setup sera prêt à votre retour au stand.'
   Util.call(Util.get(host.ac, 'setMessage'), title, text, nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
 end
@@ -2269,14 +2305,15 @@ local function refineFinish(r, q)
         e.file, e.path, e.hash = nil, nil, nil
       end
       shown = e
-      refineAnnounce(r, e)
+      if carAtPit() then refineAnnounce(r, e) else refinePreparing(r, e) end
     end
   end
   if note.note then refineNote(r, note) end
   refineTrim(r)
   app.ui.message = 'Affinage ' .. COMPUTE[r.kind].label .. ' : ' .. (shown and ('v' .. shown.version
-    .. (shown.updates > 0 and ' mise à jour' or ' prête') .. ', gain prévu ' .. Util.fmt(shown.gain, 3)
-    .. ' s : la valider (enregistrée, puis à charger au stand) ou recommencer') or note.note)
+    .. (shown.ready and (shown.updates > 0 and ' mise à jour' or ' prête') or ' en préparation') .. ', gain prévu '
+    .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : la valider (enregistrée, puis à charger au stand) ou recommencer'
+      or ' (provisoire) : analyse de vos tours jusqu\'au retour au stand')) or note.note)
     .. ' ; nouveau calcul ' .. (app.settings.refineLaps > 1 and ('après ' .. app.settings.refineLaps .. ' tours propres.')
       or 'au prochain tour propre.')
   log('INFO', 'refine', app.ui.message)
@@ -2287,6 +2324,9 @@ local function refineTick()
   local r = app.refine
   if not (r and r.active) or app.inert then return end
   local kind = r.kind
+  -- retour au stand : la version en préparation est annoncée prête (calcul en cours : à sa fin)
+  local pending = refinePending(r)
+  if pending and not pending.ready and r.phase ~= 'calcul' and carAtPit() then refineAnnounce(r, pending) end
   -- chargement vérifié : nouvelle découverte au stand (repère de hauteur, A25), une fois les tâches en
   -- cours terminées (une calibration en cours n'est pas perdue)
   if r.needsDiscovery then

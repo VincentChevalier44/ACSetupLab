@@ -689,4 +689,67 @@ tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists ni getSetupTab
   T.eq(app.perf.errors, 0)
 end
 
+-- Décision de Vincent du 22/10/2026 : « quand on a appliqué la V1, on retourne en piste pour rouler [...] qu'il donne
+-- juste un message en disant j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les
+-- stands, on continue d'analyser les données ». En piste : une annonce « en préparation » par version, mises à jour
+-- silencieuses à chaque tour propre ; au stand : « prêt », avec les tours analysés ; de nouveau si elle a changé.
+tests['AU13 en piste : « en préparation » une fois, analyse continue ; au stand : « prêt » avec les tours analysés'] = function()
+  local h, app = ready()
+  h.click = 'Affinage automatique (tour rapide)'
+  frames(h, 1)
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  T.eq(h.messages[#h.messages].title, 'SetupLab : setup tour rapide v1 prêt', 'calculée au stand : prête tout de suite')
+  h.click = 'Valider v1'
+  frames(h, 1)
+  loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
+  T.ok(waitFor(h, function() return not r.needsDiscovery and app.discoveryState == 'done' and r.phase == 'tours' end))
+  -- en piste avec v1 (autre base : pincement) : v2 en préparation, une seule annonce
+  toe(h)
+  local profile = drivenProfile(h, app)
+  T.ok(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end, nil, profile), 'v2')
+  local v2 = r.history[#r.history]
+  T.eq(v2.ready, false, 'provisoire en piste')
+  T.eq(h.messages[#h.messages].title, 'SetupLab : setup tour rapide v2 en préparation')
+  T.contains(h.messages[#h.messages].description, 'minimum d\'informations')
+  T.contains(app.ui.message, 'en préparation')
+  frames(h, 1, profile)
+  T.ok(shown(h, 'v2 en préparation : gain prévu provisoire'), 'carte : provisoire')
+  T.ok(shown(h, 'prête à votre retour au stand'), 'carte : quand')
+  h.texts = {}
+  script.SETUPLAB__OVERLAY(1 / 60)
+  T.ok(shown(h, 'v2 en préparation : '), 'overlay : provisoire')
+  -- un autre tour propre : mise à jour silencieuse
+  local count = #h.messages
+  T.ok(waitFor(h, function() return (v2.updates or 0) >= 1 and r.phase == 'tours' end, 150000, profile), 'v2 mise à jour')
+  T.eq(#h.messages, count, 'aucune nouvelle annonce en piste')
+  T.eq(v2.ready, false)
+  -- retour au stand : prête, avec les tours analysés
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  h.driver = nil
+  T.ok(waitFor(h, function() return v2.ready == true end, 600), 'prête au stand')
+  T.eq(#h.messages, count + 1)
+  T.eq(h.messages[#h.messages].title, 'SetupLab : setup tour rapide v2 prêt')
+  T.contains(h.messages[#h.messages].description, 'analysé')
+  frames(h, 1)
+  T.ok(shown(h, 'v2 prête : gain prévu'), 'carte : prête')
+  frames(h, 30)
+  T.eq(#h.messages, count + 1, 'une seule annonce au stand')
+  -- de nouveau en piste : un nouveau calcul (silencieux) ; au stand suivant, annoncée de nouveau seulement si elle
+  -- a changé (même setup recalculé : elle reste prête)
+  local updates, lastQ = v2.updates, app.quali
+  T.ok(waitFor(h, function() return app.quali ~= lastQ and app.quali.state == 'done' and r.phase == 'tours' end, 150000, profile),
+    'nouveau calcul en piste')
+  T.eq(#h.messages, count + 1, 'toujours silencieux en piste')
+  local changed = v2.updates > updates
+  T.eq(v2.ready, not changed, 'provisoire seulement si elle a changé')
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  h.driver = nil
+  T.ok(waitFor(h, function() return v2.ready == true end, 600))
+  frames(h, 30)
+  T.eq(#h.messages, count + (changed and 2 or 1), changed and 'changée : annoncée de nouveau' or 'inchangée : pas de nouvelle annonce')
+  PY.note('AU13', 'v2 ' .. (changed and 'changée' or 'inchangée') .. ' au deuxième passage, ' .. #h.messages .. ' annonces')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

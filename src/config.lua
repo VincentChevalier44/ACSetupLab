@@ -8,7 +8,7 @@ local M = {}
 M.appName = 'SetupLab'
 -- Première bêta publique (décision de Vincent du 22/10/2026 : « on la présentera comme la version bêta numéro
 -- un, v1.0 ») ; les versions 1.0.0 à 1.7.0 d'avant étaient internes (CHANGELOG.md).
-M.version = '1.0.0-beta.1.3'
+M.version = '1.0.0-beta.1.4'
 M.milestone = 'J0 à J8 (qualification, course, mesure, DRS, ERS, interface, persistance), chargement dans la voiture, affinage, pluie, '
   .. 'activation, mémoire du circuit, validation avant enregistrement, vos temps réels, vos retouches gardées'
 M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus récente est ignorée
