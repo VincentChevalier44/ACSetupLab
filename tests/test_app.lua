@@ -457,6 +457,11 @@ tests['A17 conditions changées : résultat signalé, calcul toujours possible ;
   h.click = 'Calculer le setup tour rapide'
   frames(h, 2)
   T.eq(app.quali.state, 'running')
+  -- conditions relevées à la première tranche de la tâche (machine chargée : une image sautée, garde-fou §14.3)
+  for _ = 1, 600 do
+    if app.quali.conditions then break end
+    frames(h, 1)
+  end
   T.near(app.quali.conditions.roadTemp, reference, 1e-9, 'tâche démarrée avec les conditions du moment')
   h.sim.roadTemperature = reference + 5
   app.nextContextAt = 0

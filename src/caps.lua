@@ -143,8 +143,14 @@ function M.probeStatic(host)
   if okV and type(version) == 'string' then r.version = Util.truncate(version, 64) end
   local okN, code = Util.call(M.resolve(host, 'ac.getPatchVersionCode'))
   if okN and Util.isFinite(code) then r.versionCode = code end
-  local okI, io = Util.call(M.resolve(host, 'io.available'))
-  r.ioAvailable = okI and io == true
+  -- io.available absente (CSP 0.2.11, gratuite) : accès supposé, l'écriture relue fait foi (D17)
+  local availableFn = M.resolve(host, 'io.available')
+  if availableFn == nil then
+    r.ioAvailable, r.ioAssumed = true, true
+  else
+    local okI, io = Util.call(availableFn)
+    r.ioAvailable = okI and io == true
+  end
   local getFolder = M.resolve(host, 'ac.getFolder')
   for _, name in ipairs({ 'UserSetups', 'ContentCars', 'CurrentTrackLayoutUI' }) do
     local id = M.resolve(host, 'ac.FolderID.' .. name)

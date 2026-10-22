@@ -1,6 +1,6 @@
 # SetupLab — générateur de setups pour Assetto Corsa
 
-**Version 1.0 — bêta 1** (`1.0.0-beta.1`) · App Lua pour Custom Shaders Patch · Licence MIT
+**Version 1.0 — bêta 2** (`1.0.0-beta.2`) · App Lua pour Custom Shaders Patch (version gratuite 0.2.11 ou plus récente) · Licence MIT
 
 SetupLab calcule, pour chaque couple voiture × circuit, un setup de **tour rapide** (essai, journée circuit, hotlap, time attack, qualification) et un setup de **course** (relais). Il explique chaque réglage, se cale sur vos propres tours, et l'affine pendant que vous roulez : il vous propose une version, vous la validez puis l'essayez, ou vous recommencez.
 
@@ -36,9 +36,9 @@ SetupLab calcule, pour chaque couple voiture × circuit, un setup de **tour rapi
 
 ## Installation
 
-Prérequis : Assetto Corsa avec **Custom Shaders Patch 0.3.0-preview675** ou plus récent, en mode hors ligne.
+Prérequis : Assetto Corsa avec **Custom Shaders Patch 0.2.11** (la version gratuite, installée par Content Manager) ou plus récent, previews comprises ; en mode hors ligne. SetupLab a été développé avec la 0.3.0-preview675 ; sur la 0.2.11, trois fonctions de CSP manquent et l'app s'en passe (voir `docs/API_NOTES.md`, A36).
 
-1. Télécharger `SetupLab-1.0.0-beta.1.zip` dans les [Releases](https://github.com/VincentChevalier44/ACSetupLab/releases) (ou cloner le dépôt).
+1. Télécharger la dernière archive `SetupLab-….zip` dans les [Releases](https://github.com/VincentChevalier44/ACSetupLab/releases) (ou cloner le dépôt).
 2. Décompresser son contenu dans `assettocorsa/apps/lua/SetupLab/` (le dossier doit contenir `SetupLab.lua` et `manifest.ini`).
 3. En jeu, ouvrir **SetupLab** depuis la barre d'apps ou l'écran de setup. Une seconde fenêtre, **SetupLab Debug**, montre l'ordonnanceur, le coût par image et le journal.
 

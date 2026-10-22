@@ -46,10 +46,15 @@ end
 function M.writeNew(host, base, text)
   local r = { ok = false }
   local io = host.io
-  local okA, available = call(get(io, 'available'))
-  if not (okA and available == true) then
-    r.reason = 'pas d\'accès fichiers (io.available)'
-    return r
+  -- io.available (CSP 0.3) : faux ou en erreur, pas d'accès ; absente (CSP 0.2.11, la version gratuite, décision de
+  -- Vincent du 22/10/2026 : l'app doit y fonctionner) : écriture tentée, le fichier relu fait foi
+  local availableFn = get(io, 'available')
+  if availableFn ~= nil then
+    local okA, available = call(availableFn)
+    if not (okA and available == true) then
+      r.reason = 'pas d\'accès fichiers (io.available)'
+      return r
+    end
   end
   if type(text) ~= 'string' or #text == 0 then
     r.reason = 'contenu vide'

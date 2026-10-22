@@ -1,5 +1,12 @@
 # Journal des versions
 
+## 1.0.0-beta.2 — 22/10/2026 — compatible avec la CSP gratuite (0.2.11)
+
+Demande de Vincent : l'app doit fonctionner avec la version gratuite de Custom Shaders Patch, pas seulement avec la preview payante.
+- **CSP 0.2.11** (version publique recommandée, installée par Content Manager) : son SDK Lua, comparé fonction par fonction à celui de la 0.3.0-preview675, ne contient pas `io.available`, `ac.getAssists` ni `ac.getSetupTabs` (ni le champ `isTrackOpen`). Sans `io.available`, l'app refusait d'écrire tout fichier (ni « Valider », ni chargement possible) : désormais, quand la fonction est absente, l'écriture est tentée et le fichier relu fait foi ; une fonction présente qui répond « non » ou échoue bloque toujours l'écriture. Les trois autres manques étaient déjà sans effet bloquant (aides du jeu et onglets masqués non lus).
+- **Prérequis** : « CSP 0.2.11 ou plus récent » dans le README et la notice.
+- **Tests** : AU12 (CSP 0.2.11 simulée : découverte, calcul, Valider, chargement).
+
 ## 1.0.0-beta.1 — 22/10/2026 — première bêta publique (v1.0, bêta 1)
 
 Première version publiée sur GitHub (décision de Vincent : « on la présentera comme la version bêta numéro un, v1.0 »). Elle reprend tout le développement interne ci-dessous (versions 0.1.0 à 1.7.0), dont :

@@ -28,9 +28,9 @@ local function install(h)
   return app
 end
 
-local function boot(carId, session)
+local function boot(carId, session, opts)
   local h = Fake.new({ car = require('fixtures/cars/' .. (carId or 'lamborghini_huracan_gt3_evo2')),
-    track = require('fixtures/tracks/monza') })
+    track = require('fixtures/tracks/monza'), missing = opts and opts.missing })
   h.sim.raceSessionType = session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
@@ -117,8 +117,8 @@ local function shown(h, pattern)
   return nil
 end
 
-local function ready(carId, session)
-  local h, app = boot(carId, session)
+local function ready(carId, session, opts)
+  local h, app = boot(carId, session, opts)
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
   app.settings.compoundChoice = app.discovery.compoundIndex
   return h, app
@@ -658,6 +658,25 @@ tests['AU11 retouche au stand après un chargement : gardée par les calculs sui
   frames(h, 1)
   T.ok(waitFor(h, function() return app.quali and app.quali.state ~= 'running' end))
   T.eq(#app.quali.pinned, 0)
+  T.eq(app.perf.errors, 0)
+end
+
+-- CSP gratuite (0.2.11 ; décision de Vincent du 22/10/2026 : l'app doit fonctionner sans la preview payante).
+-- SDK comparé : io.available, ac.getAssists et ac.getSetupTabs y sont absents, comme le champ isTrackOpen. Le
+-- cycle complet marche : découverte, calcul, Valider (fichier écrit puis relu), chargement au stand.
+tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists ni getSetupTabs, le cycle complet marche'] = function()
+  local h, app = ready(nil, 2, { missing = { 'io.available', 'ac.getAssists', 'ac.getSetupTabs' } })
+  T.ok(app.static.ioAvailable and app.static.ioAssumed, 'accès fichiers supposé')
+  h.click = 'Affinage automatique (tour rapide)'
+  frames(h, 1)
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  h.click = 'Valider v1'
+  frames(h, 1)
+  T.eq(r.history[1].status, 'validée', tostring(app.ui.message))
+  T.eq(setupFiles(h), 1, 'fichier écrit et relu')
+  loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
+  T.eq(#h.loadCalls, 1)
   T.eq(app.perf.errors, 0)
 end
 
