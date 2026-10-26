@@ -308,7 +308,7 @@ local function nextInline(host, label)
   local ui = host.ui
   ui.sameLine()
   local okR, room = Util.call(ui.availableSpaceX)
-  local okM, size = Util.call(ui.measureText, label)
+  local okM, size = Util.call(ui.measureText, label:match('^(.-)###') or label)
   local need = okM and type(size) ~= 'number' and size and Util.isFinite(size.x) and size.x + K.uiButtonPad or nil
   if okR and need and Util.isFinite(room) and room < need then Util.call(ui.newLine) end
 end
@@ -749,7 +749,7 @@ local function changesTable(host, kind, r, palette)
   for _, c in ipairs(r.changes) do
     local from, to = M.physicalText(c.var.kind, c.from), M.physicalText(c.var.kind, c.to)
     local clicks = (c.clicks > 0 and '+' or '') .. c.clicks
-    local why = c.explanation
+    local why = L.lang == 'en' and c.explanationEn or c.explanation
     if c.atBound then why = (why and (why .. '\n') or '') .. 'À confirmer : optimum en limite de la plage explorée.' end
     local label = { text = c.var.label, color = c.atBound and palette.pending or nil, tip = why }
     local gain = c.atBound and { text = 'à confirmer', color = palette.pending, tip = 'Optimum en limite de la plage explorée.' }
@@ -2259,7 +2259,7 @@ function M.overlay(host, app)
         local gain = { text = signedGain(c.contribution or 0) .. (c.atBound and ' ?' or ''),
           color = palette[c.atBound and 'pending' or ((c.contribution or 0) >= 0 and 'available' or 'unavailable')],
           tip = c.atBound and 'À confirmer : optimum en limite de la plage explorée.' or nil }
-        rows[#rows + 1] = { { text = c.var.label, tip = c.explanation },
+        rows[#rows + 1] = { { text = c.var.label, tip = L.lang == 'en' and c.explanationEn or c.explanation },
           M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to), gain }
       end
       grid(host, 'overlay', { 0.42, 0.36, 0.22 }, rows)

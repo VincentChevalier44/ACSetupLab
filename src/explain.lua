@@ -180,14 +180,15 @@ local function sentence(W, label, c, ctx)
   return label .. sep .. fmt(c.from, 3) .. ' -> ' .. fmt(c.to, 3) .. gain
 end
 
--- Phrase d'un changement, en français (la phrase anglaise est apprise par la traduction). c : { var = { kind,
+-- Phrase d'un changement, en français puis en anglais (aussi apprise par la traduction). c : { var = { kind,
 -- label }, clicks, from, to, contribution } ; ctx : { stats (trackStats), before, after (métriques sans / avec le
 -- réglage : balance, rearLock, vMax, hot, ideal) }.
 function M.change(c, ctx)
   local label = c.var.label
   local fr = sentence(WORDS.fr, label, c, ctx)
-  L.remember(fr, sentence(WORDS.en, L.en(label), c, ctx))
-  return fr
+  local en = sentence(WORDS.en, L.en(label), c, ctx)
+  L.remember(fr, en)
+  return fr, en
 end
 
 return M

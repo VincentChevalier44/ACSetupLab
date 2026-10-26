@@ -870,7 +870,8 @@ function M.runQuali(p, ctx, state)
         var = var, clicks = chosen[i], from = Space.physical(var, 0), to = Space.physical(var, chosen[i]),
         contribution = Jwithout - Jp, atBound = sens.atBound == true,
       }
-      change.explanation = Explain.change(change, { stats = stats, before = metrics(without, var), after = after })
+      change.explanation, change.explanationEn = Explain.change(change, { stats = stats, before = metrics(without, var),
+        after = after })
       changes[#changes + 1] = change
     end
   end
@@ -1194,7 +1195,7 @@ function M.runRace(p, ctx, state)
         var = var, clicks = chosen[i], from = Space.physical(var, 0), to = Space.physical(var, chosen[i]),
         contribution = Jwithout - JpSampled, atBound = sens.atBound == true,
       }
-      change.explanation = Explain.change(change, { stats = raceStats })
+      change.explanation, change.explanationEn = Explain.change(change, { stats = raceStats })
       changes[#changes + 1] = change
     end
   end
