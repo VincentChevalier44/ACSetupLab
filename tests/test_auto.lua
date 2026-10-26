@@ -266,9 +266,7 @@ tests['AU03 valider : enregistrée, référence en mémoire ; écarter : jamais 
   T.eq(setupFiles(h), 0, 'rien d\'écrit avant « Valider »')
   frames(h, 1)
   T.ok(shown(h, 'v1 prête : gain prévu'), 'v1 affichée')
-  local node = false
-  for _, label in ipairs(h.nodes or {}) do node = node or label == 'Réglages de v1' end
-  T.ok(node, 'ses réglages affichés (section ouverte)')
+  T.ok(shown(h, 'Effets gardés : '), 'ses effets affichés (1.5 : gardés ou refusés un par un)')
   h.click = 'Valider v1'
   frames(h, 1)
   T.eq(v1.status, 'validée')
@@ -586,7 +584,7 @@ tests['AU10 chargement : état du stand et refus sous le bouton, confirmation av
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   frames(h, 1)
-  T.ok(shown(h, 'Étape suivante : Valider'), 'étape suivante dite')
+  T.ok(shown(h, 'Étape suivante : « Essayer v1 »'), 'étape suivante dite')
   h.click = 'Valider v1'
   frames(h, 1)
   -- au stand, menu de setup fermé

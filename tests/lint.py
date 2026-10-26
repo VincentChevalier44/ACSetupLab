@@ -33,7 +33,7 @@ CSP_GLOBALS = {'ac', 'physics', 'io', 'ui', 'vec2', 'vec3', 'rgbm', 'script', '_
 
 # Rôles (D5). Le noyau pur ne lit aucune API ; les modules d'E/S reçoivent l'hôte injecté.
 CORE = {'util', 'config', 'track_model', 'car_model', 'setup_space', 'laptime_sim', 'stint_sim', 'ers', 'ers_plan', 'explain',
-        'optimizer', 'calibration'}
+        'optimizer', 'calibration', 'i18n', 'lang_en'}
 IO = {'caps', 'datasource', 'recorder', 'exporter', 'store'}
 UI = {'ui'}
 
@@ -281,7 +281,8 @@ class Checker:
                 self.errors.append(f'{self.path.name}:{number}: tab character')
             if line != line.rstrip():
                 self.errors.append(f'{self.path.name}:{number}: trailing whitespace')
-            if len(line) > MAX_LINE:
+            # dictionnaire généré de l'interface anglaise (tests/tools/gen_lang.py) : lignes longues permises
+            if len(line) > MAX_LINE and self.path.name != 'lang_en.lua':
                 self.errors.append(f'{self.path.name}:{number}: line longer than {MAX_LINE}')
             if TEXT_FORBIDDEN.search(line):
                 self.errors.append(f'{self.path.name}:{number}: TODO/FIXME/XXX forbidden (§0.2)')

@@ -109,6 +109,35 @@ M.settings = {
 M.byKey = {}
 for _, def in ipairs(M.settings) do M.byKey[def.key] = def end
 
+-- Aide de chaque réglage modifiable (décision de Vincent du 26/10/2026 : « des explications absolument sur chaque
+-- paramètre »), au survol dans l'onglet Réglages ; traduite comme le reste de l'interface.
+M.help = {
+  compoundChoice = 'Composé de pneus imposé au calcul, par son numéro dans la voiture (0 = le premier). -1 : SetupLab choisit '
+    .. 'lui-même le composé le plus rapide pour la température de piste mesurée.',
+  fuelMarginPct = 'Carburant ajouté en course en plus de la consommation prévue, en pourcentage. Plus de marge : moins de '
+    .. 'risque de panne sèche, voiture un peu plus lourde.',
+  fuelQualiLaps = 'Tours de carburant embarqués pour un setup de tour rapide (0 = la règle par défaut : tour de sortie, '
+    .. 'tour lancé et tour de rentrée).',
+  perfStab = 'Équilibre recherché par le calcul : vers 0, le setup le plus rapide possible ; vers 1, un setup plus stable et '
+    .. 'plus facile à piloter, au prix d\'un peu de temps.',
+  drsTrafficPct = 'Part des tours de course où vous pensez être dans la fenêtre du DRS (trafic). Sert au réglage d\'aileron '
+    .. 'et de rapports en course.',
+  driverMarginPct = 'Rend le modèle plus optimiste sur votre pilotage, en pourcentage d\'adhérence. À laisser à 0 tant que le '
+    .. 'modèle est calibré sur vos tours.',
+  optBudgetEvalsQ = 'Nombre de setups essayés par le calcul de tour rapide. Plus : un meilleur résultat, un calcul plus long '
+    .. '(il tourne en tâche de fond, sans à-coup).',
+  optBudgetEvalsC = 'Nombre de relais simulés par le calcul de course. Plus : un meilleur résultat, un calcul plus long.',
+  calibrationAuto = 'Après chaque tour propre, SetupLab ajuste son modèle de la voiture sur vos temps réels (adhérence, '
+    .. 'puissance, traînée, appui, freinage). À laisser coché.',
+  wetAidLevels = 'Sous la pluie, nombre de crans d\'antipatinage et d\'ABS ajoutés aux aides du setup. 0 : aides inchangées.',
+  refineLaps = 'Pendant l\'affinage, nombre de tours propres entre deux calculs. 0 : un nouveau calcul à chaque tour propre.',
+  refineMinLaps = 'Nombre minimum de tours propres avec le setup actuellement dans la voiture avant que SetupLab propose un '
+    .. 'setup ou une modification. Compté de nouveau après chaque chargement.',
+  refineMinMinutes = 'Durée minimum de roulage, en minutes, avec le setup actuellement dans la voiture avant une proposition '
+    .. '(en piste, voiture en mouvement). 0 : pas de durée minimum. Les tours et la durée doivent être atteints tous les deux.',
+  language = 'Langue de toute l\'application : menus, messages, aides et overlay.',
+}
+
 -- Constantes internes (réglables ici uniquement).
 M.K = {
   -- Boucle d'exécution (§5)

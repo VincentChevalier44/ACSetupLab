@@ -65,7 +65,7 @@ tests['I01 onglets et bandeau (§12.1)'] = function()
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
   frame(h)
-  T.eq(table.concat(h.tabs, ','), 'Tour rapide,Course,Mesure,Réglages,Capacités')
+  T.eq(table.concat(h.tabs, ','), 'QUALIF,COURSE,MÉMOIRE,MESURE,RÉGLAGES,DIAGNOSTIC,AIDE')
   T.ok(shown(h, 'Données : fichiers de la voiture ; modèle non calibré'), 'bandeau')
   -- un seul onglet affiché : le reste ne l'est pas
   h.tab = 'Course'
@@ -454,7 +454,7 @@ tests['I12 tous les types de séance (essai, journée circuit, qualification, co
     local buttons = {}
     local button = h.ui.button
     h.ui.button = function(s)
-      buttons[s] = true
+      buttons[s:match('^(.-)###') or s] = true
       return button(s)
     end
     T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end), label .. ' : découverte')

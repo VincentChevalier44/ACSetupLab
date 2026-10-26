@@ -11,24 +11,32 @@ local Util = require('src/util')
 local Config = require('src/config')
 local Caps = require('src/caps')
 local SetupSpace = require('src/setup_space')
+local L = require('src/i18n')
 
 local M = {}
 
 local K = Config.K
 
 local STATUS_COLOR = {
+  -- palette de SuperHUD (décision de Vincent du 26/10/2026 : « comme une autre application que j'ai faite ») : fond
+  -- anthracite, accent bleu, texte clair, secondaire gris
   available = { 0.35, 0.85, 0.45, 1 },
   pending = { 1.0, 0.75, 0.25, 1 },
   unavailable = { 1.0, 0.35, 0.3, 1 },
-  na = { 0.6, 0.6, 0.6, 1 },
-  text = { 0.93, 0.94, 0.96, 1 },
-  muted = { 0.6, 0.63, 0.68, 1 },
-  accent = { 0.42, 0.7, 1.0, 1 },
-  tile = { 1, 1, 1, 0.055 },
+  na = { 0.58, 0.63, 0.65, 1 },
+  text = { 0.92, 0.94, 0.96, 1 },
+  muted = { 0.58, 0.63, 0.65, 1 },
+  accent = { 0.20, 0.59, 1.0, 1 },
+  tile = { 0.15, 0.16, 0.17, 1 },
+  line = { 0.22, 0.24, 0.26, 1 },
+  field = { 0.15, 0.16, 0.17, 1 },
+  fieldHover = { 0.22, 0.25, 0.28, 1 },
+  accentDark = { 0.12, 0.42, 0.78, 1 },
+  bg = { 0.08, 0.085, 0.087, 0.97 },
   overlay = { 0.04, 0.05, 0.07, 0.62 }, -- fond de l'overlay en jeu (fenêtre sans fond : lisible sur la piste)
   -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles)
-  primaryButton = { 0.16, 0.42, 0.78, 1 }, primaryButtonHovered = { 0.22, 0.51, 0.9, 1 },
-  primaryButtonActive = { 0.12, 0.34, 0.66, 1 },
+  primaryButton = { 0.20, 0.59, 1.0, 1 }, primaryButtonHovered = { 0.30, 0.66, 1.0, 1 },
+  primaryButtonActive = { 0.12, 0.42, 0.78, 1 },
   goButton = { 0.12, 0.52, 0.28, 1 }, goButtonHovered = { 0.16, 0.63, 0.35, 1 }, goButtonActive = { 0.09, 0.42, 0.22, 1 },
   dangerButton = { 0.6, 0.18, 0.15, 1 }, dangerButtonHovered = { 0.72, 0.23, 0.2, 1 }, dangerButtonActive = { 0.48, 0.14, 0.12, 1 },
 }
@@ -36,6 +44,69 @@ local STATUS_COLOR = {
 function M.new()
   return { message = nil, messageAt = 0, colors = nil, point = nil, showCaps = false, vecs = {} }
 end
+
+-- Langue (décision de Vincent du 26/10/2026 : anglais par défaut, français au choix, tout traduit) : l'interface
+-- dessine à travers un ui qui traduit chaque texte affiché et chaque libellé de bouton, case, onglet, section, curseur
+-- et saisie. Un libellé garde son identifiant ImGui français (« ### ») : les mêmes boutons dans les deux langues.
+local lblCache, lblCount = { en = {}, fr = {} }, 0
+local function lbl(text)
+  if type(text) ~= 'string' then return text end
+  local cache = lblCache[L.lang]
+  local hit = cache[text]
+  if hit then return hit end
+  local visible, id = text:match('^(.-)###(.*)$')
+  if visible == nil then visible, id = text, text end
+  local out = L.t(visible) .. '###' .. id
+  if lblCount >= 2000 then lblCache, lblCount = { en = {}, fr = {} }, 0 end
+  lblCache[L.lang][text], lblCount = out, lblCount + 1
+  return out
+end
+
+local TRANSLATED = {
+  text = function(real, s, ...) return real.text(L.t(s), ...) end,
+  textWrapped = function(real, s, ...) return real.textWrapped(L.t(s), ...) end,
+  textColored = function(real, s, ...) return real.textColored(L.t(s), ...) end,
+  drawText = function(real, s, ...) return real.drawText(L.t(s), ...) end,
+  setTooltip = function(real, s, ...) return real.setTooltip(L.t(s), ...) end,
+  measureText = function(real, s, ...) return real.measureText(L.t(type(s) == 'string' and (s:match('^(.-)###') or s) or s), ...) end,
+  button = function(real, s, ...) return real.button(lbl(s), ...) end,
+  checkbox = function(real, s, ...) return real.checkbox(lbl(s), ...) end,
+  slider = function(real, s, ...) return real.slider(lbl(s), ...) end,
+  inputText = function(real, s, ...) return real.inputText(lbl(s), ...) end,
+  tabItem = function(real, s, ...) return real.tabItem(lbl(s), ...) end,
+  treeNode = function(real, s, ...) return real.treeNode(lbl(s), ...) end,
+  selectable = function(real, s, ...) return real.selectable(lbl(s), ...) end,
+  progressBar = function(real, f, size, overlay, ...) return real.progressBar(f, size, L.t(overlay), ...) end,
+}
+
+-- Hôte qui dessine en traduisant (créé une fois par hôte).
+function M.translating(host)
+  if host.translating then return host end
+  local real = host.ui
+  local proxy = setmetatable({}, { __index = function(t, key)
+    local value = real[key]
+    local wrap = TRANSLATED[key]
+    if wrap and type(value) == 'function' then
+      local fn = function(...) return wrap(real, ...) end
+      rawset(t, key, fn)
+      return fn
+    end
+    return value
+  end })
+  return setmetatable({ ui = proxy, translating = true }, { __index = host })
+end
+
+local translated = setmetatable({}, { __mode = 'k' })
+local function hostFor(host, app)
+  L.set(app.settings and app.settings.language)
+  local h = translated[host]
+  if h == nil or h.ui == nil then
+    h = M.translating(host)
+    translated[host] = h
+  end
+  return h
+end
+M.hostFor = hostFor
 
 -- Couleurs construites une seule fois (rgbm est fourni par l'hôte).
 local function colors(state, host)
@@ -828,9 +899,9 @@ end
 -- Affinage (demande de Vincent du 21/10/2026)
 -- ---------------------------------------------------------------------------
 
--- Étapes d'une version, faites en vert, la suivante en bleu (décision de Vincent du 22/10/2026 : « qu'on
--- comprenne mieux comment ça fonctionne »).
-local STEPS = { 'Proposée', 'Validée (enregistrée)', 'Chargée au stand', 'Roulée' }
+-- Étapes d'une version (décision de Vincent du 26/10/2026 : essai complet, puis chaque effet gardé ou refusé, puis
+-- validation), faites en vert, la suivante en bleu.
+local STEPS = { 'Proposée', 'Essayée', 'Effets triés', 'Validée' }
 local function stepsLine(host, palette, reached)
   withFont(host, 'Small', function()
     for i, label in ipairs(STEPS) do
@@ -848,15 +919,62 @@ local function realText(stats, kind)
   return M.lapTime(t) .. ' (' .. (kind == 'race' and 'moy. ' or '') .. stats.count .. ' tour' .. (stats.count > 1 and 's' or '') .. ')'
 end
 
--- Une version de l'affinage. En attente (rien d'enregistré avant sa validation) : gain prévu, objectif estimé
--- sur vos temps, réglages, Valider en couleur. Validée : à charger (étape suivante), puis vos temps avec elle
--- contre ceux d'avant ; plus lente en réalité : Écarter en rouge. suffix : libellés de la version en piste
--- quand ce n'est pas la dernière (identifiants ImGui uniques).
+local function effectGain(gain)
+  return (gain >= 0 and '+' or '-') .. Util.fmt(math.abs(gain), 3) .. ' s'
+end
+
+-- Effets d'une version (décision de Vincent du 26/10/2026 : « il devra valider l'effet sur les ailerons arrière, sur
+-- le carrossage, sur la transmission ») : chacun gardé (vert) ou refusé (rouge) d'un clic, avec son gain prévu et ses
+-- réglages (tous au survol). Après la validation : la liste, sans bouton.
+local function effectsList(host, app, intents, e, palette, kind)
+  local groups = e.groups or {}
+  if #groups == 0 then return end
+  local editable = e.status == nil or e.status == 'essai'
+  local kept = 0
+  for _, g in ipairs(groups) do
+    if g.keep then kept = kept + 1 end
+  end
+  small(host, 'Effets gardés : ' .. kept .. '/' .. #groups .. (editable and ' — un clic pour garder ou refuser' or ''),
+    palette.muted)
+  for _, g in ipairs(groups) do
+    local details = {}
+    for _, item in ipairs(g.items) do
+      local c = item.change
+      if c then
+        details[#details + 1] = c.var.label .. ' ' .. M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to)
+          .. ' (' .. effectGain(c.contribution or 0) .. ')'
+      elseif item.compound then
+        details[#details + 1] = 'Composé de pneus : ' .. tostring(e.compound and e.compound.name)
+      elseif item.aid then
+        details[#details + 1] = (AID_NAMES[item.aid] or item.aid) .. ' ' .. tostring(item.from) .. ' › ' .. tostring(item.to)
+      end
+    end
+    if editable then
+      local id = '###effect_' .. kind .. '_' .. e.version .. '_' .. g.key
+      if actionButton(host, app.ui, palette, (g.keep and 'Gardé' or 'Refusé') .. id, g.keep and 'go' or 'danger', false) then
+        intents.effect = { version = e.version, key = g.key, keep = not g.keep }
+      end
+      tip(host, g.keep and 'Gardé : cet effet sera dans la version validée. Un clic pour le refuser.'
+        or 'Refusé : ses réglages gardent leur ancienne valeur, dans cette version et dans les calculs suivants. Un clic pour le garder.')
+      host.ui.sameLine()
+    end
+    colored(host, g.label .. ' · ' .. effectGain(g.contribution or 0) .. ' prévu · ' .. tostring(details[1] or '')
+      .. (#details > 1 and (' (+' .. (#details - 1) .. ')') or '') .. ((not editable and not g.keep) and ' · refusé' or ''),
+      palette[g.keep and 'text' or 'muted'])
+    tip(host, table.concat(details, '\n'))
+  end
+end
+
+-- Une version de l'affinage (décision de Vincent du 26/10/2026) : proposée (rien d'enregistré), essayée (fichier
+-- d'essai chargé au stand, roulé), effets triés, validée (fichier des effets gardés). suffix : libellés de la version
+-- en piste quand ce n'est pas la dernière (identifiants ImGui uniques).
 local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   local ui = host.ui
   local v = 'v' .. e.version
   local driven = r.driven == e.version
   local mine, before = realLaps(app, e.family, e.bucket), realLaps(app, e.originFamily, e.bucket)
+  -- version partielle : vos tours ont été faits avec son essai complet
+  if e.trialFamily and (mine == nil or mine.count == 0) then mine = realLaps(app, e.trialFamily, e.bucket) end
   local tMine, tBefore = realTime(mine, kind), realTime(before, kind)
   if e.status == 'écartée' then
     small(host, v .. ' non gardée : pas reproposée.' .. (driven and ' Encore dans la voiture : charger la référence au stand.' or ''),
@@ -864,71 +982,97 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     return
   end
   local verdict = nil
+  local function timesLine()
+    if not (driven or tMine) then return end
+    local line = 'Vos temps : ' .. v .. ' ' .. realText(mine, kind) .. ' ; avant ' .. realText(before, kind)
+    if tMine and tBefore then
+      local diff = tBefore - tMine
+      line = line .. ' ; gain réel ' .. gainText(diff) .. ' (prévu ' .. gainText(e.gain) .. ')'
+      if mine.count >= 2 and before.count >= 2 and math.abs(diff) > K.validateTolAbs then
+        verdict = diff > 0 and 'faster' or 'slower'
+      end
+    end
+    wrapped(host, line, palette[verdict == 'slower' and 'unavailable' or (verdict == 'faster' and 'available' or 'muted')])
+    if verdict == 'slower' then
+      wrapped(host, v .. ' est plus lente en réalité que votre setup d\'avant : ne pas la garder (Recommencer) ?',
+        palette.unavailable)
+    end
+  end
+  local kept, total = 0, #(e.groups or {})
+  for _, g in ipairs(e.groups or {}) do
+    if g.keep then kept = kept + 1 end
+  end
+  local base = app.fileBase and app.fileBase(kind, e.bucket) .. '_v' .. e.version or v
   if e.status == nil then
     -- en piste : provisoire, l'analyse continue jusqu'au retour au stand (décision de Vincent du 22/10/2026)
     local ready = e.ready ~= false
     local analyzed = before and before.count or 0
-    stepsLine(host, palette, 1)
+    stepsLine(host, palette, 0)
     wrapped(host, v .. (ready and ' prête : gain prévu ' or ' en préparation : gain prévu provisoire ') .. Util.fmt(e.gain, 3) .. ' s'
       .. (tBefore and (' ; objectif estimé ' .. M.lapTime(tBefore - e.gain) .. ' (votre ' .. M.lapTime(tBefore)
-        .. ' moins le gain prévu)') or ' ; roulez un tour propre pour un objectif sur vos temps')
-      .. (e.file and (' — déjà enregistrée : ' .. e.file) or ''), palette.accent)
+        .. ' moins le gain prévu)') or ' ; roulez un tour propre pour un objectif sur vos temps'), palette.accent)
     if not ready then
       small(host, 'SetupLab continue d\'analyser vos tours (' .. analyzed .. ' analysé' .. (analyzed > 1 and 's' or '')
-        .. ') ; elle sera prête à votre retour au stand. Vous pouvez déjà la valider.', palette.pending)
-    else
-      small(host, (e.updates or 0) > 0 and ('Mise à jour ' .. e.updates .. ' fois avec vos tours ; la suivante au prochain tour propre.')
-        or 'Mise à jour au prochain tour propre, avec les données de ce tour.', palette.muted)
+        .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
-    if e.changeList then
-      section(host, 'Réglages de ' .. v, 'version_' .. kind .. '_' .. e.version, true, function()
-        changesTable(host, kind .. '_version', { changes = e.changeList, refined = e.refined or 1 }, palette)
-      end)
+    effectsList(host, app, intents, e, palette, kind)
+    small(host, 'Étape suivante : « Essayer ' .. v .. ' » écrit le setup proposé entier dans un fichier d\'essai ; le charger '
+      .. 'au stand et rouler, puis garder ou refuser chaque effet et valider.', palette.accent)
+    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', true) then
+      intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
-    small(host, 'Étape suivante : Valider (le fichier est enregistré), puis le charger au stand.', palette.accent)
-    if actionButton(host, app.ui, palette, 'Valider ' .. v .. suffix, 'primary', true) then
+    tip(host, 'Écrit ' .. base .. '_essai.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé '
+      .. 'avant la validation.')
+    if actionButton(host, app.ui, palette, 'Valider sans essai (' .. kept .. '/' .. total .. ' effets)###Valider ' .. v .. suffix,
+      nil, false) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    tip(host, 'Enregistre le fichier ' .. (app.fileBase and (app.fileBase(kind, e.bucket) .. '_v' .. e.version .. '.ini') or '')
-      .. ' et en fait le setup de référence de cette séance, gardé en mémoire pour ce circuit ; au stand, « Charger » pour '
-      .. 'l\'essayer. Les copies « Avant chargement » identiques à un fichier gardé partent alors à la Corbeille.')
-  else
-    stepsLine(host, palette, driven and ((mine and mine.count > 0) and 4 or 3) or 2)
-    wrapped(host, v .. ' : ' .. tostring(e.file) .. ' — ' .. e.status .. (driven and ' (en piste)' or ''),
-      palette[driven and 'available' or 'text'])
-    if driven or tMine then
-      local line = 'Vos temps : ' .. v .. ' ' .. realText(mine, kind) .. ' ; avant ' .. realText(before, kind)
-      if tMine and tBefore then
-        local diff = tBefore - tMine
-        line = line .. ' ; gain réel ' .. gainText(diff) .. ' (prévu ' .. gainText(e.gain) .. ')'
-        if mine.count >= 2 and before.count >= 2 and math.abs(diff) > K.validateTolAbs then
-          verdict = diff > 0 and 'faster' or 'slower'
-        end
-      end
-      wrapped(host, line, palette[verdict == 'slower' and 'unavailable' or (verdict == 'faster' and 'available' or 'muted')])
-      if verdict == 'slower' then
-        wrapped(host, v .. ' est plus lente en réalité que votre setup d\'avant : ne pas la garder (Recommencer) ?',
-          palette.unavailable)
-      end
+    tip(host, 'Enregistre tout de suite ' .. base .. '.ini avec les effets gardés, sans l\'essayer ; il devient le setup de '
+      .. 'référence de cette séance, gardé en mémoire pour ce circuit.')
+  elseif e.status == 'essai' then
+    stepsLine(host, palette, driven and ((mine and mine.count > 0) and 2 or 1) or 1)
+    wrapped(host, v .. ' en essai : ' .. tostring(e.trial and e.trial.file) .. (driven and ' (en piste)' or ' — à charger au stand'),
+      palette[driven and 'available' or 'accent'])
+    timesLine()
+    effectsList(host, app, intents, e, palette, kind)
+    small(host, driven and 'Étape suivante : gardez ou refusez chaque effet, puis validez.'
+      or 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
+    if actionButton(host, app.ui, palette, 'Valider ' .. v .. ' (' .. kept .. '/' .. total .. ' effets)###Valider ' .. v .. suffix,
+      driven and 'primary' or nil, true) then
+      intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    if not driven then small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous).', palette.accent) end
+    tip(host, 'Enregistre ' .. base .. '.ini avec les seuls effets gardés et en fait le setup de référence de cette séance, gardé '
+      .. 'en mémoire pour ce circuit. Les effets refusés gardent leur ancienne valeur dans les calculs suivants.')
+  else
+    stepsLine(host, palette, 4)
+    wrapped(host, v .. ' : ' .. tostring(e.file) .. ' — ' .. e.status .. (driven and not e.trialInCar and ' (en piste)' or ''),
+      palette[driven and 'available' or 'text'])
+    if total > 0 and kept < total then small(host, kept .. '/' .. total .. ' effets gardés.', palette.muted) end
+    timesLine()
+    if e.trialInCar then
+      small(host, 'L\'essai complet est encore dans la voiture : charger ' .. v .. ' (effets gardés) au stand.', palette.pending)
+    elseif not driven then
+      small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous).', palette.accent)
+    end
+    effectsList(host, app, intents, e, palette, kind)
   end
   -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») : ne pas garder cette version,
-  -- ne pas la réutiliser ; validée puis essayée : la référence d'avant revient (son fichier reste, D8)
+  -- ne pas la réutiliser ; validée puis essayée : la référence d'avant revient (son fichier part à la Corbeille)
   local lock = 'Figer ' .. v .. suffix .. ' (cadenas)'
   local no = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix
   if actionButton(host, app.ui, palette, no, verdict == 'slower' and 'danger' or nil, false) then
     intents.refineJudge = { version = e.version, verdict = 'écarter' }
   end
-  tip(host, e.status == nil and ('Cette version n\'est ni gardée ni réutilisée (rien n\'est enregistré) ; SetupLab repart de '
-    .. 'votre setup actuel et propose autre chose avec vos prochains tours.')
-    or ('Cette version n\'est plus réutilisée : la référence d\'avant redevient le setup à charger ; son fichier part à la '
-      .. 'Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).'))
+  tip(host, e.status == 'validée'
+    and ('Cette version n\'est plus réutilisée : la référence d\'avant redevient le setup à charger ; son fichier part à la '
+      .. 'Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).')
+    or ('Cette version n\'est ni gardée ni réutilisée ; SetupLab repart de votre setup actuel et propose autre chose avec vos '
+      .. 'prochains tours. Un fichier d\'essai part à la Corbeille.'))
   nextInline(host, lock)
   padlock(host, true)
   if ui.button(lock) then intents.refineLock = e.version end
-  tip(host, 'Setup validé et verrouillé : gardé en mémoire pour ce circuit, cette séance et cet état de piste, proposé à '
-    .. 'chaque visite ; l\'affinage automatique s\'arrête. Déverrouillable (Mémoire du circuit).')
+  tip(host, 'Valide (effets gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, '
+    .. 'proposé à chaque visite ; l\'affinage automatique s\'arrête. Déverrouillable (onglet Mémoire).')
 end
 
 -- Carte du mode affinage : phase et raison d'attente, dernière version et son chargement au stand,
@@ -1030,6 +1174,12 @@ local function computeArea(host, app, intents, kind, palette)
   local q = app[kind]
   local blocker = 'colle non prête'
   if app.qualiBlocker then blocker = app.qualiBlocker() end
+  -- course (décision de Vincent du 26/10/2026) : qualification validée, montée, nombre de tours (encadré au-dessus)
+  local raceWhy = nil
+  if blocker == nil and kind == 'race' and app.raceBlocker then
+    raceWhy = app.raceBlocker()
+    blocker = raceWhy
+  end
   -- découverte en cours : le bouton reste, le calcul suivra la découverte
   if app.discoveryState == 'running' and not app.inert then blocker = nil end
   if app.pendingComputes and app.pendingComputes[kind] then
@@ -1046,6 +1196,8 @@ local function computeArea(host, app, intents, kind, palette)
       ui.sameLine()
       small(host, 'Meilleur gain provisoire : ' .. Util.fmt(o.currentJ - o.bestJ, 3) .. ' s (critère pénalisé)', palette.muted)
     end
+  elseif raceWhy then
+    small(host, 'Calcul course en attente : ' .. raceWhy .. '.', palette.pending)
   elseif blocker then
     wrapped(host, 'Calcul indisponible : ' .. blocker, palette.pending)
     if app.discoveryState == 'failed' and ui.button(spec.rediscover) then intents.rediscover = true end
@@ -1289,14 +1441,60 @@ local function nameRow(host, app, intents, kind, palette)
   if app.filesNote then small(host, app.filesNote, palette.muted) end
 end
 
+-- Nombre de tours de la course prévue dans la séance (indication), ou nil.
+local function sessionRaceLaps(app)
+  local s = app.discovery and app.discovery.session
+  for _, one in ipairs(s and s.sessions or {}) do
+    if one.type == 3 and Util.isFinite(one.laps) and one.laps > 0 then return math.floor(one.laps) end
+  end
+  return nil
+end
+
+-- Avant le setup de course (décision de Vincent du 26/10/2026 : « il faut attendre d'avoir fait un setup de
+-- qualification avant » ; « l'utilisateur devra saisir le nombre de tours ») : les trois conditions, chacune avec ce
+-- qui la remplit.
+local function racePanel(host, app, intents, palette)
+  if not (app.raceBlocker and app.raceReference) then return end
+  local why, action = app.raceBlocker()
+  local m = app.raceReference()
+  card(host, app.ui, palette[why and 'pending' or 'available'], function()
+    colored(host, 'Le setup de course part de votre setup de qualification validé', palette.text)
+    tip(host, 'Le calcul de course part du setup de qualification validé sur ce circuit (sinon celui d\'essai), monté dans la '
+      .. 'voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi (carburant, usure, relais).')
+    colored(host, '1. Qualification validée : ' .. (m and tostring(m.file) or 'aucune — en valider une dans l\'onglet QUALIF'),
+      palette[m and 'available' or 'pending'])
+    local mounted = m ~= nil and action ~= 'load'
+    colored(host, '2. Dans la voiture : ' .. (mounted and 'oui' or 'non'), palette[mounted and 'available' or 'pending'])
+    if m and action == 'load' then
+      if actionButton(host, app.ui, palette, 'Charger le setup de qualification validé', 'go', true) then intents.raceRefLoad = true end
+      tip(host, 'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.')
+      loadFollow(host, app, intents, 'quali', palette, 'memory')
+    end
+    local laps = app.raceLaps
+    colored(host, '3. Tours de la course : ' .. (laps and tostring(laps) or 'à saisir'), palette[laps and 'available' or 'pending'])
+    if host.ui.slider then
+      local ok, value, changed = Util.call(host.ui.slider, 'Tours de la course###race_laps', laps or 0, 0, 150, '%.0f', true)
+      if ok and changed then
+        local n = math.floor((tonumber(value) or 0) + 0.5)
+        if n >= 1 and n ~= laps then intents.raceLaps = n end
+      end
+      tip(host, 'Nombre de tours de la course à préparer (carburant, usure, relais), gardé pour cette voiture sur ce circuit. '
+        .. 'Ctrl + clic pour saisir une valeur au clavier.')
+    end
+    local hint = sessionRaceLaps(app)
+    if hint then small(host, 'Course prévue dans la séance : ' .. hint .. ' tours.', palette.muted) end
+    if why then small(host, 'À faire : ' .. why .. '.', palette.pending) end
+  end)
+end
+
 local function kindSection(host, app, intents, kind, palette)
   local spec = KIND[kind]
   local q = app[kind]
   local d = app.discovery
   small(host, spec.intro, palette.muted)
+  if kind == 'race' then racePanel(host, app, intents, palette) end
   local refineOwnsLoad = refineCard(host, app, intents, kind, palette)
   pinsLine(host, app, intents, kind, palette)
-  memoryCard(host, app, intents, kind, palette)
   computeArea(host, app, intents, kind, palette)
   nameRow(host, app, intents, kind, palette)
   local r = q and q.state == 'done' and q.result or nil
@@ -1518,21 +1716,36 @@ end
 -- (la colle valide, applique et enregistre).
 M.EDITABLE = Config.EDITABLE
 
-local function settingsEditor(host, app, intents)
+-- Choix de la langue (décision de Vincent du 26/10/2026 : anglais par défaut, français au choix).
+local LANGUAGES = { { 'en', 'English' }, { 'fr', 'Français' } }
+local function languageButtons(host, app, intents, palette, short)
+  for i, item in ipairs(LANGUAGES) do
+    if i > 1 then host.ui.sameLine() end
+    local label = (short and item[1]:upper() or item[2]) .. '###lang_' .. item[1] .. (short and '_short' or '')
+    if actionButton(host, app.ui, palette, label, app.settings.language == item[1] and 'primary' or nil, false) then
+      intents.setting = { key = 'language', value = item[1] }
+    end
+    tip(host, Config.help.language)
+  end
+end
+
+local function settingsEditor(host, app, intents, palette)
   local ui = host.ui
+  colored(host, 'Langue', palette.text)
+  languageButtons(host, app, intents, palette, false)
   section(host, 'Réglages de l\'app (conservés d\'une séance à l\'autre)', 'app_settings', true, function()
     for _, key in ipairs(M.EDITABLE) do
-      for _, def in ipairs(Config.settings) do
-        if def.key == key then
-          local value = app.settings[key]
-          if def.kind == 'boolean' then
-            if ui.checkbox(def.label, value) then intents.setting = { key = key, value = not value } end
-          elseif ui.slider then
-            local ok, nextValue, changed = Util.call(ui.slider, def.label, value, def.min, def.max,
-              def.kind == 'integer' and '%.0f' or '%.2f', def.kind == 'integer' and true or 1)
-            if ok and changed and nextValue ~= value then intents.setting = { key = key, value = nextValue } end
-          end
+      local def = Config.byKey[key]
+      if def and key ~= 'language' then
+        local value = app.settings[key]
+        if def.kind == 'boolean' then
+          if ui.checkbox(def.label, value) then intents.setting = { key = key, value = not value } end
+        elseif ui.slider then
+          local ok, nextValue, changed = Util.call(ui.slider, def.label, value, def.min, def.max,
+            def.kind == 'integer' and '%.0f' or '%.2f', def.kind == 'integer' and true or 1)
+          if ok and changed and nextValue ~= value then intents.setting = { key = key, value = nextValue } end
         end
+        tip(host, Config.help[key])
       end
     end
   end)
@@ -1605,31 +1818,50 @@ function M.autoLine(app)
   return 'Actif : affinage ' .. KIND[kind].name .. ' au démarrage…', 'pending'
 end
 
--- Bandeau (§12.1) : voiture et circuit en titre, état, séance, source des données, confiance du modèle,
--- statut des calculs ; identifiants et version au survol du titre.
+-- Trait de couleur sur toute la largeur (sous l'en-tête, comme SuperHUD).
+local function rule(host, state, color, thickness)
+  local ui = host.ui
+  local okC, cursor = Util.call(ui.getCursor)
+  local okW, avail = Util.call(ui.availableSpaceX)
+  local p, q = vec(host, state, 'ruleA'), vec(host, state, 'ruleB')
+  if not (okC and cursor and okW and Util.isFinite(avail) and p and q) then return end
+  p.x, p.y = cursor.x, cursor.y + 2
+  q.x, q.y = cursor.x + avail, cursor.y + 2 + thickness
+  Util.call(ui.drawRectFilled, p, q, color, 0)
+  q.x, q.y = avail, thickness + 6
+  Util.call(ui.dummy, q)
+end
+
+-- En-tête (décision de Vincent du 26/10/2026 : « comme SuperHUD ») : SETUPLAB, version, langue, SetupLab actif ;
+-- voiture, circuit et séance ; état de l'affinage ; état des données et des calculs.
 local function header(host, app, intents, palette)
+  local ui = host.ui
   local d = app.discovery
-  local title = {}
-  if d and d.car then title[#title + 1] = tostring(d.car.name) end
-  if d and d.trackFiles then title[#title + 1] = tostring(d.trackFiles.name) end
-  withFont(host, 'Title', function()
-    colored(host, #title > 0 and table.concat(title, '  ·  ') or Config.appName, palette.text)
-  end)
+  withFont(host, 'Title', function() colored(host, 'SETUPLAB', palette.text) end)
   tip(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone
     .. (d and d.car and ('\nVoiture : ' .. tostring(d.car.id)) or '')
     .. (d and d.trackFiles and ('\nCircuit : ' .. tostring(d.trackFiles.fullId)) or ''))
+  ui.sameLine()
+  colored(host, Config.version, palette.muted)
+  ui.sameLine()
+  languageButtons(host, app, intents, palette, true)
   -- SetupLab actif (décision de Vincent du 21/10/2026 : « on l'ouvre, on l'active, on roule »)
-  if host.ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
+  nextInline(host, 'SetupLab actif')
+  if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
   tip(host, 'Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et '
-    .. 'qualification ; course en course), enregistre chaque version améliorée et propose de la charger au stand ; à vous '
-    .. 'de la valider, de recommencer ou de la figer. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce '
-    .. 'lancement d\'AC : jamais actif tout seul au démarrage.')
+    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses effets et de la '
+    .. 'valider. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce lancement d\'AC : jamais actif tout seul au '
+    .. 'démarrage.')
+  local title = {}
+  if d and d.car then title[#title + 1] = tostring(d.car.name) end
+  if d and d.trackFiles then title[#title + 1] = tostring(d.trackFiles.name) end
+  local session = M.sessionLine(app.context)
+  if session then title[#title + 1] = session end
+  if #title > 0 then small(host, table.concat(title, '  ·  '), palette.muted) end
   local autoText, autoColor = M.autoLine(app)
   small(host, autoText, palette[autoColor])
   local status, kind = M.statusLine(app)
   small(host, '● ' .. status, palette[kind])
-  local session = M.sessionLine(app.context)
-  if session then small(host, session, palette.muted) end
   if d then
     local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
       or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')
@@ -1640,35 +1872,187 @@ local function header(host, app, intents, palette)
     small(host, 'Données : ' .. source .. ' ; modèle ' .. M.modelState(app) .. ' ; tour rapide ' .. stateOf(app.quali)
       .. ', course ' .. stateOf(app.race), palette.muted)
   end
+  rule(host, app.ui, palette.accent, 2)
+end
+
+-- Étape en cours (décision de Vincent du 26/10/2026 : « qu'on comprenne mieux le déroulement du principe de création de
+-- setup, de continuation de setup ») : toujours en tête, ce qu'il faut faire maintenant et son bouton.
+local function stepCard(host, app, intents, palette)
+  if app.inert then return end
+  local r = app.refine
+  local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
+  local title, text, color, action = nil, nil, palette.accent, nil
+  local pending, trial, validated = nil, nil, nil
+  for _, e in ipairs(r and r.history or {}) do
+    if e.version and e.status == nil and e.version == r.version then pending = e end
+    if e.version and e.status == 'essai' then trial = e end
+    if e.version and e.status == 'validée' and app.saved and app.saved[kind] and app.saved[kind].signature == e.signature
+        and r.driven ~= e.version then validated = e end
+  end
+  local raceWhy = kind == 'race' and app.raceBlocker and app.raceBlocker() or nil
+  if not (r and r.active) and not app.auto then
+    title, text, color = 'Étape 1/4 · Rouler', 'Cochez « SetupLab actif » puis roulez : SetupLab propose un setup dès le minimum '
+      .. 'de tours atteint (onglet Réglages).', palette.muted
+  elseif raceWhy then
+    title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. ' (onglet COURSE).', palette.pending
+  elseif trial then
+    local v = 'v' .. trial.version
+    if r.driven ~= trial.version then
+      title, text = 'Étape 2/4 · Charger l\'essai ' .. v, 'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet '
+        .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis roulez.'
+    else
+      local f = realLaps(app, trial.family, trial.bucket)
+      if f and f.count > 0 then
+        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Gardez ou refusez chaque effet, puis validez.'
+        action = { label = 'Valider ' .. v .. '###Valider ' .. v, verdict = 'valider', version = trial.version }
+      else
+        title, text = 'Étape 3/4 · Rouler avec ' .. v, 'Roulez au moins un tour propre, puis triez ses effets au stand.'
+      end
+    end
+  elseif pending and pending.ready == false then
+    title, text, color = 'Étape 1/4 · v' .. pending.version .. ' en préparation', 'SetupLab continue d\'analyser vos tours ; '
+      .. 'elle sera prête à votre retour au stand.', palette.pending
+  elseif pending then
+    local v = 'v' .. pending.version
+    title, text = 'Étape 2/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » écrit le fichier '
+      .. 'd\'essai ; puis « Charger » au stand.'
+    action = { label = 'Essayer ' .. v, verdict = 'essayer', version = pending.version }
+  elseif validated then
+    title, text = 'Étape 4/4 · Charger v' .. validated.version, 'Version validée : au stand, bouton vert « Charger », puis roulez '
+      .. 'pour la suite de l\'affinage.'
+  else
+    title, text = 'Étape 1/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
+  end
+  card(host, app.ui, color, function()
+    withFont(host, 'Title', function() colored(host, title, color) end)
+    wrapped(host, text, palette.text)
+    if action and actionButton(host, app.ui, palette, action.label, 'primary', true) then
+      intents.refineJudge = { version = action.version, verdict = action.verdict }
+    end
+  end)
+end
+
+-- Thème (palette de SuperHUD) : couleurs des boutons, champs, en-têtes de section et onglets (onglet actif en bleu).
+local THEME = {
+  { 'Text', 'text' }, { 'TextDisabled', 'muted' }, { 'Border', 'line' }, { 'Separator', 'line' },
+  { 'FrameBg', 'field' }, { 'FrameBgHovered', 'fieldHover' }, { 'FrameBgActive', 'fieldHover' },
+  { 'Button', 'field' }, { 'ButtonHovered', 'fieldHover' }, { 'ButtonActive', 'accentDark' },
+  { 'Header', 'field' }, { 'HeaderHovered', 'fieldHover' }, { 'HeaderActive', 'accentDark' },
+  { 'Tab', 'field' }, { 'TabHovered', 'fieldHover' }, { 'TabActive', 'accent' }, { 'TabUnfocused', 'field' },
+  { 'TabUnfocusedActive', 'accent' }, { 'CheckMark', 'accent' }, { 'SliderGrab', 'accent' }, { 'SliderGrabActive', 'accent' },
+  { 'PlotHistogram', 'accent' }, { 'PopupBg', 'bg' },
+}
+local function pushTheme(host, palette)
+  local ui = host.ui
+  local styles = Util.get(ui, 'StyleColor')
+  local push = Util.get(ui, 'pushStyleColor')
+  if type(styles) ~= 'table' or type(push) ~= 'function' then return 0 end
+  local n = 0
+  for _, item in ipairs(THEME) do
+    local slot, color = styles[item[1]], palette[item[2]]
+    if slot ~= nil and color ~= nil then
+      push(slot, color)
+      n = n + 1
+    end
+  end
+  return n
+end
+
+-- Onglet Mémoire : les setups validés ou figés de cette voiture sur ce circuit, par séance et état de piste.
+local function memorySection(host, app, intents, palette)
+  small(host, 'Setups validés ou figés pour cette voiture sur ce circuit (disposition comprise), par séance et état de piste ; '
+    .. 'proposés à chaque visite.', palette.muted)
+  local any = false
+  for _, m in pairs(app.memory or {}) do any = any or m ~= nil end
+  if not any then
+    small(host, 'Aucun setup validé pour l\'instant sur ce circuit.', palette.muted)
+    return
+  end
+  memoryCard(host, app, intents, 'quali', palette)
+  memoryCard(host, app, intents, 'race', palette)
+end
+
+-- Onglet Aide : le principe, pas à pas.
+local HELP = {
+  { 'Le principe', {
+    'SetupLab calcule un setup pour la voiture et le circuit, puis l\'affine avec vos tours : il apprend votre façon de '
+      .. 'piloter et propose des versions successives (v1, v2…).',
+    'Rien n\'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre confirmation, au stand.',
+  } },
+  { 'Les 4 étapes', {
+    '1. Rouler : cochez « SetupLab actif » et roulez. Après le minimum de tours propres (onglet Réglages), SetupLab propose '
+      .. 'une version. En piste, il annonce qu\'il a le minimum d\'informations et continue d\'analyser vos tours.',
+    '2. Essayer : au stand, « Essayer vN » écrit le setup proposé entier dans un fichier d\'essai ; « Charger » le met dans la '
+      .. 'voiture. Roulez avec.',
+    '3. Trier les effets : chaque effet (aéro, pneus, géométrie, suspension, transmission, freins, moteur, aides) est gardé '
+      .. 'ou refusé d\'un clic. Un effet refusé garde son ancienne valeur, ici et dans les calculs suivants.',
+    '4. Valider : « Valider vN » enregistre la version avec les effets gardés ; elle devient votre référence pour ce circuit. '
+      .. 'Chargez-la et continuez : SetupLab repart d\'elle.',
+  } },
+  { 'Course', {
+    'Le setup de course part de votre setup de qualification validé, monté dans la voiture : vos tours avec lui donnent votre '
+      .. 'rythme. Saisissez le nombre de tours de la course dans l\'onglet COURSE.',
+  } },
+  { 'Overlay en jeu', {
+    'La fenêtre « SetupLab Overlay » (barre d\'apps de CSP) montre en roulant si le setup en piste est mieux ou moins bien que '
+      .. 'celui d\'avant, sur vos tours, et les réglages changés avec leur gain prévu.',
+  } },
+  { 'Fichiers', {
+    'Noms clairs : SetupLab_Qualif_v1.ini, SetupLab_Course_Pluie_v3.ini… ; votre meilleur tour s\'ajoute au nom d\'une version '
+      .. 'de qualification. Les fichiers d\'essai, les versions non gardées et les copies inutiles partent à la Corbeille, '
+      .. 'voiture arrêtée. Vos propres fichiers ne sont jamais touchés.',
+  } },
+  { 'Notice complète', {
+    'Notice d\'utilisation : https://vincentchevalier44.github.io/ACSetupLab/ ; problèmes et idées : '
+      .. 'https://github.com/VincentChevalier44/ACSetupLab/issues',
+  } },
+}
+local function helpSection(host, palette)
+  for i, block in ipairs(HELP) do
+    section(host, block[1], 'help_' .. i, i <= 2, function()
+      for _, text in ipairs(block[2]) do wrapped(host, text, palette.text) end
+    end)
+  end
 end
 
 function M.main(host, app, intents)
+  host = hostFor(host, app)
   local ui = host.ui
   local palette = colors(app.ui, host)
-  header(host, app, intents, palette)
-  if app.ui.message then wrapped(host, app.ui.message, palette.accent) end
-  local tabs = {
-    { 'Tour rapide', function() kindSection(host, app, intents, 'quali', palette) end },
-    { 'Course', function() kindSection(host, app, intents, 'race', palette) end },
-    { 'Mesure', function() measureSection(host, app, intents, palette) end },
-    { 'Réglages', function()
-      settingsSection(host, app, palette)
-      settingsEditor(host, app, intents)
-    end },
-    { 'Capacités', function() M.capsSection(host, app, intents, palette) end },
-  }
-  -- onglets (§12.1) ; sans ui.tabBar, sections les unes sous les autres (une erreur dans un onglet n'est
-  -- pas rattrapée ici : la colle la compte, sans redessiner les sections en double)
-  if ui.tabBar and ui.tabItem then
-    ui.tabBar('setuplab_tabs', function()
-      for _, tab in ipairs(tabs) do ui.tabItem(tab[1], tab[2]) end
-    end)
-  else
-    for _, tab in ipairs(tabs) do
-      tab[2]()
-      ui.separator()
+  local pushed = pushTheme(host, palette)
+  local ok, err = pcall(function()
+    header(host, app, intents, palette)
+    stepCard(host, app, intents, palette)
+    if app.ui.message then small(host, app.ui.message, palette.accent) end
+    -- onglets (décision de Vincent du 26/10/2026 : onglets propres, l'onglet actif en couleur) ; identifiants
+    -- français stables, libellés traduits
+    local tabs = {
+      { 'QUALIF###Tour rapide', function() kindSection(host, app, intents, 'quali', palette) end },
+      { 'COURSE###Course', function() kindSection(host, app, intents, 'race', palette) end },
+      { 'MÉMOIRE###Mémoire', function() memorySection(host, app, intents, palette) end },
+      { 'MESURE###Mesure', function() measureSection(host, app, intents, palette) end },
+      { 'RÉGLAGES###Réglages', function()
+        settingsEditor(host, app, intents, palette)
+        settingsSection(host, app, palette)
+      end },
+      { 'DIAGNOSTIC###Capacités', function() M.capsSection(host, app, intents, palette) end },
+      { 'AIDE###Aide', function() helpSection(host, palette) end },
+    }
+    -- sans ui.tabBar, sections les unes sous les autres (une erreur dans un onglet n'est pas rattrapée ici : la colle
+    -- la compte, sans redessiner les sections en double)
+    if ui.tabBar and ui.tabItem then
+      ui.tabBar('setuplab_tabs', function()
+        for _, tab in ipairs(tabs) do ui.tabItem(tab[1], tab[2]) end
+      end)
+    else
+      for _, tab in ipairs(tabs) do
+        tab[2]()
+        ui.separator()
+      end
     end
-  end
+  end)
+  if pushed > 0 then ui.popStyleColor(pushed) end
+  if not ok then error(err, 0) end
 end
 
 -- Onglet Capacités : panneau du J0, rapport, test d'écriture.
@@ -1767,6 +2151,7 @@ local function arrow(host, up, color)
 end
 
 function M.overlay(host, app)
+  host = hostFor(host, app)
   local ui = host.ui
   local palette = colors(app.ui, host)
   local okS, size = Util.call(ui.windowSize)
@@ -1863,10 +2248,13 @@ function M.overlay(host, app)
         palette.accent)
     end
   end
+  -- minimum avant une proposition, course en attente, version en essai : ce qu'il reste à faire
+  if r and r.active and r.waiting and not pending then small(host, r.waiting, palette.muted) end
   if e and not e.fromMemory then small(host, 'Par réglage : gain prévu par le modèle ; en haut : vos tours.', palette.muted) end
 end
 
 function M.debug(host, app)
+  host = hostFor(host, app)
   local ui = host.ui
   local s = app.scheduler.stats
   local p = app.perf

@@ -2114,6 +2114,7 @@ local function loadTick()
         for _, entry in ipairs(r.history) do
           if entry.version and app.saved[check.kind] and entry.signature == app.saved[check.kind].signature then
             r.driven = entry.version
+            entry.trialInCar = nil
           end
         end
         app.ui.message = app.ui.message .. ' Affinage : nouvelle découverte au stand, puis nouveau calcul sur ce setup.'
@@ -2691,6 +2692,7 @@ local function writeVersion(r, e)
     end
     pinRefused(r.kind, e, kept.refused)
     e.trialFamily = trial and trial.family or e.trialFamily
+    e.trialInCar = trial ~= nil and r.driven == e.version
     e.text, e.signature, e.family = kept.text, kept.signature, kept.family
   end
   e.trial = nil

@@ -835,7 +835,8 @@ function F.new(opts)
   end
   -- clic : libellé complet, ou partie visible (avant « ### »)
   local function clicked(label)
-    if h.click ~= nil and (h.click == label or h.click == (label:match('^(.-)###') or label)) then
+    if h.click ~= nil and (h.click == label or h.click == (label:match('^(.-)###') or label)
+        or h.click == (label:match('###(.*)$') or label)) then
       h.click = nil
       return true
     end
@@ -930,17 +931,21 @@ function F.new(opts)
     tabItem = function(label, flags, content)
       if type(flags) == 'function' then content = flags end
       register('onglet', label)
-      h.tabs[#h.tabs + 1] = label
-      if h.tab == nil or h.tab == label then return scoped(label, content) end
+      local visible, id = label:match('^(.-)###(.*)$')
+      h.tabs[#h.tabs + 1] = visible or label
+      if h.tab == nil or h.tab == label or h.tab == visible or h.tab == id then return scoped(id or label, content) end
     end,
     -- curseur : h.sliders[libellé] remplace la valeur (une fois)
     slider = function(label, value)
       uiCall()
       register('curseur', label)
-      local wanted = h.sliders and h.sliders[label]
-      if wanted ~= nil then
-        h.sliders[label] = nil
-        return wanted, true
+      local visible, id = label:match('^(.-)###(.*)$')
+      for _, key in ipairs({ label, visible or label, id or label }) do
+        local wanted = h.sliders and h.sliders[key]
+        if wanted ~= nil then
+          h.sliders[key] = nil
+          return wanted, true
+        end
       end
       return value, false
     end,
@@ -953,11 +958,13 @@ function F.new(opts)
     inputText = function(label, str)
       uiCall()
       register('saisie', label)
-      local key = label:match('^(.-)###') or label
-      local wanted = h.inputs and h.inputs[key]
-      if wanted ~= nil then
-        h.inputs[key] = nil
-        return wanted, true, false
+      local visible, id = label:match('^(.-)###(.*)$')
+      for _, key in ipairs({ visible or label, id or label }) do
+        local wanted = h.inputs and h.inputs[key]
+        if wanted ~= nil then
+          h.inputs[key] = nil
+          return wanted, true, false
+        end
       end
       return str, false, false
     end,
@@ -1004,7 +1011,10 @@ function F.raceReady(h, app, laps)
   local Exporter = require('src/exporter')
   local folder = assert(Exporter.targetFolder({ ac = h.ac, io = h.io }))
   local text = h.ac.stringifyCurrentSetup(true, false)
-  local name = 'SetupLab_Qualif_v1.ini'
+  -- setup chargé par SetupLab : il devient la référence (même fichier)
+  local loaded = app.loaded and app.loaded.quali
+  local name = loaded and loaded.name or 'SetupLab_Qualif_v1.ini'
+  text = h.written[folder .. '/' .. name] or text
   h.written[folder .. '/' .. name] = text
   local d = assert(app.discovery, 'découverte d\'abord')
   local track, layout = d.trackFiles.fullId:match('^([^/]+)/([^/]+)$')
