@@ -220,7 +220,7 @@
     <li><a href="#language">Language</a></li>
     <li><a href="#first">First launch</a></li>
     <li><a href="#steps">The 4 steps</a></li>
-    <li><a href="#effects">Sorting the effects</a></li>
+    <li><a href="#effects">Validate or modify</a></li>
     <li><a href="#minimum">Minimum before a proposal</a></li>
     <li><a href="#buttons">The buttons, one by one</a></li>
     <li><a href="#loading">Loading a setup into the car</a></li>
@@ -276,33 +276,36 @@
   <ol>
     <li>Start an offline session and open SetupLab <strong>with the car in the pits</strong>: that is where it measures the reference ride height.</li>
     <li>Wait for "<strong>Discovery finished</strong>". The header shows the car, the track, the detected session, the data source and the model state (calibrated or not).</li>
-    <li>Tick <strong>SetupLab active</strong>, then drive. The <strong>Step N/4</strong> card, always at the top of the window, tells you what to do next, with the button for that step.</li>
+    <li>The <strong>Step N/4</strong> card, always at the top of the window, tells you what to do next, with the button for that step. Step 1: choose the setup to start from.</li>
   </ol>
   <p>A setup changed in the menu, or a new session, restarts the discovery on its own.</p>
 </section>
 
 <section id="steps">
   <h2>5. The 4 steps</h2>
-  <p>With <strong>SetupLab active</strong>, SetupLab refines the session setup: <strong>qualifying</strong> in practice, track day, hotlap, time attack and qualifying; <strong>race</strong> in a race session. Each version (v1, v2…) goes through four steps, shown in green when done and in blue for the next one.</p>
+  <p>SetupLab refines the session setup: <strong>qualifying</strong> in practice, track day, hotlap, time attack and qualifying; <strong>race</strong> in a race session. The same four steps, with the same names, appear in the step card, the versions, the HELP tab and this guide; done in green, the next one in blue.</p>
   <ol class="steps">
+    <li><b>Start</b><span>Choose the setup SetupLab starts from:
+      <span class="btn primary">My current setup</span> (the one in the car: yours, loaded from AC's setup menu, or the default one),
+      <span class="btn plain">Car's default setup</span> (each setting at the car's default value, written to <code>SetupLab_Default.ini</code> and loaded in the pits; fuel, compound and the car script's own settings stay as they are), or
+      <span class="btn primary">Resume my reference vN</span> (your validated setup on this track). Choosing activates SetupLab. A setup to load first is waited for: nothing is proposed before it is in the car.</span></li>
     <li><b>Drive</b><span>After the minimum clean laps (see <a href="#minimum">Minimum</a>), SetupLab has the minimum information: it announces it once at the top of the screen ("v2 in preparation") and <strong>keeps analysing your laps</strong> while you stay on track. When you <strong>return to the pits</strong>, the version is announced as ready.</span></li>
-    <li><b>Try</b><span><span class="btn primary">Try v2</span> writes the whole proposed setup into a trial file (<code>…_v2_trial.ini</code>). In the pits: <span class="btn go">Load</span> then <span class="btn go">Confirm</span>, and drive with it.</span></li>
-    <li><b>Sort the effects</b><span>Each effect of the version (aero, tyres, geometry, suspension, transmission, brakes, engine, aids) is <span class="btn go">Kept</span> or <span class="btn danger">Refused</span> with one click, based on how the car feels and your times.</span></li>
-    <li><b>Validate</b><span><span class="btn primary">Validate v2 (k/n effects)</span> saves the version with only the kept effects. It becomes your reference setup for this track; load it and carry on: the refinement continues from it.</span></li>
+    <li><b>Try</b><span><span class="btn primary">Try v2</span> writes the proposed setup into a trial file (<code>…_v2_trial.ini</code>). In the pits: <span class="btn go">Load</span> then <span class="btn go">Confirm</span>, and drive at least one clean lap with it.</span></li>
+    <li><b>Validate</b><span><span class="btn primary">Validate v2</span> keeps it as it is. To refuse one particular setting (for example the rear wing) and keep the rest: <span class="btn plain">Modify…</span> (see <a href="#effects">Validate or modify</a>). The validated version becomes your reference for this track; load it and carry on: the refinement continues from it (step 2).</span></li>
   </ol>
-  <div class="tip">While a version is on trial, SetupLab proposes nothing else: sort its effects first. A setup is only proposed if it gains at least 0.05 s per lap.</div>
-  <p>The <strong>SetupLab active</strong> box applies to this Assetto Corsa launch: at start-up, SetupLab is always on standby and writes nothing. On standby, it still analyses your laps.</p>
+  <div class="tip">While a version is on trial, SetupLab proposes nothing else: validate it or start over first. A setup is only proposed if it gains at least 0.05 s per lap. <span class="btn plain">Change the starting point</span>, under the step card, starts again from another setup.</div>
+  <p>The <strong>SetupLab active</strong> box applies to this Assetto Corsa launch: at start-up, SetupLab is always on standby and writes nothing. On standby, it still analyses your laps. The starting point is chosen again at each new session.</p>
 </section>
 
 <section id="effects">
-  <h2>6. Sorting the effects</h2>
-  <p>A version often changes several groups of settings at once. Instead of keeping or refusing everything, you decide <strong>effect by effect</strong>: the setup is built up step by step.</p>
+  <h2>6. Validate or modify</h2>
+  <p>Under each version, one line sums up its changes ("7 settings changed"); all of them, with their old and new values and predicted gain, are on hover. Everything is kept by default: one click on <span class="btn primary">Validate vN</span> is enough.</p>
   <ul>
-    <li>Each line shows the effect, its <strong>predicted gain</strong> and its first setting (old › new value); all its settings are on hover.</li>
-    <li>A <strong>refused</strong> effect keeps its old value in the validated version <strong>and in the next computations</strong>: it appears under "Your changes kept" and returns to the computation with <span class="btn plain">Release your changes</span>.</li>
-    <li>Everything kept: the trial file becomes the version (renamed). Only some effects: a new file is written with the kept effects, and the trial file goes to the Recycle Bin once the car is stopped.</li>
-    <li>No effect kept: validation is refused; "Start over" to not keep the version.</li>
-    <li><span class="btn plain">Validate without trying</span> saves the version right away with the kept effects, without the trial file.</li>
+    <li><span class="btn plain">Modify…</span> opens the list, <strong>setting by setting</strong>, under the title of its family (aero, tyres, geometry, suspension, transmission, brakes, engine, aids). One click on <span class="btn go">Kept</span> makes it <span class="btn danger">Refused</span>, and back. <span class="btn plain">Keep everything</span> cancels the refusals.</li>
+    <li>A <strong>refused</strong> setting keeps its old value in the validated version <strong>and in the next computations</strong>: it appears under "Your changes kept" and returns to the computation with <span class="btn plain">Release your changes</span>. The other settings of its family keep their new value.</li>
+    <li>Everything kept: the trial file becomes the version (renamed). Only some settings: a new file is written with the kept settings, and the trial file goes to the Recycle Bin once the car is stopped.</li>
+    <li>No setting kept: validation is refused; "Start over" to not keep the version.</li>
+    <li><span class="btn plain">Validate without trying</span> saves the version right away, without the trial file.</li>
   </ul>
 </section>
 
@@ -323,15 +326,16 @@
     <thead><tr><th>Button</th><th>What it does</th></tr></thead>
     <tbody>
       <tr><td><span class="btn primary">Try vN</span></td><td>Writes the whole proposed setup into a trial file, to load in the pits and drive with. Nothing is kept before validation.</td></tr>
-      <tr><td><span class="btn go">Kept</span> / <span class="btn danger">Refused</span></td><td>One click keeps or refuses an effect of the version (see <a href="#effects">Sorting the effects</a>).</td></tr>
-      <tr><td><span class="btn primary">Validate vN (k/n effects)</span></td><td>Saves the version with the kept effects and makes it the session's reference setup, kept in the track memory.</td></tr>
+      <tr><td><span class="btn primary">My current setup</span> / <span class="btn plain">Car's default setup</span> / <span class="btn primary">Resume my reference</span></td><td>Step 1: the setup SetupLab starts from (see <a href="#steps">The 4 steps</a>). <span class="btn plain">Change the starting point</span> chooses again.</td></tr>
+      <tr><td><span class="btn primary">Validate vN</span></td><td>Saves the version with the kept settings and makes it the session's reference setup, kept in the track memory.</td></tr>
+      <tr><td><span class="btn plain">Modify…</span> then <span class="btn go">Kept</span> / <span class="btn danger">Refused</span></td><td>Refuses one particular setting of the version (see <a href="#effects">Validate or modify</a>).</td></tr>
       <tr><td><span class="btn plain">Validate without trying</span></td><td>The same, without the trial file.</td></tr>
       <tr><td><span class="btn plain">Start over (do not keep vN)</span></td><td>The version is neither kept nor reused, and is never proposed again. SetupLab starts again from your current setup. An already validated version gives its place back to your previous reference; its file goes to the Windows Recycle Bin as soon as the car is stopped. The button turns red when the version is actually slower.</td></tr>
-      <tr><td><span class="btn plain">Lock vN</span></td><td>Validates (kept effects) and locks: it is the final setup of this session for this track. Refinement stops; "Unlock", in the MEMORY tab, restarts it.</td></tr>
+      <tr><td><span class="btn plain">Lock vN</span></td><td>Validates (kept settings) and locks: it is the final setup of this session for this track. Refinement stops; "Unlock", in the MEMORY tab or in the step card, restarts it.</td></tr>
       <tr><td><span class="btn go">Load the … setup into the car</span></td><td>Arms the load of the saved setup (see <a href="#loading">Loading a setup</a>).</td></tr>
       <tr><td><span class="btn go">Confirm the load</span></td><td>Second click, within the time shown: the setup is loaded into the car, after a backup copy of the current setup.</td></tr>
       <tr><td><span class="btn plain">Stop the refinement</span></td><td>Stops the refinement; if SetupLab is active, it also goes on standby.</td></tr>
-      <tr><td><span class="btn plain">Release your changes</span></td><td>Gives the settings you changed by hand, and the refused effects, back to the computation.</td></tr>
+      <tr><td><span class="btn plain">Release your changes</span></td><td>Gives the settings you changed by hand, and the refused settings, back to the computation.</td></tr>
       <tr><td><span class="btn plain">Measure the real gain</span></td><td>Compares the predicted gain with the measured gain: a clean lap with the original setup, then one with the proposed setup loaded.</td></tr>
     </tbody>
   </table>
@@ -385,7 +389,7 @@
 
 <section id="race">
   <h2>14. Race setup</h2>
-  <p>The race setup starts from your <strong>validated qualifying setup</strong>: your laps with it give your pace. The <strong>RACE</strong> tab shows three conditions, each with what fulfils it:</p>
+  <p>The race setup comes <strong>after a validated qualifying version</strong> (at least a v1): it starts from it, and your laps with it give your pace. Until then the <strong>RACE</strong> tab is locked and offers <span class="btn primary">Go to the QUALIFYING tab</span>. Then it shows three conditions, each with what fulfils it:</p>
   <ol>
     <li><strong>Validated qualifying setup</strong> on this track (otherwise the setup validated in practice);</li>
     <li><strong>in the car</strong>: <span class="btn go">Load the validated qualifying setup</span> button;</li>
@@ -410,11 +414,11 @@
   <table>
     <thead><tr><th>Tab</th><th>Content</th></tr></thead>
     <tbody>
-      <tr><td><strong>QUALIFYING</strong></td><td>Refinement and versions, effects to sort, computation, setup name, result (tiles, settings, explanations, charts).</td></tr>
-      <tr><td><strong>RACE</strong></td><td>The three conditions of the race setup, then the same for the stint: average lap, fuel, wear, traffic.</td></tr>
+      <tr><td><strong>QUALIFYING</strong></td><td>Refinement and versions (validate or modify), computation, setup name, result (tiles, settings, explanations, charts).</td></tr>
+      <tr><td><strong>RACE</strong></td><td>Locked until a qualifying version is validated; then the three conditions of the race setup, and the same for the stint: average lap, fuel, wear, traffic.</td></tr>
       <tr><td><strong>MEMORY</strong></td><td>The validated or locked setups for this track, to load or unlock.</td></tr>
       <tr><td><strong>MEASURE</strong></td><td>Recorded laps (valid or not, with the reason), model calibration, tyres, track roughness.</td></tr>
-      <tr><td><strong>SETTINGS</strong></td><td>Language, app settings (each with its explanation on hover) and how every setup setting is handled, dry and wet.</td></tr>
+      <tr><td><strong>SETTINGS</strong></td><td>Language, app settings (each with its explanation on hover), what SetupLab takes into account (weather, track temperature and grip, slow/medium/fast corners, chicanes, longest straight, share of full throttle and braking) and how every setup setting is handled, dry and wet.</td></tr>
       <tr><td><strong>DIAGNOSTICS</strong></td><td>What CSP allows on your installation, and "Copy the J0 report" to report a problem.</td></tr>
       <tr><td><strong>HELP</strong></td><td>How it works and the 4 steps, in short.</td></tr>
     </tbody>
@@ -432,6 +436,7 @@
       <tr><td>Qualifying version</td><td><code>SetupLab_Quali_v2.ini</code></td><td><code>SetupLab_Qualif_v2.ini</code></td></tr>
       <tr><td>Race version, wet</td><td><code>SetupLab_Race_Wet_v3.ini</code></td><td><code>SetupLab_Course_Pluie_v3.ini</code></td></tr>
       <tr><td>Trial of a version</td><td><code>SetupLab_Quali_v2_trial.ini</code></td><td><code>SetupLab_Qualif_v2_essai.ini</code></td></tr>
+      <tr><td>Car's default setup (step 1)</td><td><code>SetupLab_Default.ini</code></td><td><code>SetupLab_Defaut.ini</code></td></tr>
       <tr><td>Copy before a load</td><td><code>SetupLab_Before_load_….ini</code></td><td><code>SetupLab_Avant_chargement_….ini</code></td></tr>
     </tbody>
   </table>
@@ -466,7 +471,7 @@
   </details>
   <details>
     <summary>SetupLab proposes nothing.</summary>
-    <p>The step card says what is missing: the minimum clean laps or minutes (SETTINGS tab), a version on trial whose effects are waiting to be sorted, or, for the race, one of the three conditions in the RACE tab.</p>
+    <p>The step card says what is missing: the minimum clean laps or minutes (SETTINGS tab), a starting setup to load, a version on trial waiting to be validated, or, for the race, one of the three conditions in the RACE tab.</p>
   </details>
   <details>
     <summary>Why are some settings never changed?</summary>

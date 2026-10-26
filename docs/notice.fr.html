@@ -220,7 +220,7 @@
     <li><a href="#langue">Langue</a></li>
     <li><a href="#demarrage">Premier lancement</a></li>
     <li><a href="#cycle">Les 4 étapes</a></li>
-    <li><a href="#effets">Trier les effets</a></li>
+    <li><a href="#effets">Valider ou modifier</a></li>
     <li><a href="#minimum">Minimum avant une proposition</a></li>
     <li><a href="#boutons">Les boutons, un par un</a></li>
     <li><a href="#chargement">Charger un setup dans la voiture</a></li>
@@ -277,33 +277,36 @@
   <ol>
     <li>Lancer une séance hors ligne et ouvrir SetupLab <strong>voiture au stand</strong> : c'est là qu'il mesure la hauteur de caisse de référence.</li>
     <li>Attendre « <strong>Découverte terminée</strong> ». L'en-tête indique la voiture, le circuit, la séance détectée, la source des données et l'état du modèle (calibré ou non).</li>
-    <li>Cocher <strong>SetupLab actif</strong>, puis rouler. La carte <strong>Étape N/4</strong>, toujours en haut de la fenêtre, dit à chaque instant ce qu'il faut faire, avec le bouton de l'étape.</li>
+    <li>La carte <strong>Étape N/4</strong>, toujours en haut de la fenêtre, dit à chaque instant ce qu'il faut faire, avec le bouton de l'étape. Étape 1 : choisir le setup de départ.</li>
   </ol>
   <p>Un setup modifié dans le menu, ou une nouvelle séance, relance la découverte tout seul.</p>
 </section>
 
 <section id="cycle">
   <h2>5. Les 4 étapes</h2>
-  <p>Avec <strong>SetupLab actif</strong>, SetupLab affine le setup de la séance : <strong>qualification</strong> en essai, journée circuit, hotlap, time attack et qualification ; <strong>course</strong> en séance de course. Chaque version (v1, v2…) passe par quatre étapes, affichées en vert quand elles sont faites et en bleu pour la suivante.</p>
+  <p>SetupLab affine le setup de la séance : <strong>qualification</strong> en essai, journée circuit, hotlap, time attack et qualification ; <strong>course</strong> en séance de course. Les mêmes quatre étapes, avec les mêmes noms, figurent dans la carte d'étape, les versions, l'onglet AIDE et cette notice ; faites en vert, la suivante en bleu.</p>
   <ol class="steps">
+    <li><b>Départ</b><span>Choisir le setup dont SetupLab part :
+      <span class="btn primary">Mon setup actuel</span> (celui qui est dans la voiture : le vôtre, chargé depuis le menu de setup d'AC, ou celui par défaut),
+      <span class="btn plain">Setup par défaut de la voiture</span> (chaque réglage à la valeur par défaut de la voiture, écrit dans <code>SetupLab_Defaut.ini</code> et chargé au stand ; carburant, composé et réglages propres au script de la voiture restent tels quels), ou
+      <span class="btn primary">Reprendre ma référence vN</span> (votre setup validé sur ce circuit). Le choix active SetupLab. Un setup à charger d'abord est attendu : rien n'est proposé avant qu'il soit dans la voiture.</span></li>
     <li><b>Rouler</b><span>Après le minimum de tours propres (voir <a href="#minimum">Minimum</a>), SetupLab a le minimum d'informations : il l'annonce une fois en haut de l'écran (« v2 en préparation ») et <strong>continue d'analyser vos tours</strong> tant que vous restez en piste. À votre <strong>retour au stand</strong>, la version est annoncée prête.</span></li>
-    <li><b>Essayer</b><span><span class="btn primary">Essayer v2</span> écrit le setup proposé entier dans un fichier d'essai (<code>…_v2_essai.ini</code>). Au stand : <span class="btn go">Charger</span> puis <span class="btn go">Confirmer</span>, et roulez avec.</span></li>
-    <li><b>Trier les effets</b><span>Chaque effet de la version (aéro, pneus, géométrie, suspension, transmission, freins, moteur, aides) est <span class="btn go">Gardé</span> ou <span class="btn danger">Refusé</span> d'un clic, d'après votre ressenti et vos temps.</span></li>
-    <li><b>Valider</b><span><span class="btn primary">Valider v2 (k/n effets)</span> enregistre la version avec les seuls effets gardés. Elle devient votre setup de référence pour ce circuit ; chargez-la et continuez : l'affinage repart d'elle.</span></li>
+    <li><b>Essayer</b><span><span class="btn primary">Essayer v2</span> écrit le setup proposé dans un fichier d'essai (<code>…_v2_essai.ini</code>). Au stand : <span class="btn go">Charger</span> puis <span class="btn go">Confirmer</span>, et roulez au moins un tour propre avec.</span></li>
+    <li><b>Valider</b><span><span class="btn primary">Valider v2</span> la garde telle quelle. Pour refuser un réglage précis (par exemple l'aileron arrière) et garder le reste : <span class="btn plain">Modifier…</span> (voir <a href="#effets">Valider ou modifier</a>). La version validée devient votre référence pour ce circuit ; chargez-la et continuez : l'affinage repart d'elle (étape 2).</span></li>
   </ol>
-  <div class="tip">Tant qu'une version est en essai, SetupLab ne propose rien d'autre : triez ses effets d'abord. Un setup n'est proposé que s'il fait gagner au moins 0,05 s au tour.</div>
-  <p>La case <strong>SetupLab actif</strong> vaut pour ce lancement d'Assetto Corsa : au démarrage, SetupLab est toujours en veille et n'écrit rien. En veille, il analyse quand même vos tours.</p>
+  <div class="tip">Tant qu'une version est en essai, SetupLab ne propose rien d'autre : validez-la ou recommencez d'abord. Un setup n'est proposé que s'il fait gagner au moins 0,05 s au tour. <span class="btn plain">Changer de départ</span>, sous la carte d'étape, repart d'un autre setup.</div>
+  <p>La case <strong>SetupLab actif</strong> vaut pour ce lancement d'Assetto Corsa : au démarrage, SetupLab est toujours en veille et n'écrit rien. En veille, il analyse quand même vos tours. Le point de départ se choisit de nouveau à chaque nouvelle séance.</p>
 </section>
 
 <section id="effets">
-  <h2>6. Trier les effets</h2>
-  <p>Une version change souvent plusieurs familles de réglages à la fois. Plutôt que de tout garder ou tout refuser, vous décidez <strong>effet par effet</strong> : le setup se construit petit à petit.</p>
+  <h2>6. Valider ou modifier</h2>
+  <p>Sous chaque version, une ligne résume ses changements (« 7 réglages changés ») ; tous, avec leur ancienne et leur nouvelle valeur et leur gain prévu, sont au survol. Tout est gardé par défaut : un clic sur <span class="btn primary">Valider vN</span> suffit.</p>
   <ul>
-    <li>Chaque ligne montre l'effet, son <strong>gain prévu</strong> et son premier réglage (ancienne › nouvelle valeur) ; tous ses réglages sont au survol.</li>
-    <li>Un effet <strong>refusé</strong> garde son ancienne valeur dans la version validée, <strong>et dans les calculs suivants</strong> : il apparaît dans « Vos retouches gardées » et revient au calcul avec <span class="btn plain">Libérer vos retouches</span>.</li>
-    <li>Tout gardé : le fichier d'essai devient la version (renommé). Une partie seulement : un nouveau fichier est écrit avec les effets gardés, et le fichier d'essai part à la Corbeille, voiture arrêtée.</li>
-    <li>Aucun effet gardé : la validation est refusée ; « Recommencer » pour ne pas garder la version.</li>
-    <li><span class="btn plain">Valider sans essai</span> enregistre tout de suite la version avec les effets gardés, sans passer par le fichier d'essai.</li>
+    <li><span class="btn plain">Modifier…</span> ouvre la liste, <strong>réglage par réglage</strong>, sous le titre de sa famille (aéro, pneus, géométrie, suspension, transmission, freins, moteur, aides). Un clic sur <span class="btn go">Gardé</span> le rend <span class="btn danger">Refusé</span>, et inversement. <span class="btn plain">Tout garder</span> annule les refus.</li>
+    <li>Un réglage <strong>refusé</strong> garde son ancienne valeur dans la version validée, <strong>et dans les calculs suivants</strong> : il apparaît dans « Vos retouches gardées » et revient au calcul avec <span class="btn plain">Libérer vos retouches</span>. Les autres réglages de sa famille prennent leur nouvelle valeur.</li>
+    <li>Tout gardé : le fichier d'essai devient la version (renommé). Une partie seulement : un nouveau fichier est écrit avec les réglages gardés, et le fichier d'essai part à la Corbeille, voiture arrêtée.</li>
+    <li>Aucun réglage gardé : la validation est refusée ; « Recommencer » pour ne pas garder la version.</li>
+    <li><span class="btn plain">Valider sans essai</span> enregistre tout de suite la version, sans passer par le fichier d'essai.</li>
   </ul>
 </section>
 
@@ -324,15 +327,16 @@
     <thead><tr><th>Bouton</th><th>Effet</th></tr></thead>
     <tbody>
       <tr><td><span class="btn primary">Essayer vN</span></td><td>Écrit le setup proposé entier dans un fichier d'essai, à charger au stand pour rouler avec. Rien n'est gardé avant la validation.</td></tr>
-      <tr><td><span class="btn go">Gardé</span> / <span class="btn danger">Refusé</span></td><td>Un clic garde ou refuse un effet de la version (voir <a href="#effets">Trier les effets</a>).</td></tr>
-      <tr><td><span class="btn primary">Valider vN (k/n effets)</span></td><td>Enregistre la version avec les effets gardés et en fait le setup de référence de la séance, gardé dans la mémoire du circuit.</td></tr>
+      <tr><td><span class="btn primary">Mon setup actuel</span> / <span class="btn plain">Setup par défaut de la voiture</span> / <span class="btn primary">Reprendre ma référence</span></td><td>Étape 1 : le setup dont SetupLab part (voir <a href="#cycle">Les 4 étapes</a>). <span class="btn plain">Changer de départ</span> pour choisir de nouveau.</td></tr>
+      <tr><td><span class="btn primary">Valider vN</span></td><td>Enregistre la version avec les réglages gardés et en fait le setup de référence de la séance, gardé dans la mémoire du circuit.</td></tr>
+      <tr><td><span class="btn plain">Modifier…</span> puis <span class="btn go">Gardé</span> / <span class="btn danger">Refusé</span></td><td>Refuse un réglage précis de la version (voir <a href="#effets">Valider ou modifier</a>).</td></tr>
       <tr><td><span class="btn plain">Valider sans essai</span></td><td>La même chose sans passer par le fichier d'essai.</td></tr>
       <tr><td><span class="btn plain">Recommencer (ne pas garder vN)</span></td><td>La version n'est ni gardée ni réutilisée, et ne sera jamais reproposée. SetupLab repart de votre setup actuel. Une version déjà validée rend sa place à votre référence d'avant ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée. Le bouton passe en rouge quand la version est plus lente en réalité.</td></tr>
-      <tr><td><span class="btn plain">Figer vN (cadenas)</span></td><td>Valide (effets gardés) et verrouille : c'est le setup final de cette séance pour ce circuit. L'affinage s'arrête ; « Déverrouiller », dans l'onglet MÉMOIRE, le relance.</td></tr>
+      <tr><td><span class="btn plain">Figer vN (cadenas)</span></td><td>Valide (réglages gardés) et verrouille : c'est le setup final de cette séance pour ce circuit. L'affinage s'arrête ; « Déverrouiller », dans l'onglet MÉMOIRE ou dans la carte d'étape, le relance.</td></tr>
       <tr><td><span class="btn go">Charger le setup … dans la voiture</span></td><td>Arme le chargement du setup enregistré (voir <a href="#chargement">Charger un setup</a>).</td></tr>
       <tr><td><span class="btn go">Confirmer le chargement</span></td><td>Second clic, dans le temps indiqué : le setup est chargé dans la voiture, après une copie de sauvegarde du setup en cours.</td></tr>
       <tr><td><span class="btn plain">Arrêter l'affinage</span></td><td>Arrête l'affinage ; si SetupLab est actif, il passe aussi en veille.</td></tr>
-      <tr><td><span class="btn plain">Libérer vos retouches</span></td><td>Rend au calcul les réglages modifiés à la main et les effets refusés.</td></tr>
+      <tr><td><span class="btn plain">Libérer vos retouches</span></td><td>Rend au calcul les réglages modifiés à la main et les réglages refusés.</td></tr>
       <tr><td><span class="btn plain">Mesurer le gain réel</span></td><td>Compare le gain prévu au gain mesuré : un tour propre avec le setup d'origine, puis un avec le setup proposé chargé.</td></tr>
     </tbody>
   </table>
@@ -386,7 +390,7 @@
 
 <section id="course">
   <h2>14. Setup de course</h2>
-  <p>Le setup de course part de votre <strong>setup de qualification validé</strong> : vos tours avec lui donnent votre rythme. L'onglet <strong>COURSE</strong> montre trois conditions, chacune avec ce qui la remplit :</p>
+  <p>Le setup de course se fait <strong>après une version de qualification validée</strong> (au moins une v1) : il part d'elle, et vos tours avec elle donnent votre rythme. Jusque-là, l'onglet <strong>COURSE</strong> est verrouillé et propose <span class="btn primary">Aller à l'onglet QUALIF</span>. Ensuite, il montre trois conditions, chacune avec ce qui la remplit :</p>
   <ol>
     <li><strong>Qualification validée</strong> sur ce circuit (sinon le setup validé en essai) ;</li>
     <li><strong>dans la voiture</strong> : bouton <span class="btn go">Charger le setup de qualification validé</span> ;</li>
@@ -411,11 +415,11 @@
   <table>
     <thead><tr><th>Onglet</th><th>Contenu</th></tr></thead>
     <tbody>
-      <tr><td><strong>QUALIF</strong></td><td>Affinage et versions, effets à trier, calcul, nom du setup, résultat (tuiles, réglages, explications, graphiques).</td></tr>
-      <tr><td><strong>COURSE</strong></td><td>Les trois conditions du setup de course, puis la même chose pour le relais : tour moyen, carburant, usure, trafic.</td></tr>
+      <tr><td><strong>QUALIF</strong></td><td>Affinage et versions (valider ou modifier), calcul, nom du setup, résultat (tuiles, réglages, explications, graphiques).</td></tr>
+      <tr><td><strong>COURSE</strong></td><td>Verrouillé tant qu'aucune version de qualification n'est validée ; ensuite les trois conditions du setup de course, et la même chose pour le relais : tour moyen, carburant, usure, trafic.</td></tr>
       <tr><td><strong>MÉMOIRE</strong></td><td>Les setups validés ou figés de ce circuit, à charger ou à déverrouiller.</td></tr>
       <tr><td><strong>MESURE</strong></td><td>Tours enregistrés (valides ou non, avec la raison), calibration du modèle, pneus, rugosité de la piste.</td></tr>
-      <tr><td><strong>RÉGLAGES</strong></td><td>Langue, réglages de l'app (chacun avec son explication au survol) et prise en compte de chaque réglage du setup, au sec et sous la pluie.</td></tr>
+      <tr><td><strong>RÉGLAGES</strong></td><td>Langue, réglages de l'app (chacun avec son explication au survol), ce que SetupLab prend en compte (météo, température et grip de la piste, virages lents, moyens et rapides, chicanes, plus longue ligne droite, part du tour à pleine charge et au freinage) et prise en compte de chaque réglage du setup, au sec et sous la pluie.</td></tr>
       <tr><td><strong>DIAGNOSTIC</strong></td><td>Ce que CSP permet sur votre installation, et « Copier le rapport J0 » pour signaler un problème.</td></tr>
       <tr><td><strong>AIDE</strong></td><td>Le principe et les 4 étapes, en bref.</td></tr>
     </tbody>
@@ -433,6 +437,7 @@
       <tr><td>Version de qualification</td><td><code>SetupLab_Qualif_v2.ini</code></td><td><code>SetupLab_Quali_v2.ini</code></td></tr>
       <tr><td>Version de course, pluie</td><td><code>SetupLab_Course_Pluie_v3.ini</code></td><td><code>SetupLab_Race_Wet_v3.ini</code></td></tr>
       <tr><td>Essai d'une version</td><td><code>SetupLab_Qualif_v2_essai.ini</code></td><td><code>SetupLab_Quali_v2_trial.ini</code></td></tr>
+      <tr><td>Setup par défaut de la voiture (étape 1)</td><td><code>SetupLab_Defaut.ini</code></td><td><code>SetupLab_Default.ini</code></td></tr>
       <tr><td>Copie avant un chargement</td><td><code>SetupLab_Avant_chargement_….ini</code></td><td><code>SetupLab_Before_load_….ini</code></td></tr>
     </tbody>
   </table>
@@ -467,7 +472,7 @@
   </details>
   <details>
     <summary>SetupLab ne propose rien.</summary>
-    <p>La carte d'étape dit ce qui manque : le minimum de tours propres ou de minutes (onglet RÉGLAGES), une version en essai dont les effets sont à trier, ou, en course, une des trois conditions de l'onglet COURSE.</p>
+    <p>La carte d'étape dit ce qui manque : le minimum de tours propres ou de minutes (onglet RÉGLAGES), un setup de départ à charger, une version en essai à valider, ou, en course, une des trois conditions de l'onglet COURSE.</p>
   </details>
   <details>
     <summary>Pourquoi certains réglages ne sont-ils jamais changés ?</summary>

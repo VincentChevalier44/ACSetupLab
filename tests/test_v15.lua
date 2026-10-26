@@ -545,4 +545,55 @@ tests['NV14 onglet COURSE verrouillé avant une qualification validée'] = funct
   T.eq(app.perf.errors, 0)
 end
 
+-- Départ de la référence du circuit : proposée après une validation (nouvelle séance), chargée au stand, puis affinée ;
+-- figée : « Déverrouiller et reprendre ». Setup par défaut choisi deux fois : un seul fichier.
+tests['NV15 départ de la référence (figée ou non) ; setup par défaut réutilisé'] = function()
+  local h, app = ready({ skin = true })
+  local folder = folderOf(h)
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  app.handleIntents({ refineJudge = { version = r.version, verdict = 'valider' } })
+  local e = r.history[#r.history]
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  -- changer de départ : la référence est proposée
+  h.click = 'start_change'
+  frames(h, 1)
+  frames(h, 1)
+  T.eq(app.start.quali, nil, 'départ à choisir')
+  T.ok(shownText(h, 'Reprendre ma référence ' .. e.file), 'référence proposée')
+  h.click = 'start_reference'
+  frames(h, 1)
+  T.eq(app.start.quali and app.start.quali.mode, 'reference', tostring(app.ui.message))
+  T.eq(app.saved.quali.name, e.file, 'référence à charger')
+  if not app.start.quali.ready then
+    loadAtPit(h, app)
+    T.eq(app.start.quali.ready, true, 'référence dans la voiture')
+  end
+  -- figée : déverrouiller et reprendre
+  app.handleIntents({ memoryLock = { key = 'qualif|sec', locked = true } })
+  T.ok(app.memory['qualif|sec'].locked, 'figée')
+  app.handleIntents({ startReset = 'quali' })
+  frames(h, 1)
+  frames(h, 1)
+  T.ok(shownText(h, 'figée (cadenas)'), 'figée dite')
+  h.click = 'start_reference'
+  frames(h, 1)
+  T.no(app.memory['qualif|sec'].locked, 'déverrouillée')
+  T.eq(app.start.quali.mode, 'reference')
+  frames(h, 120)
+  T.ok(app.refine and app.refine.active, 'affinage repris')
+  -- setup par défaut deux fois : le même fichier (découverte terminée)
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.handleIntents({ start = 'default' })
+  local first = app.start.quali.file
+  T.eq(first, 'SetupLab_Defaut.ini', tostring(app.ui.message))
+  app.handleIntents({ startReset = 'quali' })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.handleIntents({ start = 'default' })
+  T.eq(app.start.quali and app.start.quali.file, first, 'réutilisé : ' .. tostring(app.ui.message))
+  T.no(h.written[folder .. '/SetupLab_Defaut-2.ini'], 'pas de second fichier')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

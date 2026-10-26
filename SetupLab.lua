@@ -304,9 +304,11 @@ end
 -- évaluation, hors rendus de main, pour estimer la durée d'un calcul avant son lancement (A13).
 -- Profil du circuit sur le tour simulé avec le setup actuel : virages par vitesse d'apex (lents, moyens, rapides),
 -- chicanes, lignes droites, part du tour à pleine charge, au freinage, en virage rapide ou lent.
-local function trackProfile(t, buf)
+local function trackProfile(t, buf, tick)
   if not (t and t.segments and buf and buf.v) then return nil end
+  tick()
   TrackModel.annotate(t, buf)
+  tick()
   local p = { lent = 0, moyen = 0, rapide = 0, chicanes = 0, corners = 0, straights = 0, longest = 0 }
   for _, seg in ipairs(t.segments) do
     if seg.kind == 'corner' then
@@ -318,8 +320,10 @@ local function trackProfile(t, buf)
       if seg.length > p.longest then p.longest = seg.length end
     end
   end
+  tick()
   local ok, stats = pcall(Explain.trackStats, t, buf)
   if ok then p.stats = stats end
+  tick()
   p.length = t.length
   return p
 end
@@ -339,7 +343,8 @@ local function simulateCurrent(d, ctx)
   local now = ctx.now()
   if now and mark then cpu = cpu + (now - mark) end
   local evalMs = ctx.now() and cpu * 1000 or nil
-  d.trackProfile = trackProfile(d.trackModel, buf)
+  d.trackProfile = trackProfile(d.trackModel, buf, tick)
+  mark = ctx.now()
   -- coût avec le DRS (qualification : volet ouvert dans toutes les zones), pour le budget tenu en temps
   -- et la durée estimée (relecture J6b, m8 : sans lui, sous-estimée de moitié)
   local evalMsDrs = nil
@@ -2688,11 +2693,13 @@ local function lastVersionOnDisk(kind)
   return top
 end
 
--- Texte du setup par défaut de la voiture (carburant et composé : ceux du setup en cours), ou nil et la raison.
+-- Texte du setup par défaut de la voiture (carburant, composé et réglages du script de la voiture : ceux du setup en
+-- cours), ou nil et la raison.
 local function defaultSetup(d)
   local values = {}
   for _, sp in ipairs(d.setup and d.setup.spinners or {}) do
-    if sp.name ~= 'FUEL' and sp.readOnly ~= true and sp.visible ~= false and Util.isFinite(sp.defaultValue) then
+    local script = tostring(sp.name):find('^CUSTOM_SCRIPT') ~= nil
+    if sp.name ~= 'FUEL' and not script and sp.readOnly ~= true and sp.visible ~= false and Util.isFinite(sp.defaultValue) then
       values[sp.name] = sp.defaultValue
     end
   end
@@ -3026,12 +3033,26 @@ local function startChoose(kind, mode)
       app.ui.message = 'Setup par défaut impossible : ' .. tostring(values) .. '.'
       return
     end
-    local w = Exporter.writeNew(host, fileWords().default, text)
+    -- même setup par défaut déjà écrit par SetupLab (fichier intact, mêmes crans ; le carburant peut différer) : réutilisé
+    local hash = Util.hashString(text)
+    local w = nil
+    local folder = Exporter.targetFolder(host)
+    local same = fileWords().default .. '.ini'
+    if folder and app.written[same] then
+      local okL, old = Util.call(Util.get(host.io, 'load'), folder .. '/' .. same)
+      if okL and type(old) == 'string' and Util.hashString(old) == app.written[same] then
+        local before, equal = setupValues(old), true
+        for name, value in pairs(values) do
+          if before[name] ~= value then equal = false end
+        end
+        if equal then text, hash, w = old, app.written[same], { ok = true, name = same, path = folder .. '/' .. same } end
+      end
+    end
+    w = w or Exporter.writeNew(host, fileWords().default, text)
     if not w.ok then
       app.ui.message = 'Setup par défaut impossible : écriture refusée (' .. tostring(w.reason) .. ').'
       return
     end
-    local hash = Util.hashString(text)
     app.written[w.name] = hash
     local rec = { file = w.name, path = w.path, text = text, hash = hash, bucket = app.wet.state,
       signature = signatureOf(d.setup.spinners, values, d.compoundIndex), carId = d.car and d.car.id }

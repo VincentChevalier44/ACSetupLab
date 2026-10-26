@@ -1114,7 +1114,7 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
         .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', true) then
+    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, not ui.skin and 'primary' or nil, true) then
       intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
@@ -1821,13 +1821,16 @@ local function inputsSection(host, app, palette)
       end
     end
     if d.space then
-      local rows = SetupSpace.statusRows(d.space)
-      local optimized = 0
-      for _, row in ipairs(rows) do
-        if row.status == 'optimisé' then optimized = optimized + 1 end
+      if d.uiCounts == nil then
+        local rows = SetupSpace.statusRows(d.space)
+        local optimized = 0
+        for _, row in ipairs(rows) do
+          if row.status == 'optimisé' then optimized = optimized + 1 end
+        end
+        d.uiCounts = { optimized = optimized, kept = #rows - optimized }
       end
-      small(host, 'Voiture : ' .. optimized .. ' réglages optimisés, ' .. (#rows - optimized) .. ' conservés (raison de chacun '
-        .. 'ci-dessous).', palette.text)
+      small(host, 'Voiture : ' .. d.uiCounts.optimized .. ' réglages optimisés, ' .. d.uiCounts.kept .. ' conservés (raison de '
+        .. 'chacun ci-dessous).', palette.text)
     end
     small(host, 'Votre pilotage : modèle ' .. M.modelState(app) .. ' (calé sur vos tours valides).', palette.text)
   end)
@@ -2050,12 +2053,20 @@ local function stepCard(host, app, intents, palette)
         and r.driven ~= e.version then validated = e end
   end
   local raceWhy = kind == 'race' and app.raceBlocker and app.raceBlocker() or nil
-  local memory = app.memory and app.memoryGroupOf and app.memory[app.memoryGroupOf(kind) .. '|' .. (app.wet and app.wet.state or 'sec')]
+  local memoryKey = app.memoryGroupOf and (app.memoryGroupOf(kind) .. '|' .. (app.wet and app.wet.state or 'sec'))
+  local memory = app.memory and memoryKey and app.memory[memoryKey]
   if start == nil then
     -- 1. Départ (demande de Vincent du 26/10/2026) : de quel setup partir ; le choix active SetupLab
     title, text = 'Étape 1/4 · Départ', 'De quel setup SetupLab part-il ? Il le fait évoluer avec vos tours, version après '
       .. 'version (v1, v2…).'
-    if memory and memory.text then
+    if memory and memory.text and memory.locked then
+      -- figée (cadenas) : SetupLab ne l'affine plus tant qu'elle n'est pas déverrouillée
+      text = tostring(memory.file) .. ' est figée (cadenas) : SetupLab ne propose plus rien sur ce circuit. Déverrouillez-la '
+        .. 'pour la faire évoluer.'
+      actions[#actions + 1] = { label = 'Déverrouiller et reprendre ma référence###start_reference',
+        intent = { start = { kind = kind, mode = 'reference' }, memoryLock = { key = memoryKey, locked = false } },
+        style = 'primary', tip = 'Retire le cadenas, charge votre référence au stand, puis l\'affine.' }
+    elseif memory and memory.text then
       actions[#actions + 1] = { label = 'Reprendre ma référence ' .. tostring(memory.file) .. '###start_reference',
         intent = { start = { kind = kind, mode = 'reference' } }, style = 'primary',
         tip = 'Votre setup validé sur ce circuit : chargé au stand, puis affiné.' }

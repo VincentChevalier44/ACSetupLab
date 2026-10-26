@@ -108,4 +108,9 @@ EN = {
     'Voiture : %s réglages optimisés, %s conservés (raison de chacun ci-dessous).':
         'Car: %s settings optimised, %s kept (the reason for each below).',
     'Votre pilotage : modèle %s (calé sur vos tours valides).': 'Your driving: model %s (fitted to your valid laps).',
+    "%s est figée (cadenas) : SetupLab ne propose plus rien sur ce circuit. Déverrouillez-la pour la faire évoluer.":
+        '%s is locked (padlock): SetupLab no longer proposes anything on this track. Unlock it to keep evolving it.',
+    'Déverrouiller et reprendre ma référence': 'Unlock and resume my reference',
+    "Retire le cadenas, charge votre référence au stand, puis l'affine.":
+        'Removes the padlock, loads your reference in the pits, then refines it.',
 }

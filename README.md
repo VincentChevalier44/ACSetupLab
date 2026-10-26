@@ -25,11 +25,13 @@ The app is in **English by default**, with a full **French** translation (one cl
 
 - **Qualifying and race setups** computed from the car's data files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line (curvature, slope, camber, DRS zones).
 - **Every setting explained**: one sentence per proposed setting, its gain, the balance per corner; every untouched setting with its reason. Help on hover for every button and every app setting.
-- **Built up step by step**: each proposed version is tried as a whole in the pits, then each effect (aero, tyres, geometry, suspension, transmission, brakes, engine, aids) is kept or refused with one click; the validated version holds only the kept effects. Refused effects keep their old value in the next computations.
-- **A guided flow**: a "Step N/4" card always at the top (Drive, Try, Sort the effects, Validate) with the button for the next step.
+- **Start from the setup you want**: your current setup (your own, loaded from AC's menu, or the default one), the car's default setup, or your validated reference on the track; SetupLab evolves it version after version.
+- **Built up step by step**: each proposed version is tried in the pits, then validated in one click. "Modify…" refuses one particular setting (for example the rear wing) and keeps the rest; a refused setting keeps its old value in the next computations.
+- **A guided flow**: a "Step N/4" card always at the top (Start, Drive, Try, Validate) with one main button for the next step.
+- **Everything it takes into account, shown**: weather, air and track temperature, track grip, wet track, slow/medium/fast corners, chicanes, longest straight, share of full throttle and braking (SETTINGS tab); every setup setting is optimised or kept with its reason.
 - **Your times first**: your best lap (or average lap for the race), the estimated target and the real gain of each version. The model is calibrated on your laps.
 - **Refinement while you drive**: tick **SetupLab active** and drive. A proposal only comes after a minimum of clean laps and minutes with the current setup (both adjustable). On track, SetupLab says once that it has the minimum information and keeps analysing; the version is ready when you return to the pits.
-- **Race setup from your qualifying setup**: the race computation starts from the validated qualifying setup, loaded in the car, for the number of laps you enter.
+- **Race setup after qualifying**: the RACE tab unlocks once a qualifying version is validated (at least a v1); the race computation starts from it, loaded in the car, for the number of laps you enter.
 - **In-game overlay**: while driving, whether the setup on track is better or worse than the previous one on your laps, the settings that changed most with their predicted gain, and what is left before the next proposal.
 - **Track memory**: the validated or locked setup is kept per car, track, session (practice, qualifying, race) and track state (dry, wet), and offered on the next visit.
 - **Rain** (CSP weather, Pure included): compound choice (slicks, intermediates, wets), pressures, wing, stricter driving aids; separate wet calibration.
@@ -46,10 +48,10 @@ Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free versi
 ## Quick start
 
 1. Start an offline session (practice, track day, qualifying or race). Open SetupLab **with the car in the pits** and wait for "Discovery finished".
-2. Tick **SetupLab active**, then drive clean laps.
+2. Step 1, **Start**: choose **My current setup**, **Car's default setup** or **Resume my reference**. This activates SetupLab. Drive clean laps.
 3. When a version is ready, it is announced at the top of the screen. In the pits: **Try v1** writes the trial file, then **Load** and **Confirm** put it in the car.
-4. Drive with it, then keep or refuse each effect and click **Validate v1**. Load the validated version and carry on: the refinement continues from it.
-5. For the race, the RACE tab shows what is needed: a validated qualifying setup, loaded in the car, and the race lap count.
+4. Drive with it, then click **Validate v1** (or **Modify…** to refuse a particular setting first). Load the validated version and carry on: the refinement continues from it.
+5. For the race: once a qualifying version is validated, the RACE tab asks for that setup in the car and the race lap count.
 
 Every button, tab and setting is described in the [user guide](docs/notice.html).
 
@@ -69,9 +71,9 @@ This beta is built and checked on an **offline test bench** (over 300 tests: mod
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
-- the new 1.5 interface (tabs, step card, effect buttons).
+- the new 1.5 interface (tabs, step card, starting point, "Modify…").
 
-Some settings are deliberately kept, with their reason shown: toe, coast and preload differential, packers, springs and dampers until a valid dry lap has measured the track roughness, ride height without a discovery in the pits, settings defined by a car's script (unknown effect).
+Some settings are deliberately kept, with their reason shown: toe, coast and preload differential (transient effects outside the model), packers and bump stops (reference to confirm), springs and dampers until a valid dry lap has measured the track roughness, ride height until a load in the pits has verified the height reference, settings defined by a car's script (unknown effect).
 
 The J0 report and the copied lap (DIAGNOSTICS and MEASURE tabs), meant for development, are in French. The source code comments are in French.
 
