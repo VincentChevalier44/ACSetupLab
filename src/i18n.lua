@@ -9,10 +9,14 @@ local EN = require('src/lang_en')
 local M = { lang = 'en', misses = nil }
 
 local exact = {}
-local byLead, noLead = {}, {}
+-- phrases calculées apprises avec leur traduction (explications des réglages) ; bornées
+local learned, learnedCount = {}, 0
+local LEARNED_MAX = 4000
+local byLead, noLead, generic = {}, {}, {}
 local cache, cacheSize = {}, 0
 local CACHE_MAX = 3000
 local LEAD = 3
+local GENERIC = 3
 
 local function escape(s)
   return (s:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%0'))
@@ -24,7 +28,12 @@ do
     if fr:find('%s', 1, true) then
       local holes = select(2, fr:gsub('%%s', ''))
       local pattern = '^' .. escape(fr):gsub('%%%%s', '(.-)') .. '$'
-      list[#list + 1] = { pattern = pattern, en = en, lead = fr:match('^(.-)%%s') or '', literal = #fr - 2 * holes }
+      -- morceau fixe le plus long : filtre rapide (recherche simple) avant le motif
+      local need = ''
+      for chunk in (fr .. '%s'):gmatch('(.-)%%s') do
+        if #chunk > #need then need = chunk end
+      end
+      list[#list + 1] = { pattern = pattern, en = en, lead = fr:match('^(.-)%%s') or '', literal = #fr - 2 * holes, need = need }
     else
       exact[fr] = en
     end
@@ -35,7 +44,10 @@ do
     return a.pattern < b.pattern
   end)
   for _, p in ipairs(list) do
-    if #p.lead >= LEAD then
+    -- modèles génériques (« %s : %s », « %s (%s) »…) : en dernier recours, après le découpage en phrases
+    if p.literal <= GENERIC then
+      generic[#generic + 1] = p
+    elseif #p.lead >= LEAD then
       local key = p.lead:sub(1, LEAD)
       byLead[key] = byLead[key] or {}
       byLead[key][#byLead[key] + 1] = p
@@ -57,33 +69,72 @@ local function fill(en, caps)
   end))
 end
 
-local translate
+-- Majuscule en tête si le texte français en avait une (« Calcul %s lancé » -> « %s computation started »).
+local function capital(fr, out)
+  local a, a2, b = fr:byte(1), fr:byte(2) or 0, out:byte(1)
+  local upper = (a and a >= 65 and a <= 90) or (a == 195 and a2 >= 128 and a2 <= 158)
+  if upper and b and b >= 97 and b <= 122 then return string.char(b - 32) .. out:sub(2) end
+  return out
+end
 
-local function tryPatterns(list, s, depth)
+-- Reste-t-il du français ? (lettres accentuées, mots courants) : seulement pour signaler un oubli.
+local FRENCH_WORDS = { ' le ', ' la ', ' les ', ' des ', ' du ', ' de ', ' et ', ' un ', ' une ', ' pour ', ' avec ', ' sur ',
+  ' au ', ' aux ', ' est ', ' pas ', ' ou ', ' dans ', ' votre ', ' vos ', ' avant ', ' tour ', ' tours ', 'meilleur', 'moyenne',
+  ' sans ', ' puis ', ' rien ', ' piste', 'qualif ', 'qualif,', 'réglage' }
+local function looksFrench(s)
+  if type(s) ~= 'string' then return false end
+  -- lettres accentuées (pas × ni ÷), œ
+  if s:find('\195[\128-\150\152-\182\184-\191]') or s:find('\197[\146\147]') then return true end
+  local padded = ' ' .. s:lower() .. ' '
+  for _, w in ipairs(FRENCH_WORDS) do
+    if padded:find(w, 1, true) then return true end
+  end
+  return false
+end
+
+-- Apprend la traduction d'une phrase calculée (le module qui la calcule la connaît dans les deux langues).
+M.looksFrench = looksFrench
+
+local bySentences, full
+
+-- Un trou qui contient une fin de phrase ou de ligne a sans doute avalé du texte d'une autre phrase : le modèle n'est
+-- alors retenu qu'en second choix, après le découpage en phrases.
+local function whole(c)
+  return not (c:find(' ; ', 1, true) or c:find('\n', 1, true) or c:find('. ', 1, true))
+end
+
+local function tryPatterns(list, s, depth, strict)
+  local first = nil
   for _, p in ipairs(list) do
-    if p.lead == '' or s:sub(1, #p.lead) == p.lead then
+    if (p.lead == '' or s:sub(1, #p.lead) == p.lead) and (p.need == '' or s:find(p.need, 1, true)) then
       local caps = { s:match(p.pattern) }
-      if caps[1] ~= nil then
-        for i, c in ipairs(caps) do caps[i] = translate(c, depth + 1) or c end
-        return fill(p.en, caps)
+      local ok = caps[1] ~= nil
+      if ok and strict then
+        for _, c in ipairs(caps) do ok = ok and whole(c) end
+      end
+      if ok then
+        for i, c in ipairs(caps) do
+          if c ~= '' then caps[i] = full(c, depth + 1) or c end
+        end
+        local out = capital(s, fill(p.en, caps))
+        -- un modèle qui laisse du français : le suivant peut mieux découper
+        if not looksFrench(out) then return out end
+        first = first or out
       end
     end
   end
-  return nil
+  return first
 end
 
--- Traduction d'un texte entier (phrase exacte ou modèle), ou nil.
-function translate(s, depth)
-  local e = exact[s]
-  if e then return e end
-  if depth > 4 or #s < 2 then return nil end
+-- Modèle précis (début du texte d'abord, puis les autres).
+local function precise(s, depth, strict)
   local list = #s >= LEAD and byLead[s:sub(1, LEAD)]
-  return (list and tryPatterns(list, s, depth)) or tryPatterns(noLead, s, depth)
+  return (list and tryPatterns(list, s, depth, strict)) or tryPatterns(noLead, s, depth, strict)
 end
 
 -- Texte fait de plusieurs phrases ou lignes : chacune traduite.
 local SEPARATORS = { '\n', '. ', ' ; ', ' — ' }
-local function bySentences(s, depth)
+function bySentences(s, depth)
   for _, sep in ipairs(SEPARATORS) do
     local start, parts = 1, {}
     while true do
@@ -96,30 +147,58 @@ local function bySentences(s, depth)
       parts[#parts + 1] = s:sub(start)
       local out = {}
       for k, part in ipairs(parts) do
-        out[k] = translate(part, depth) or (part ~= '' and bySentences(part, depth + 1)) or part
+        out[k] = (part ~= '' and full(part, depth + 1)) or part
       end
-      return table.concat(out, sep == '. ' and ' ' or sep)
+      return table.concat(out, sep == '. ' and ' ' or (sep == ' ; ' and '; ' or sep))
     end
   end
   return nil
 end
 
--- Reste-t-il du français ? (lettres accentuées, mots courants) : seulement pour signaler un oubli.
-local FRENCH_WORDS = { ' le ', ' la ', ' les ', ' des ', ' du ', ' de ', ' et ', ' un ', ' une ', ' pour ', ' avec ', ' sur ',
-  ' au ', ' aux ', ' est ', ' pas ', ' ou ', ' dans ', ' votre ', ' vos ' }
-function M.looksFrench(s)
-  if type(s) ~= 'string' then return false end
-  if s:find('[\195\197]') then return true end
-  local padded = ' ' .. s:lower() .. ' '
-  for _, w in ipairs(FRENCH_WORDS) do
-    if padded:find(w, 1, true) then return true end
+-- Texte entier : phrase exacte, modèle précis aux trous sans fin de phrase, phrase par phrase, modèle précis
+-- quelconque, modèle générique (« %s : %s »…), ou nil.
+-- Le premier découpage qui ne laisse rien en français est retenu, sinon le premier trouvé.
+local STEPS = {
+  function(s, depth) return precise(s, depth, true) end,
+  function(s, depth) return bySentences(s, depth) end,
+  function(s, depth) return precise(s, depth, false) end,
+  function(s, depth) return tryPatterns(generic, s, depth, false) end,
+}
+function full(s, depth)
+  local e = exact[s] or learned[s]
+  if e then return e end
+  if depth > 7 or #s < 2 then return nil end
+  local first = nil
+  for _, step in ipairs(STEPS) do
+    local out = step(s, depth)
+    if out then
+      if not looksFrench(out) then return out end
+      first = first or out
+    end
   end
-  return false
+  return first
+end
+
+function M.remember(fr, en)
+  if type(fr) ~= 'string' or type(en) ~= 'string' or learned[fr] == en then return end
+  if learnedCount >= LEARNED_MAX then learned, learnedCount = {}, 0 end
+  learned[fr], learnedCount = en, learnedCount + 1
+  cache[fr] = nil
+end
+
+-- Texte en anglais quelle que soit la langue choisie.
+function M.en(s)
+  if type(s) ~= 'string' or s == '' then return s end
+  return full(s, 0) or s
+end
+
+-- Oublie les traductions déjà faites (banc : oublis comptés depuis le début).
+function M.reset()
+  cache, cacheSize = {}, 0
 end
 
 function M.set(lang)
-  local wanted = lang == 'fr' and 'fr' or 'en'
-  if wanted ~= M.lang then M.lang = wanted end
+  M.lang = lang == 'fr' and 'fr' or 'en'
 end
 
 -- Texte dans la langue choisie (le texte français tel quel en français).
@@ -127,8 +206,8 @@ function M.t(s)
   if M.lang ~= 'en' or type(s) ~= 'string' or s == '' then return s end
   local hit = cache[s]
   if hit then return hit end
-  local out = translate(s, 0) or bySentences(s, 0) or s
-  if M.misses and M.looksFrench(out) then M.misses[s] = out end
+  local out = full(s, 0) or s
+  if M.misses and not (exact[s] or learned[s]) and looksFrench(out) then M.misses[s] = out end
   if cacheSize >= CACHE_MAX then
     cache, cacheSize = {}, 0
   end

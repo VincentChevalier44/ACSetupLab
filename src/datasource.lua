@@ -363,7 +363,7 @@ function M.readCar(host, carIndex, ctx)
         lut = Util.parseLutText(text, K.maxLutPoints, ctx.tick)
         reason = lut and nil or 'texte illisible'
       else
-        reason = tostring(reason) .. ' ; brut : ' .. tostring(why)
+        reason = tostring(reason) .. ', brut : ' .. tostring(why)
       end
       if lut then car.lutStatus[name] = 'ok (texte brut)' end
     else

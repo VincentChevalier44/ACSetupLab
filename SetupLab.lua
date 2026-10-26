@@ -16,6 +16,7 @@ local Optimizer = require('src/optimizer')
 local Recorder = require('src/recorder')
 local Store = require('src/store')
 local Calibration = require('src/calibration')
+local L = require('src/i18n')
 
 local K = Config.K
 
@@ -2230,8 +2231,9 @@ local function refineAnnounce(r, e)
   local n = lapsAnalyzed(e)
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' prêt'
   local text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s' .. (n > 0 and (', d\'après ' .. lapsText(n)) or '')
-    .. '. Dans SetupLab : Valider (enregistre), puis Charger ; ou Recommencer (ne pas la garder).'
-  Util.call(Util.get(host.ac, 'setMessage'), title, text, nil, K.alertSeconds)
+    .. '. Dans SetupLab : Essayer, puis Charger au stand ; trier ses effets et Valider ; ou Recommencer.'
+  L.set(app.settings.language)
+  Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
 end
 
@@ -2244,7 +2246,8 @@ local function refinePreparing(r, e)
   e.noticed = true
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' en préparation'
   local text = 'J\'ai le minimum d\'informations ; je continue d\'analyser vos tours. Le setup sera prêt à votre retour au stand.'
-  Util.call(Util.get(host.ac, 'setMessage'), title, text, nil, K.alertSeconds)
+  L.set(app.settings.language)
+  Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
 end
 
@@ -2506,7 +2509,7 @@ local function refineFinish(r, q)
   refineTrim(r)
   app.ui.message = 'Affinage ' .. COMPUTE[r.kind].label .. ' : ' .. (shown and ('v' .. shown.version
     .. (shown.ready and (shown.updates > 0 and ' mise à jour' or ' prête') or ' en préparation') .. ', gain prévu '
-    .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : la valider (enregistrée, puis à charger au stand) ou recommencer'
+    .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : l\'essayer, trier ses effets et la valider, ou recommencer'
       or ' (provisoire) : analyse de vos tours jusqu\'au retour au stand')) or note.note)
     .. ' ; nouveau calcul ' .. (app.settings.refineLaps > 1 and ('après ' .. app.settings.refineLaps .. ' tours propres.')
       or 'au prochain tour propre.')

@@ -99,6 +99,8 @@ end
 local translated = setmetatable({}, { __mode = 'k' })
 local function hostFor(host, app)
   L.set(app.settings and app.settings.language)
+  -- en français, les textes du code s'affichent tels quels : l'hôte d'origine, sans détour
+  if L.lang == 'fr' then return host end
   local h = translated[host]
   if h == nil or h.ui == nil then
     h = M.translating(host)
@@ -138,6 +140,12 @@ local function realLaps(app, family, bucket)
 end
 
 -- Temps de référence de vos tours : meilleur tour (tour rapide) ou moyenne (course), ou nil.
+local function versionLaps(app, e)
+  local mine = realLaps(app, e.family, e.bucket)
+  if e.trialFamily and (mine == nil or mine.count == 0) then mine = realLaps(app, e.trialFamily, e.bucket) end
+  return mine
+end
+
 local function realTime(stats, kind)
   if stats == nil or (stats.count or 0) == 0 then return nil end
   return kind == 'race' and stats.sum / stats.count or stats.best
@@ -941,12 +949,12 @@ local function effectsList(host, app, intents, e, palette, kind)
     for _, item in ipairs(g.items) do
       local c = item.change
       if c then
-        details[#details + 1] = c.var.label .. ' ' .. M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to)
+        details[#details + 1] = L.t(c.var.label) .. ' ' .. M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to)
           .. ' (' .. effectGain(c.contribution or 0) .. ')'
       elseif item.compound then
-        details[#details + 1] = 'Composé de pneus : ' .. tostring(e.compound and e.compound.name)
+        details[#details + 1] = L.t('Composé de pneus : %s'):gsub('%%s', tostring(e.compound and e.compound.name), 1)
       elseif item.aid then
-        details[#details + 1] = (AID_NAMES[item.aid] or item.aid) .. ' ' .. tostring(item.from) .. ' › ' .. tostring(item.to)
+        details[#details + 1] = L.t(AID_NAMES[item.aid] or item.aid) .. ' ' .. tostring(item.from) .. ' › ' .. tostring(item.to)
       end
     end
     if editable then
@@ -958,8 +966,9 @@ local function effectsList(host, app, intents, e, palette, kind)
         or 'Refusé : ses réglages gardent leur ancienne valeur, dans cette version et dans les calculs suivants. Un clic pour le garder.')
       host.ui.sameLine()
     end
-    colored(host, g.label .. ' · ' .. effectGain(g.contribution or 0) .. ' prévu · ' .. tostring(details[1] or '')
-      .. (#details > 1 and (' (+' .. (#details - 1) .. ')') or '') .. ((not editable and not g.keep) and ' · refusé' or ''),
+    colored(host, L.t(g.label) .. ' · ' .. L.t('%s prévu'):gsub('%%s', effectGain(g.contribution or 0), 1) .. ' · '
+      .. tostring(details[1] or '') .. (#details > 1 and (' (+' .. (#details - 1) .. ')') or '')
+      .. ((not editable and not g.keep) and L.t(' · refusé') or ''),
       palette[g.keep and 'text' or 'muted'])
     tip(host, table.concat(details, '\n'))
   end
@@ -972,9 +981,8 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   local ui = host.ui
   local v = 'v' .. e.version
   local driven = r.driven == e.version
-  local mine, before = realLaps(app, e.family, e.bucket), realLaps(app, e.originFamily, e.bucket)
   -- version partielle : vos tours ont été faits avec son essai complet
-  if e.trialFamily and (mine == nil or mine.count == 0) then mine = realLaps(app, e.trialFamily, e.bucket) end
+  local mine, before = versionLaps(app, e), realLaps(app, e.originFamily, e.bucket)
   local tMine, tBefore = realTime(mine, kind), realTime(before, kind)
   if e.status == 'écartée' then
     small(host, v .. ' non gardée : pas reproposée.' .. (driven and ' Encore dans la voiture : charger la référence au stand.' or ''),
@@ -1135,7 +1143,7 @@ local function refineCard(host, app, intents, kind, palette)
         head(palette, 'Avis', 'Validée, non gardée ou à juger') } }
       for i = #r.history, math.max(1, #r.history - K.uiHistoryRows + 1), -1 do
         local e = r.history[i]
-        local mine = e.version and realLaps(app, e.family, e.bucket) or nil
+        local mine = e.version and versionLaps(app, e) or nil
         local before = e.version and realLaps(app, e.originFamily, e.bucket) or nil
         local tm, tb = realTime(mine, kind), realTime(before, kind)
         rows[#rows + 1] = {
@@ -1216,7 +1224,7 @@ local function computeArea(host, app, intents, kind, palette)
     end
     local estimate = M.estimateSeconds(app, budget, spec.lapsPerEval, kind)
     local text, long = M.durationText(estimate, Config.K[spec.target], M.slowFrames(app))
-    small(host, budget .. spec.unit .. text, long and palette.pending or palette.muted)
+    small(host, L.t(budget .. spec.unit) .. L.t(text), long and palette.pending or palette.muted)
   end
   if q and q.state == 'failed' then
     wrapped(host, 'Calcul en échec : ' .. tostring(q.error), palette.unavailable)
@@ -1392,8 +1400,8 @@ local function memoryCard(host, app, intents, kind, palette)
     for _, e in ipairs(list) do
       local m = e.m
       if m.locked then padlock(host, true) end
-      wrapped(host, e.label .. ' · ' .. e.bucket .. ' : ' .. m.file .. (m.version and (' (v' .. m.version .. ')') or '')
-        .. (m.locked and ' — figé' or ' — validé') .. (m.problem and (' — ' .. m.problem) or ''),
+      wrapped(host, L.t(e.label) .. ' · ' .. L.t(e.bucket) .. L.t(' : ') .. m.file .. (m.version and (' (v' .. m.version .. ')') or '')
+        .. L.t(m.locked and ' — figé' or ' — validé') .. (m.problem and (' — ' .. L.t(m.problem)) or ''),
         palette[m.problem and 'unavailable' or (m.locked and 'available' or 'text')])
       local lock = (m.locked and 'Déverrouiller' or 'Figer (cadenas)') .. '###memlock_' .. e.id
       if m.text then
@@ -1695,7 +1703,7 @@ local function settingsSection(host, app, palette)
         head(palette, 'Pluie', 'Prise en compte sur piste mouillée : modélisé, règle, ou inchangé (raison au survol).') } }
       for _, row in ipairs(rows) do
         list[#list + 1] = {
-          { text = row.label, tip = row.detail .. ' (' .. table.concat(row.names, ', ') .. ')' },
+          { text = row.label, tip = L.t(row.detail) .. ' (' .. table.concat(row.names, ', ') .. ')' },
           { text = row.status, color = palette[row.status == 'optimisé' and 'available' or 'na'] },
           { text = row.wetShort or '—', tip = row.wet, color = palette[row.wetShort == 'modélisé' and 'available'
             or (row.wetShort == 'règle' and 'accent' or 'na')] },
@@ -1843,8 +1851,13 @@ local function header(host, app, intents, palette)
     .. (d and d.trackFiles and ('\nCircuit : ' .. tostring(d.trackFiles.fullId)) or ''))
   ui.sameLine()
   colored(host, Config.version, palette.muted)
+  -- badge de langue : un clic passe à l'autre langue
   ui.sameLine()
-  languageButtons(host, app, intents, palette, true)
+  local english = app.settings.language ~= 'fr'
+  if ui.button((english and 'EN' or 'FR') .. '###lang_toggle') then
+    intents.setting = { key = 'language', value = english and 'fr' or 'en' }
+  end
+  tip(host, 'Language / Langue : English, Français.')
   -- SetupLab actif (décision de Vincent du 21/10/2026 : « on l'ouvre, on l'active, on roule »)
   nextInline(host, 'SetupLab actif')
   if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
@@ -1856,7 +1869,7 @@ local function header(host, app, intents, palette)
   if d and d.car then title[#title + 1] = tostring(d.car.name) end
   if d and d.trackFiles then title[#title + 1] = tostring(d.trackFiles.name) end
   local session = M.sessionLine(app.context)
-  if session then title[#title + 1] = session end
+  if session then title[#title + 1] = L.t(session) end
   if #title > 0 then small(host, table.concat(title, '  ·  '), palette.muted) end
   local autoText, autoColor = M.autoLine(app)
   small(host, autoText, palette[autoColor])
@@ -1942,20 +1955,23 @@ local THEME = {
   { 'TabUnfocusedActive', 'accent' }, { 'CheckMark', 'accent' }, { 'SliderGrab', 'accent' }, { 'SliderGrabActive', 'accent' },
   { 'PlotHistogram', 'accent' }, { 'PopupBg', 'bg' },
 }
-local function pushTheme(host, palette)
+-- Couleurs du thème résolues une fois (emplacement ImGui, couleur), puis posées à chaque image.
+local function pushTheme(host, state, palette)
   local ui = host.ui
-  local styles = Util.get(ui, 'StyleColor')
   local push = Util.get(ui, 'pushStyleColor')
-  if type(styles) ~= 'table' or type(push) ~= 'function' then return 0 end
-  local n = 0
-  for _, item in ipairs(THEME) do
-    local slot, color = styles[item[1]], palette[item[2]]
-    if slot ~= nil and color ~= nil then
-      push(slot, color)
-      n = n + 1
+  if type(push) ~= 'function' then return 0 end
+  local list = state.theme
+  if list == nil then
+    list = {}
+    local styles = Util.get(ui, 'StyleColor')
+    for _, item in ipairs(type(styles) == 'table' and THEME or {}) do
+      local slot, color = styles[item[1]], palette[item[2]]
+      if slot ~= nil and color ~= nil then list[#list + 1] = { slot, color } end
     end
+    state.theme = list
   end
-  return n
+  for i = 1, #list do push(list[i][1], list[i][2]) end
+  return #list
 end
 
 -- Onglet Mémoire : les setups validés ou figés de cette voiture sur ce circuit, par séance et état de piste.
@@ -2019,7 +2035,7 @@ function M.main(host, app, intents)
   host = hostFor(host, app)
   local ui = host.ui
   local palette = colors(app.ui, host)
-  local pushed = pushTheme(host, palette)
+  local pushed = pushTheme(host, app.ui, palette)
   local ok, err = pcall(function()
     header(host, app, intents, palette)
     stepCard(host, app, intents, palette)
@@ -2176,7 +2192,7 @@ function M.overlay(host, app)
     colored(host, 'SetupLab · ' .. name .. ' en piste (' .. where .. ')', palette.accent)
     if e.status == 'écartée' then small(host, name .. ' non gardée : charger la référence au stand.', palette.pending) end
     -- verdict sur vos tours (le setup entier)
-    local mine, before = realLaps(app, e.family, e.bucket), realLaps(app, e.originFamily, e.bucket)
+    local mine, before = versionLaps(app, e), realLaps(app, e.originFamily, e.bucket)
     local tBefore = realTime(before, kind)
     tMine = realTime(mine, kind)
     local word = kind == 'race' and 'Moyenne ' or 'Meilleur '
@@ -2276,7 +2292,7 @@ function M.debug(host, app)
   local entries = Util.logEntries(app.log)
   for i = #entries, 1, -1 do
     local e = entries[i]
-    ui.textWrapped(Util.fmt(e.t, 1) .. ' s  ' .. e.level .. '  ' .. e.code .. ' : ' .. e.text)
+    ui.textWrapped(Util.fmt(e.t, 1) .. ' s  ' .. e.level .. '  ' .. e.code .. L.t(' : ') .. L.t(e.text))
   end
 end
 

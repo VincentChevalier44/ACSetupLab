@@ -672,7 +672,17 @@ function F.new(opts)
     storage = function(key, default)
       h.stored = h.stored or {}
       return {
-        get = function() if h.stored[key] == nil then return default end return h.stored[key] end,
+        -- banc en français (les tests lisent les textes français) sauf h.lang = 'en' : la langue est ajoutée aux
+        -- réglages relus s'ils n'en ont pas (l'anglais est la langue par défaut de l'app)
+        get = function()
+          local value = h.stored[key]
+          if key == 'setuplab:data' and h.lang ~= 'en' and type(value) == 'string' and value:find('^setuplab%-store')
+              and not value:find('settings#language=', 1, true) then
+            return value .. '|settings#language=s:fr'
+          end
+          if value == nil then return default end
+          return value
+        end,
         set = function(_, value) h.stored[key] = value end,
       }
     end,
@@ -734,6 +744,7 @@ function F.new(opts)
   -- stockage de départ du banc (1.5) : minimum avant une proposition à 0 (les tests de l'affinage proposent dès la
   -- découverte ; le minimum a ses propres tests) et interface en français (assertions sur les textes)
   h.stored = opts.stored or { ['setuplab:data'] = 'setuplab-store 1|settings#refineMinLaps=0|settings#language=s:fr' }
+  h.lang = opts.lang
   h.recycled, h.moves, h.fileOpCalls = {}, {}, 0
   local function listDir(dir, mask)
     local pattern = '^' .. (mask or '*'):gsub('[%.%-%+%[%]%(%)%%%^%$]', '%%%0'):gsub('%*', '.*'):gsub('%?', '.') .. '$'

@@ -5,6 +5,7 @@ Les clés sont les textes français du code ; « %s » marque un trou (nombre, n
 valeur anglaise peut réordonner les trous avec « {1} », « {2} »… Chaînes longues Lua [==[ ]==] : aucun échappement.
 """
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -26,9 +27,10 @@ def check(en):
             problems.append(f'délimiteur interdit : {fr!r}')
         holes = fr.count('%s')
         if '{1}' in value:
-            for n in range(1, holes + 1):
-                if '{%d}' % n not in value:
-                    problems.append(f'trou {{{n}}} absent : {fr!r}')
+            # trous omis permis (marques du pluriel français) ; jamais un trou qui n'existe pas
+            for n in re.findall(r'{(\d)}', value):
+                if int(n) > holes:
+                    problems.append(f'trou {{{n}}} inexistant : {fr!r}')
         elif value.count('%s') != holes:
             problems.append(f'trous différents ({holes} / {value.count("%s")}) : {fr!r}')
         if fr.startswith('\n') or value.startswith('\n'):

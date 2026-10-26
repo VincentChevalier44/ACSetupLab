@@ -528,6 +528,9 @@ tests['A20 travail de la frame retiré de la tranche (passage de ligne, §14.3)'
     now = now + read
     return now
   end
+  -- une frame de transition : le coût de la frame d'avant, mesuré à l'horloge réelle (premier affichage de
+  -- l'interface, compilation), ne doit pas déclencher la garde de frame pendant la mesure
+  frames(h, 1)
   local recordUpdate, step = Recorder.update, Util.schedulerStep
   local recordCost, budgets = 0, {}
   Recorder.update = function(...)

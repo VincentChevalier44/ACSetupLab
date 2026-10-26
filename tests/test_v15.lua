@@ -289,4 +289,83 @@ tests['NV05 effets : tout gardé après l\'essai, le fichier d\'essai devient la
   T.eq(app.perf.errors + app2.perf.errors, 0)
 end
 
+local function shownText(h, needle)
+  for _, s in ipairs(h.texts) do
+    if type(s) == 'string' and s:find(needle, 1, true) then return true end
+  end
+  return false
+end
+
+-- Interface (demande de Vincent du 26/10/2026) : étape en cours toujours en tête, effets gardés ou refusés d'un clic,
+-- « Essayer », puis « Valider vN (k/n effets) » ; mêmes boutons quelle que soit la langue.
+tests['NV06 interface : étape en cours, essai, effets d\'un clic, validation'] = function()
+  local h, app = ready()
+  frames(h, 1)
+  T.ok(shownText(h, 'Étape 1/4 · Rouler'), 'étape 1 en tête')
+  h.click = 'Affinage automatique (tour rapide)'
+  frames(h, 1)
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  frames(h, 1)
+  T.ok(shownText(h, 'Étape 2/4 · Essayer v1'), 'étape 2')
+  T.ok(shownText(h, 'Effets gardés : '), 'effets listés')
+  local e = r.history[#r.history]
+  -- un clic sur le bouton d'un effet : refusé, puis gardé de nouveau
+  local id = 'effect_quali_1_' .. e.groups[1].key
+  h.click = id
+  frames(h, 1)
+  T.eq(e.groups[1].keep, false, 'refusé d\'un clic')
+  h.click = id
+  frames(h, 1)
+  T.eq(e.groups[1].keep, true, 'gardé de nouveau')
+  h.click = 'Essayer v1'
+  frames(h, 1)
+  T.eq(e.status, 'essai', tostring(app.ui.message))
+  frames(h, 1)
+  T.ok(shownText(h, 'Étape 2/4 · Charger l\'essai v1'), 'étape : charger l\'essai')
+  h.click = id
+  frames(h, 1)
+  T.eq(e.groups[1].keep, false, 'tri pendant l\'essai')
+  h.click = 'Valider v1'
+  frames(h, 1)
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  T.eq(app.keptCount(e), #e.groups - 1)
+  T.eq(app.perf.errors, 0)
+end
+
+-- Onglet Course : trois conditions dites, nombre de tours au curseur (gardé pour ce circuit).
+tests['NV07 interface course : conditions, chargement de la référence, nombre de tours au curseur'] = function()
+  local h, app = ready()
+  h.tab = 'Course'
+  frames(h, 1)
+  T.ok(shownText(h, '1. Qualification validée : aucune'), 'condition 1')
+  T.ok(shownText(h, 'Calcul course en attente : '), 'calcul en attente, raison dite')
+  h.sliders = { race_laps = 22 }
+  frames(h, 1)
+  T.eq(app.raceLaps, 22, tostring(app.ui.message))
+  frames(h, 1)
+  T.ok(shownText(h, '3. Tours de la course : 22'), 'tours affichés')
+  h.tab = nil
+  T.eq(app.perf.errors, 0)
+end
+
+-- Langue : badge EN/FR dans l'en-tête, choix dans les réglages ; aide sur chaque réglage modifiable.
+tests['NV08 langue au badge, aide de chaque réglage'] = function()
+  local h, app = ready()
+  T.eq(app.settings.language, 'fr')
+  h.click = 'lang_toggle'
+  frames(h, 1)
+  T.eq(app.settings.language, 'en', 'badge : anglais')
+  frames(h, 1)
+  T.ok(shownText(h, 'Step 1/4 · Drive'), 'interface en anglais')
+  T.no(shownText(h, 'Étape 1/4'), 'plus de français')
+  h.click = 'lang_fr'
+  frames(h, 1)
+  T.eq(app.settings.language, 'fr', 'réglages : français')
+  for _, key in ipairs(Config.EDITABLE) do
+    T.ok(type(Config.help[key]) == 'string' and #Config.help[key] > 20, 'aide du réglage ' .. key)
+  end
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

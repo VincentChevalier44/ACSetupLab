@@ -6,6 +6,7 @@
 
 local Util = require('src/util')
 local Config = require('src/config')
+local L = require('src/i18n')
 
 local M = {}
 
@@ -64,15 +65,52 @@ end
 
 local function pct(x) return fmt(x * 100, 0) .. ' %' end
 
-local function signed(clicks)
-  return (clicks > 0 and '+' or '') .. clicks .. ' cran' .. (math.abs(clicks) > 1 and 's' or '')
+-- Mots des phrases, en français et en anglais (décision de Vincent du 26/10/2026 : toute l'application traduite) ;
+-- la phrase anglaise est apprise par la traduction (i18n.remember) : elle s'affiche si l'anglais est choisi.
+local WORDS = {
+  fr = {
+    step = ' cran', steps = ' crans', gain = ' ; gain %s s', negligible = ' ; effet seul négligeable, utile avec les autres réglages',
+    cost = ' ; coût %s s seul, compensé par les autres réglages', balanceSame = 'équilibre inchangé', balance = 'équilibre %s -> %s (%s)',
+    neutral = 'plus neutre', under = 'plus sous-vireur', over = 'plus survireur', top = 'pointe %s -> %s km/h',
+    fast = '%s du tour en virages rapides', downforce = 'plus d\'appui', power = '%s du tour à pleine charge', drag = 'moins de traînée',
+    gearing = 'étagement adapté au circuit', rearLock = 'blocage de l\'arrière en premier %s -> %s du freinage',
+    moreFront = 'plus de freinage à l\'avant', moreRear = 'plus de freinage à l\'arrière', brake = '%s du tour au freinage',
+    torque = 'couple limitant à haute vitesse', modulation = 'marge de dosage sans ABS', hot = ' : à chaud %s -> %s psi',
+    ideal = ' (idéale %s)', closer = ' : pression à chaud plus proche de l\'idéale',
+    corner = 'plus d\'adhérence en virage, un peu moins au freinage et en traction',
+    traction = 'plus d\'adhérence au freinage et en traction, un peu moins en virage',
+    roll = 'répartition de la raideur au roulis (équilibre)', inside = 'motricité de la roue intérieure en sortie de virage lent',
+    slow = '%s du tour en virages lents', yaw = 'moins de sous-virage en sortie de virage (moment de lacet du blocage)',
+    rod = ' mm : appui et assiette (repère de hauteur vérifié au stand)',
+    damper = ' : variation de charge des pneus sur la rugosité mesurée, plateforme aéro',
+  },
+  en = {
+    step = ' step', steps = ' steps', gain = '; gain %s s', negligible = '; negligible effect alone, useful with the other settings',
+    cost = '; costs %s s alone, made up for by the other settings', balanceSame = 'balance unchanged', balance = 'balance %s -> %s (%s)',
+    neutral = 'more neutral', under = 'more understeer', over = 'more oversteer', top = 'top speed %s -> %s km/h',
+    fast = '%s of the lap in fast corners', downforce = 'more downforce', power = '%s of the lap at full throttle', drag = 'less drag',
+    gearing = 'gearing suited to the track', rearLock = 'rear locking first %s -> %s of braking',
+    moreFront = 'more braking at the front', moreRear = 'more braking at the rear', brake = '%s of the lap under braking',
+    torque = 'torque-limited at high speed', modulation = 'modulation margin without ABS', hot = ': hot %s -> %s psi',
+    ideal = ' (ideal %s)', closer = ': hot pressure closer to the ideal',
+    corner = 'more grip in corners, a little less under braking and traction',
+    traction = 'more grip under braking and traction, a little less in corners',
+    roll = 'roll stiffness distribution (balance)', inside = 'inside wheel traction out of slow corners',
+    slow = '%s of the lap in slow corners', yaw = 'less understeer on corner exit (locking yaw moment)',
+    rod = ' mm: downforce and rake (height reference checked in the pits)',
+    damper = ': tyre load variation over the measured roughness, aero platform',
+  },
+}
+
+local function signed(W, clicks)
+  return (clicks > 0 and '+' or '') .. clicks .. (math.abs(clicks) > 1 and W.steps or W.step)
 end
 
-local function gainText(contribution)
+local function gainText(W, contribution)
   if contribution == nil then return '' end
-  if contribution >= 0.0005 then return ' ; gain ' .. fmt(contribution, 2) .. ' s' end
-  if contribution > -0.0005 then return ' ; effet seul négligeable, utile avec les autres réglages' end
-  return ' ; coût ' .. fmt(-contribution, 2) .. ' s seul, compensé par les autres réglages'
+  if contribution >= 0.0005 then return W.gain:format(fmt(contribution, 2)) end
+  if contribution > -0.0005 then return W.negligible end
+  return W.cost:format(fmt(-contribution, 2))
 end
 
 -- Morceau « libellé valeur » seulement si la valeur est connue (aucun chiffre inventé, relecture J8 m1).
@@ -89,68 +127,67 @@ local function join(list)
   return table.concat(out, ', ')
 end
 
-local function balanceWord(before, after)
+local function balanceWord(W, before, after)
   if before == nil or after == nil then return '' end
   local move = after - before
-  local side = after < 1 and 'sous-vireur' or 'survireur'
-  if math.abs(move) < 0.002 then return 'équilibre inchangé' end
-  return 'équilibre ' .. fmt(before, 3) .. ' -> ' .. fmt(after, 3) .. ' (' .. (math.abs(after - 1) < math.abs(before - 1)
-    and 'plus neutre' or ('plus ' .. side)) .. ')'
+  if math.abs(move) < 0.002 then return W.balanceSame end
+  return W.balance:format(fmt(before, 3), fmt(after, 3), math.abs(after - 1) < math.abs(before - 1) and W.neutral
+    or (after < 1 and W.under or W.over))
 end
 
--- Phrase d'un changement. c : { var = { kind, label }, clicks, from, to, contribution } ; ctx :
--- { stats (trackStats), before, after (métriques sans / avec le réglage : balance, rearLock, vMax,
--- hot, ideal) }.
-function M.change(c, ctx)
-  local kind, label = c.var.kind, c.var.label
+local function sentence(W, label, c, ctx)
+  local kind = c.var.kind
   local before, after, stats = ctx and ctx.before or {}, ctx and ctx.after or {}, ctx and ctx.stats or {}
-  local gain = gainText(c.contribution)
-  local topSpeed = before.vMax and after.vMax
-    and ('pointe ' .. fmt(before.vMax * 3.6, 0) .. ' -> ' .. fmt(after.vMax * 3.6, 0) .. ' km/h') or nil
-  local balance = before.balance and after.balance and balanceWord(before.balance, after.balance) or nil
+  local gain = gainText(W, c.contribution)
+  local topSpeed = before.vMax and after.vMax and W.top:format(fmt(before.vMax * 3.6, 0), fmt(after.vMax * 3.6, 0)) or nil
+  local balance = before.balance and after.balance and balanceWord(W, before.balance, after.balance) or nil
+  local sep = W == WORDS.en and ': ' or ' : '
   if kind == 'wing' then
     if c.clicks > 0 then
-      return label .. ' ' .. signed(c.clicks) .. ' : ' .. join({ part(stats.fast and (pct(stats.fast)
-        .. ' du tour en virages rapides'), stats.fast), 'plus d\'appui', balance }) .. gain
+      return label .. ' ' .. signed(W, c.clicks) .. sep .. join({ part(stats.fast and W.fast:format(pct(stats.fast)), stats.fast),
+        W.downforce, balance }) .. gain
     end
-    return label .. ' ' .. signed(c.clicks) .. ' : ' .. join({ part(stats.power and (pct(stats.power)
-      .. ' du tour à pleine charge'), stats.power), 'moins de traînée', topSpeed }) .. gain
+    return label .. ' ' .. signed(W, c.clicks) .. sep .. join({ part(stats.power and W.power:format(pct(stats.power)), stats.power),
+      W.drag, topSpeed }) .. gain
   elseif kind == 'gear' or kind == 'final' then
-    return label .. ' ' .. fmt(c.from, 3) .. ' -> ' .. fmt(c.to, 3) .. ' : ' .. join({ topSpeed, 'étagement adapté au circuit' })
-      .. gain
+    return label .. ' ' .. fmt(c.from, 3) .. ' -> ' .. fmt(c.to, 3) .. sep .. join({ topSpeed, W.gearing }) .. gain
   elseif kind == 'brakeBias' then
-    return label .. ' ' .. fmt(c.from * 100, 1) .. ' -> ' .. fmt(c.to * 100, 1) .. ' % : ' .. join({
-      part(before.rearLock and after.rearLock and ('blocage de l\'arrière en premier ' .. pct(before.rearLock) .. ' -> '
-        .. pct(after.rearLock) .. ' du freinage'), before.rearLock),
-      c.to > c.from and 'plus de freinage à l\'avant' or 'plus de freinage à l\'arrière' }) .. gain
+    return label .. ' ' .. fmt(c.from * 100, 1) .. ' -> ' .. fmt(c.to * 100, 1) .. ' %' .. sep .. join({
+      part(before.rearLock and after.rearLock and W.rearLock:format(pct(before.rearLock), pct(after.rearLock)), before.rearLock),
+      c.to > c.from and W.moreFront or W.moreRear }) .. gain
   elseif kind == 'brakePower' then
-    return label .. ' ' .. fmt(c.from * 100, 0) .. ' -> ' .. fmt(c.to * 100, 0) .. ' % : ' .. join({
-      part(stats.brake and (pct(stats.brake) .. ' du tour au freinage'), stats.brake),
-      c.clicks > 0 and 'couple limitant à haute vitesse' or 'marge de dosage sans ABS' }) .. gain
+    return label .. ' ' .. fmt(c.from * 100, 0) .. ' -> ' .. fmt(c.to * 100, 0) .. ' %' .. sep .. join({
+      part(stats.brake and W.brake:format(pct(stats.brake)), stats.brake), c.clicks > 0 and W.torque or W.modulation }) .. gain
   elseif kind == 'pressure' then
-    return label .. ' ' .. fmt(c.from, 1) .. ' -> ' .. fmt(c.to, 1) .. ' psi' .. (before.hot and after.hot and (' : à chaud '
-      .. fmt(before.hot, 1) .. ' -> ' .. fmt(after.hot, 1) .. ' psi' .. (after.ideal and (' (idéale ' .. fmt(after.ideal, 1)
-      .. ')') or '')) or ' : pression à chaud plus proche de l\'idéale') .. gain
+    return label .. ' ' .. fmt(c.from, 1) .. ' -> ' .. fmt(c.to, 1) .. ' psi' .. (before.hot and after.hot
+      and (W.hot:format(fmt(before.hot, 1), fmt(after.hot, 1)) .. (after.ideal and W.ideal:format(fmt(after.ideal, 1)) or ''))
+      or W.closer) .. gain
   elseif kind == 'camber' then
-    return label .. ' ' .. fmt(c.from, 1) .. ' -> ' .. fmt(c.to, 1) .. '° : ' .. join({ c.to < c.from
-      and 'plus d\'adhérence en virage, un peu moins au freinage et en traction'
-      or 'plus d\'adhérence au freinage et en traction, un peu moins en virage', balance }) .. gain
+    return label .. ' ' .. fmt(c.from, 1) .. ' -> ' .. fmt(c.to, 1) .. '°' .. sep .. join({ c.to < c.from and W.corner or W.traction,
+      balance }) .. gain
   elseif kind == 'arb' or kind == 'spring' or kind == 'heave' then
-    return label .. ' ' .. signed(c.clicks) .. ' : ' .. (balance or 'répartition de la raideur au roulis (équilibre)') .. gain
+    return label .. ' ' .. signed(W, c.clicks) .. sep .. (balance or W.roll) .. gain
   elseif kind == 'diffPower' then
-    return label .. ' ' .. fmt(c.from * 100, 0) .. ' -> ' .. fmt(c.to * 100, 0) .. ' % : ' .. (c.clicks > 0
-      and join({ 'motricité de la roue intérieure en sortie de virage lent', part(stats.slow and (pct(stats.slow)
-        .. ' du tour en virages lents'), stats.slow) })
-      or 'moins de sous-virage en sortie de virage (moment de lacet du blocage)') .. gain
+    return label .. ' ' .. fmt(c.from * 100, 0) .. ' -> ' .. fmt(c.to * 100, 0) .. ' %' .. sep .. (c.clicks > 0
+      and join({ W.inside, part(stats.slow and W.slow:format(pct(stats.slow)), stats.slow) }) or W.yaw) .. gain
   elseif kind == 'rod' then
-    return label .. ' ' .. fmt(c.from * 1000, 1) .. ' -> ' .. fmt(c.to * 1000, 1) .. ' mm : appui et assiette (repère de hauteur '
-      .. 'vérifié au stand)' .. gain
+    return label .. ' ' .. fmt(c.from * 1000, 1) .. ' -> ' .. fmt(c.to * 1000, 1) .. W.rod .. gain
   elseif kind == 'damperSlow' or kind == 'damperFast' or kind == 'bumpStop' or kind == 'packer' then
-    return label .. ' ' .. signed(c.clicks) .. ' : variation de charge des pneus sur la rugosité mesurée, plateforme aéro' .. gain
+    return label .. ' ' .. signed(W, c.clicks) .. W.damper .. gain
   elseif kind == 'limiter' then
     return label .. ' ' .. fmt(c.from * 100, 0) .. ' -> ' .. fmt(c.to * 100, 0) .. ' %' .. gain
   end
-  return label .. ' : ' .. fmt(c.from, 3) .. ' -> ' .. fmt(c.to, 3) .. gain
+  return label .. sep .. fmt(c.from, 3) .. ' -> ' .. fmt(c.to, 3) .. gain
+end
+
+-- Phrase d'un changement, en français (la phrase anglaise est apprise par la traduction). c : { var = { kind,
+-- label }, clicks, from, to, contribution } ; ctx : { stats (trackStats), before, after (métriques sans / avec le
+-- réglage : balance, rearLock, vMax, hot, ideal) }.
+function M.change(c, ctx)
+  local label = c.var.label
+  local fr = sentence(WORDS.fr, label, c, ctx)
+  L.remember(fr, sentence(WORDS.en, L.en(label), c, ctx))
+  return fr
 end
 
 return M
