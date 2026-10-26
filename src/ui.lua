@@ -841,7 +841,7 @@ local function loadFollow(host, app, intents, kind, palette, where)
       intents.loadConfirm = kind
     end
     local left = (arm.untilClock and app.clock and (arm.untilClock - app.clock())) or ((arm.untilNow or app.now) - app.now)
-    small(host, 'Il reste ' .. Util.fmt(math.max(0, left), 0) .. ' s pour confirmer.', palette.pending)
+    small(host, L.f('Il reste %s s pour confirmer.', Util.fmt(math.max(0, left), 0)), palette.pending)
     if host.ui.button('Annuler le chargement (' .. KIND[kind].name .. ')') then intents.loadDisarm = true end
   elseif where == 'memory' then
     local note = app.loadNote
@@ -1029,8 +1029,9 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', true) then
       intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
-    tip(host, 'Écrit ' .. base .. '_essai.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé '
-      .. 'avant la validation.')
+    local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
+    tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé avant '
+      .. 'la validation.')
     if actionButton(host, app.ui, palette, 'Valider sans essai (' .. kept .. '/' .. total .. ' effets)###Valider ' .. v .. suffix,
       nil, false) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
@@ -1198,7 +1199,7 @@ local function computeArea(host, app, intents, kind, palette)
     local fraction = Util.clamp(o.evaluations / math.max(1, q.budget), 0, 1)
     local size = vec(host, app.ui, 'bar')
     if size then size.x, size.y = -1, 0 end
-    Util.call(ui.progressBar, fraction, size, o.phase .. ' : ' .. o.evaluations .. ' / ' .. q.budget)
+    Util.call(ui.progressBar, fraction, size, L.f('%s : %s / %s', L.t(o.phase), o.evaluations, q.budget))
     if ui.button(spec.cancel) then intents[kind .. 'Cancel'] = true end
     if o.currentJ and Util.isFinite(o.bestJ) then
       ui.sameLine()
@@ -1313,18 +1314,18 @@ local function coverageLine(host, q, palette)
     if row.status == 'optimisé' then
       optimized = optimized + 1
     elseif row.detail and row.detail:find('rugosité', 1, true) then
-      later[#later + 1] = row.label .. ' (après un tour valide sur le sec)'
+      later[#later + 1] = L.f('%s (après un tour valide sur le sec)', L.t(row.label))
     elseif row.detail and row.detail:find('repère de hauteur', 1, true) then
-      later[#later + 1] = row.label .. ' (repère à vérifier voiture arrêtée au stand)'
+      later[#later + 1] = L.f('%s (repère à vérifier voiture arrêtée au stand)', L.t(row.label))
     else
-      kept[#kept + 1] = row.label .. ' : ' .. tostring(row.detail)
+      kept[#kept + 1] = L.t(row.label) .. L.t(' : ') .. L.t(tostring(row.detail))
     end
   end
   small(host, 'Réglages : ' .. optimized .. ' optimisés' .. (#later > 0 and (', ' .. #later .. ' à venir') or '') .. ', ' .. #kept
     .. ' conservés (raisons au survol, onglet Réglages)', #later > 0 and palette.pending or palette.muted)
   local lines = {}
-  for _, text in ipairs(later) do lines[#lines + 1] = 'À venir — ' .. text end
-  for _, text in ipairs(kept) do lines[#lines + 1] = 'Conservé — ' .. text end
+  for _, text in ipairs(later) do lines[#lines + 1] = L.f('À venir — %s', text) end
+  for _, text in ipairs(kept) do lines[#lines + 1] = L.f('Conservé — %s', text) end
   tip(host, table.concat(lines, '\n'))
 end
 
@@ -1911,15 +1912,17 @@ local function stepCard(host, app, intents, palette)
   elseif trial then
     local v = 'v' .. trial.version
     if r.driven ~= trial.version then
-      title, text = 'Étape 2/4 · Charger l\'essai ' .. v, 'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet '
-        .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis roulez.'
+      title, text = 'Étape 2/4 · Essayer ' .. v, 'Fichier d\'essai écrit : au stand, menu de setup ouvert, bouton vert '
+        .. '« Charger » (onglet ' .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis roulez.'
     else
       local f = realLaps(app, trial.family, trial.bucket)
       if f and f.count > 0 then
-        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Gardez ou refusez chaque effet, puis validez.'
+        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Gardez ou refusez chaque effet (onglet '
+          .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis étape 4 : valider.'
         action = { label = 'Valider ' .. v .. '###Valider ' .. v, verdict = 'valider', version = trial.version }
       else
-        title, text = 'Étape 3/4 · Rouler avec ' .. v, 'Roulez au moins un tour propre, puis triez ses effets au stand.'
+        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Roulez d\'abord au moins un tour propre avec elle, puis gardez ou '
+          .. 'refusez chaque effet.'
       end
     end
   elseif pending and pending.ready == false then
@@ -1931,8 +1934,8 @@ local function stepCard(host, app, intents, palette)
       .. 'd\'essai ; puis « Charger » au stand.'
     action = { label = 'Essayer ' .. v, verdict = 'essayer', version = pending.version }
   elseif validated then
-    title, text = 'Étape 4/4 · Charger v' .. validated.version, 'Version validée : au stand, bouton vert « Charger », puis roulez '
-      .. 'pour la suite de l\'affinage.'
+    title, text = 'v' .. validated.version .. ' validée · à charger au stand', 'Au stand, bouton vert « Charger », puis roulez : '
+      .. 'l\'affinage repart d\'elle (étape 1).'
   else
     title, text = 'Étape 1/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
   end
@@ -1951,10 +1954,23 @@ local THEME = {
   { 'FrameBg', 'field' }, { 'FrameBgHovered', 'fieldHover' }, { 'FrameBgActive', 'fieldHover' },
   { 'Button', 'field' }, { 'ButtonHovered', 'fieldHover' }, { 'ButtonActive', 'accentDark' },
   { 'Header', 'field' }, { 'HeaderHovered', 'fieldHover' }, { 'HeaderActive', 'accentDark' },
-  { 'Tab', 'field' }, { 'TabHovered', 'fieldHover' }, { 'TabActive', 'accent' }, { 'TabUnfocused', 'field' },
-  { 'TabUnfocusedActive', 'accent' }, { 'CheckMark', 'accent' }, { 'SliderGrab', 'accent' }, { 'SliderGrabActive', 'accent' },
+  { 'Tab', 'bg' }, { 'TabHovered', 'fieldHover' }, { 'TabActive', 'field' }, { 'TabUnfocused', 'bg' },
+  { 'TabUnfocusedActive', 'field' }, { 'CheckMark', 'accent' }, { 'SliderGrab', 'accent' }, { 'SliderGrabActive', 'accent' },
   { 'PlotHistogram', 'accent' }, { 'PopupBg', 'bg' },
 }
+-- Trait bleu de 2 px sous l'onglet actif : appelé en tête du contenu de l'onglet, l'élément précédent est l'onglet.
+local function tabUnderline(host, state, palette)
+  local ui = host.ui
+  local okA, a = Util.call(ui.itemRectMin)
+  local okB, b = Util.call(ui.itemRectMax)
+  local p, q = vec(host, state, 'tabA'), vec(host, state, 'tabB')
+  if not (okA and okB and type(a) ~= 'number' and type(b) ~= 'number' and a and b and p and q) then return end
+  if not (Util.isFinite(a.x) and Util.isFinite(b.x) and Util.isFinite(b.y)) then return end
+  p.x, p.y = a.x, b.y - 2
+  q.x, q.y = b.x, b.y
+  Util.call(ui.drawRectFilled, p, q, palette.accent, 0)
+end
+
 -- Couleurs du thème résolues une fois (emplacement ImGui, couleur), puis posées à chaque image.
 local function pushTheme(host, state, palette)
   local ui = host.ui
@@ -2019,8 +2035,8 @@ local HELP = {
       .. 'voiture arrêtée. Vos propres fichiers ne sont jamais touchés.',
   } },
   { 'Notice complète', {
-    'Notice d\'utilisation : https://vincentchevalier44.github.io/ACSetupLab/ ; problèmes et idées : '
-      .. 'https://github.com/VincentChevalier44/ACSetupLab/issues',
+    'Notice d\'utilisation, dans le dossier de l\'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en '
+      .. 'anglais. Problèmes et idées : https://github.com/VincentChevalier44/ACSetupLab/issues',
   } },
 }
 local function helpSection(host, palette)
@@ -2058,7 +2074,12 @@ function M.main(host, app, intents)
     -- la compte, sans redessiner les sections en double)
     if ui.tabBar and ui.tabItem then
       ui.tabBar('setuplab_tabs', function()
-        for _, tab in ipairs(tabs) do ui.tabItem(tab[1], tab[2]) end
+        for _, tab in ipairs(tabs) do
+          ui.tabItem(tab[1], function()
+            tabUnderline(host, app.ui, palette)
+            tab[2]()
+          end)
+        end
       end)
     else
       for _, tab in ipairs(tabs) do
@@ -2279,15 +2300,15 @@ function M.debug(host, app)
   local offset = app.utcOffset and app.utcOffset() or nil
   ui.text('Heure des noms de fichiers : ' .. (offset and ('locale (UTC' .. (offset >= 0 and '+' or '-')
     .. Util.fmt(math.abs(offset) / 3600, 2) .. ' h)') or ('UTC (' .. tostring(app.utcOffsetReason) .. ')')))
-  ui.text('Ordonnanceur : ' .. s.slices .. ' tranches ; dernière ' .. Util.fmt(s.lastSliceMs, 3) .. ' ms ; max '
-    .. Util.fmt(s.maxSliceMs, 3) .. ' ms ; au-delà de ' .. Config.K.sliceAlertMs .. ' ms : ' .. p.slowSlices
-    .. ' ; unité max ' .. Util.fmt(s.maxUnitMs, 3) .. ' ms')
-  ui.text('Tâches : ' .. s.completed .. ' terminées, ' .. s.failed .. ' en échec, ' .. s.cancelled .. ' annulées')
-  ui.text('Coût de l\'app par frame : dernier ' .. Util.fmt(p.lastMs, 3) .. ' ms ; moyen ' .. Util.fmt(p.avgMs, 3)
-    .. ' ms ; max ' .. Util.fmt(p.maxMs, 3) .. ' ms')
-  ui.text('Garde de frame : ' .. p.guardSkips .. ' tranches sautées ; ' .. p.slowFrames .. ' tranches réduites (< '
-    .. Config.K.fpsTarget .. ' images/s) ; erreurs ' .. p.errors)
-  ui.text('Journal : ' .. app.log.count .. '/' .. app.log.capacity .. ' lignes ; ' .. app.log.dropped .. ' répétitions filtrées')
+  -- lignes qui changent à chaque image : modèle traduit une fois, puis rempli (L.f)
+  ui.text(L.f('Ordonnanceur : %s tranches ; dernière %s ms ; max %s ms ; au-delà de %s ms : %s ; unité max %s ms', s.slices,
+    Util.fmt(s.lastSliceMs, 3), Util.fmt(s.maxSliceMs, 3), Config.K.sliceAlertMs, p.slowSlices, Util.fmt(s.maxUnitMs, 3)))
+  ui.text(L.f('Tâches : %s terminées, %s en échec, %s annulées', s.completed, s.failed, s.cancelled))
+  ui.text(L.f('Coût de l\'app par frame : dernier %s ms ; moyen %s ms ; max %s ms', Util.fmt(p.lastMs, 3), Util.fmt(p.avgMs, 3),
+    Util.fmt(p.maxMs, 3)))
+  ui.text(L.f('Garde de frame : %s tranches sautées ; %s tranches réduites (< %s images/s) ; erreurs %s', p.guardSkips,
+    p.slowFrames, Config.K.fpsTarget, p.errors))
+  ui.text(L.f('Journal : %s/%s lignes ; %s répétitions filtrées', app.log.count, app.log.capacity, app.log.dropped))
   ui.separator()
   local entries = Util.logEntries(app.log)
   for i = #entries, 1, -1 do

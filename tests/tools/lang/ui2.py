@@ -25,7 +25,7 @@ EN = {
     " Voiture arrêtée, votre meilleur tour réel avec une version gardée s'ajoute à la fin de son nom (ex. _v2_1.41.792).":
         ' With the car stopped, your best real lap with a kept version is added to the end of its name (e.g. _v2_1.41.792).',
     "Accents et espaces retirés ; le genre (Qualif, Course) et « Pluie » s'ajoutent au nom ; jamais d'écrasement (-2, -3… si le nom existe). Changer le nom puis « Enregistrer » : le même setup sous le nouveau nom (l'ancien fichier reste). Sans nom : SetupLab_….%s":
-        'Accents and spaces removed; the kind ("Qualif" or "Course") and "Pluie" (rain) are added to the name; never overwritten (-2, -3… if the name exists). Change the name then "Save": the same setup under the new name (the old file stays). Without a name: SetupLab_….%s',
+        'Accents and spaces removed; the kind ("Quali" or "Race") and "Wet" are added to the name; never overwritten (-2, -3… if the name exists). Change the name then "Save": the same setup under the new name (the old file stays). Without a name: SetupLab_….%s',
     'Fichier : %s_v%s.ini, à la validation': 'File: %s_v%s.ini, on validation',
     'Fichier : %s.ini': 'File: %s.ini',
     'Rangement des fichiers dès que la voiture est arrêtée : %s en attente.': 'File tidying as soon as the car is stopped: %s pending.',
@@ -169,6 +169,14 @@ EN = {
     "Étape 2/4 · Charger l'essai %s": 'Step 2/4 · Load the %s trial',
     'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet %s), puis roulez.': 'In the pits, setup menu open: green "Load" button (%s tab), then drive.',
     'QUALIF': 'QUALIFYING',
+    "Fichier d'essai écrit : au stand, menu de setup ouvert, bouton vert « Charger » (onglet %s), puis roulez.":
+        'Trial file written: in the pits, setup menu open, green "Load" button (%s tab), then drive.',
+    'Gardez ou refusez chaque effet (onglet %s), puis étape 4 : valider.': 'Keep or refuse each effect (%s tab), then step 4: validate.',
+    "Roulez d'abord au moins un tour propre avec elle, puis gardez ou refusez chaque effet.":
+        'First drive at least one clean lap with it, then keep or refuse each effect.',
+    'v%s validée · à charger au stand': 'v%s validated · to load in the pits',
+    "Au stand, bouton vert « Charger », puis roulez : l'affinage repart d'elle (étape 1).":
+        'In the pits, green "Load" button, then drive: the refinement continues from it (step 1).',
     'COURSE': 'RACE',
     'Étape 3/4 · Trier les effets de %s': 'Step 3/4 · Sort the effects of %s',
     'Gardez ou refusez chaque effet, puis validez.': 'Keep or refuse each effect, then validate.',
@@ -206,10 +214,10 @@ EN = {
         'The "SetupLab Overlay" window (CSP app bar) shows while driving whether the setup on track is better or worse than the previous one, on your laps, and the changed settings with their predicted gain.',
     'Fichiers': 'Files',
     "Noms clairs : SetupLab_Qualif_v1.ini, SetupLab_Course_Pluie_v3.ini… ; votre meilleur tour s'ajoute au nom d'une version de qualification. Les fichiers d'essai, les versions non gardées et les copies inutiles partent à la Corbeille, voiture arrêtée. Vos propres fichiers ne sont jamais touchés.":
-        'Clear names: SetupLab_Qualif_v1.ini, SetupLab_Course_Pluie_v3.ini…; your best lap is added to the name of a qualifying version. Trial files, versions not kept and useless copies go to the Recycle Bin, with the car stopped. Your own files are never touched.',
+        'Clear names in the chosen language: SetupLab_Quali_v1.ini, SetupLab_Race_Wet_v3.ini…; your best lap is added to the name of a qualifying version. Trial files, versions not kept and useless copies go to the Recycle Bin, with the car stopped. Your own files are never touched.',
     'Notice complète': 'Full guide',
-    "Notice d'utilisation : https://vincentchevalier44.github.io/ACSetupLab/ ; problèmes et idées : https://github.com/VincentChevalier44/ACSetupLab/issues":
-        'User guide: https://vincentchevalier44.github.io/ACSetupLab/; issues and ideas: https://github.com/VincentChevalier44/ACSetupLab/issues',
+    "Notice d'utilisation, dans le dossier de l'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en anglais. Problèmes et idées : https://github.com/VincentChevalier44/ACSetupLab/issues":
+        'User guide, in the app folder (apps/lua/SetupLab/docs): notice.html in English, notice.fr.html in French. Issues and ideas: https://github.com/VincentChevalier44/ACSetupLab/issues',
     'MÉMOIRE': 'MEMORY',
     'MESURE': 'MEASURE',
     'RÉGLAGES': 'SETTINGS',

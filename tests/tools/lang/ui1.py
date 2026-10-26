@@ -168,8 +168,8 @@ EN = {
     "Étape suivante : « Essayer %s » écrit le setup proposé entier dans un fichier d'essai ; le charger au stand et rouler, puis garder ou refuser chaque effet et valider.":
         'Next step: "Try %s" writes the whole proposed setup into a trial file; load it in the pits and drive, then keep or refuse each effect and validate.',
     'Essayer %s': 'Try %s',
-    "Écrit %s_essai.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n'est gardé avant la validation.":
-        'Writes %s_essai.ini (the whole proposed setup), to load in the pits and drive with. Nothing is kept before validation.',
+    "Écrit %s.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n'est gardé avant la validation.":
+        'Writes %s.ini (the whole proposed setup), to load in the pits and drive with. Nothing is kept before validation.',
     'Valider sans essai (%s/%s effets)': 'Validate without trying (%s/%s effects)',
     "Enregistre tout de suite %s.ini avec les effets gardés, sans l'essayer ; il devient le setup de référence de cette séance, gardé en mémoire pour ce circuit.":
         'Saves %s.ini right away with the kept effects, without trying it; it becomes the reference setup for this session, kept in memory for this track.',
@@ -182,7 +182,6 @@ EN = {
     'Valider %s': 'Validate %s',
     'Enregistre %s.ini avec les seuls effets gardés et en fait le setup de référence de cette séance, gardé en mémoire pour ce circuit. Les effets refusés gardent leur ancienne valeur dans les calculs suivants.':
         'Saves %s.ini with only the kept effects and makes it the reference setup for this session, kept in memory for this track. Refused effects keep their old value in the next computations.',
-    '%s : %s — %s': '%s: %s — %s',
     '%s/%s effets gardés.': '%s/%s effects kept.',
     "L'essai complet est encore dans la voiture : charger %s (effets gardés) au stand.":
         'The full trial is still in the car: load %s (kept effects) in the pits.',

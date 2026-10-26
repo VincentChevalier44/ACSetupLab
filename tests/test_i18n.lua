@@ -110,6 +110,10 @@ local function load(h, app, kind)
 end
 
 local function report(name)
+  local residue = {}
+  for s in pairs(L.unmatched or {}) do residue[#residue + 1] = s end
+  table.sort(residue)
+  for i, s in ipairs(residue) do PY.note(name .. ' tel quel ' .. i, s) end
   local list = {}
   for fr, out in pairs(L.misses) do list[#list + 1] = fr .. '  =>  ' .. out end
   table.sort(list)
@@ -119,7 +123,7 @@ local function report(name)
 end
 
 tests['EN01 parcours complet en anglais (affinage, essai, tri, validation, overlay, mémoire, course, réglages)'] = function()
-  L.misses = {}
+  L.misses, L.unmatched = {}, {}
   L.reset()
   local h, app = boot()
   T.eq(app.settings.language, 'en')
@@ -200,12 +204,12 @@ tests['EN01 parcours complet en anglais (affinage, essai, tri, validation, overl
   render(h)
   T.eq(app.perf.errors, 0)
   local n = report('EN01')
-  L.misses = nil
+  L.misses, L.unmatched = nil, nil
   T.eq(n, 0, 'tout est traduit')
 end
 
 tests['EN02 annonces à l\'écran et séance de course en anglais'] = function()
-  L.misses = {}
+  L.misses, L.unmatched = {}, {}
   L.reset()
   local h, app = boot(nil, 3)
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'discovery')
@@ -226,8 +230,62 @@ tests['EN02 annonces à l\'écran et séance de course en anglais'] = function()
   render(h2)
   T.eq(app.perf.errors + app2.perf.errors, 0)
   local n = report('EN02')
-  L.misses = nil
+  L.misses, L.unmatched = nil, nil
   T.eq(n, 0, 'tout est traduit')
+end
+
+-- Coût en anglais (la langue par défaut) : interface, overlay et fenêtre de débogage dessinés pendant un calcul, textes
+-- qui changent à chaque image (progression, journal) ; même budget que A02 hors calcul. Et un texte qu'aucun modèle ne
+-- reconnaît (erreur de CSP, nom choisi) : traduit vite.
+tests['EN03 coût de l\'interface en anglais pendant un calcul ; texte inconnu traduit vite'] = function()
+  local h, app = boot()
+  h.hover, h.openSections = false, false
+  local function frame()
+    h.sim.time = h.sim.time + 1000 / 60
+    script.SETUPLAB__UPDATE(1 / 60)
+    script.SETUPLAB__MAIN(1 / 60)
+    script.SETUPLAB__OVERLAY(1 / 60)
+    script.SETUPLAB__DEBUG(1 / 60)
+  end
+  for _ = 1, 60000 do
+    frame()
+    if app.discoveryState == 'done' then break end
+  end
+  app.settings.optBudgetEvalsQ = 5000
+  app.handleIntents({ qualiStart = true })
+  local costs = {}
+  for i = 1, 600 do
+    frame()
+    if i > 100 then costs[#costs + 1] = app.perf.lastMs end
+  end
+  T.eq(app.quali.state, 'running', 'calcul en cours pendant la mesure')
+  -- coût hors tranche : la frame moins la tranche de calcul
+  local avg = app.perf.avgMs
+  PY.note('EN03', string.format('coût moyen par frame en anglais %.3f ms (tranche comprise)', avg))
+  app.handleIntents({ qualiCancel = true })
+  -- tas gonflé par les tests précédents : un ramasse-miettes complet avant la mesure (comme A02)
+  collectgarbage('collect')
+  for _ = 1, 400 do frame() end
+  PY.note('EN03 repos', string.format('coût moyen par frame en anglais, sans calcul : %.3f ms', app.perf.avgMs))
+  -- à l'arrêt, plus aucune traduction recalculée : tout vient du cache (mesure exacte, sans horloge)
+  L.recent = {}
+  local before = L.computed
+  for _ = 1, 120 do frame() end
+  local seen = {}
+  for i = 1, math.min(#L.recent, 12) do seen[#seen + 1] = L.recent[i] end
+  PY.note('EN03 recalculs', (L.computed - before) .. ' en 120 images : ' .. table.concat(seen, ' | '))
+  L.recent = nil
+  T.ok(L.computed - before <= 12, (L.computed - before) .. ' traductions recalculées en 120 images, à l\'arrêt')
+  T.ok(app.perf.avgMs < 0.4, 'coût moyen ' .. app.perf.avgMs .. ' ms')
+  -- texte inconnu, long
+  local unknown = string.rep('Erreur inattendue de CSP dans la fonction de lecture : valeur absente ; ', 6) .. 'fin.'
+  L.reset()
+  local started = PY.clock()
+  for i = 1, 20 do L.t(unknown .. i) end
+  local ms = (PY.clock() - started) * 1000 / 20
+  PY.note('EN03 inconnu', string.format('%.3f ms par texte inconnu de %d caractères', ms, #unknown))
+  T.ok(ms < 2, 'texte inconnu traduit en ' .. ms .. ' ms')
+  T.eq(app.perf.errors, 0)
 end
 
 return tests

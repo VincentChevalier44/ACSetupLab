@@ -191,10 +191,11 @@ function M.withLapTime(name, t)
   return stem .. '_' .. token
 end
 
--- Numéro de version d'un nom de fichier du genre (« …_Qualif_v3… », « …_Qualif_Pluie_v3… »), ou nil.
-function M.versionInName(name, genre)
+-- Numéro de version d'un nom de fichier du genre (« …_Qualif_v3… », « …_Qualif_Pluie_v3… » ; wet : mot de la
+-- pluie, « Pluie » par défaut), ou nil.
+function M.versionInName(name, genre, wet)
   local s = tostring(name)
-  local v = s:match('_' .. genre .. '_v(%d+)[%._%-]') or s:match('_' .. genre .. '_Pluie_v(%d+)[%._%-]')
+  local v = s:match('_' .. genre .. '_v(%d+)[%._%-]') or s:match('_' .. genre .. '_' .. (wet or 'Pluie') .. '_v(%d+)[%._%-]')
   return v and tonumber(v) or nil
 end
 

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Notice d'utilisation de SetupLab, l'app Custom Shaders Patch qui calcule, explique et affine vos setups dans Assetto Corsa.">
-<title>SetupLab — Notice d'utilisation</title>
+<meta name="description" content="User guide for SetupLab, the Custom Shaders Patch app that computes, explains and refines your Assetto Corsa setups.">
+<title>SetupLab — User guide</title>
 <style>
   :root {
     --bg: #f7f8fa;
@@ -196,284 +196,298 @@
     .layout { display: block; }
     section { break-inside: avoid; box-shadow: none; }
   }
+  .switch { float: right; margin: 0; font-size: .9rem; }
 </style>
-</head>
 <body>
 
 <header class="top">
   <div class="inner">
-    <span class="badge">Version 1.0 — bêta 1.4</span>
-    <h1>SetupLab — notice d'utilisation</h1>
-    <p class="lead">L'app Custom Shaders Patch qui calcule, explique et affine vos setups dans Assetto Corsa, en se calant sur vos propres tours.</p>
+    <span class="badge">Version 1.0 — beta 1.5</span>
+    <p class="switch"><a href="notice.fr.html" hreflang="fr">Version française</a></p>
+    <h1>SetupLab — user guide</h1>
+    <p class="lead">The Custom Shaders Patch app that computes, explains and refines your Assetto Corsa setups, fitted to your own laps.</p>
   </div>
 </header>
 
 <main>
 <div class="layout">
 
-<nav class="toc" aria-label="Sommaire">
-  <strong>Sommaire</strong>
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
   <ol>
-    <li><a href="#presentation">À quoi sert SetupLab</a></li>
-    <li><a href="#installation">Installation</a></li>
-    <li><a href="#demarrage">Premier lancement</a></li>
-    <li><a href="#cycle">Le cycle : proposer, valider, essayer</a></li>
-    <li><a href="#boutons">Les boutons, un par un</a></li>
-    <li><a href="#chargement">Charger un setup dans la voiture</a></li>
-    <li><a href="#temps">Vos temps</a></li>
-    <li><a href="#overlay">Overlay en jeu</a></li>
-    <li><a href="#retouches">Vos retouches au stand</a></li>
-    <li><a href="#memoire">Mémoire du circuit et cadenas</a></li>
-    <li><a href="#manuel">Calcul à la main</a></li>
-    <li><a href="#course">Setup de course</a></li>
-    <li><a href="#pluie">Pluie</a></li>
-    <li><a href="#onglets">Les onglets</a></li>
-    <li><a href="#fichiers">Fichiers et noms</a></li>
-    <li><a href="#jamais">Ce que SetupLab ne fait jamais</a></li>
-    <li><a href="#faq">Questions fréquentes</a></li>
-    <li><a href="#limites">Limites de la bêta</a></li>
+    <li><a href="#overview">What SetupLab does</a></li>
+    <li><a href="#install">Installation</a></li>
+    <li><a href="#language">Language</a></li>
+    <li><a href="#first">First launch</a></li>
+    <li><a href="#steps">The 4 steps</a></li>
+    <li><a href="#effects">Sorting the effects</a></li>
+    <li><a href="#minimum">Minimum before a proposal</a></li>
+    <li><a href="#buttons">The buttons, one by one</a></li>
+    <li><a href="#loading">Loading a setup into the car</a></li>
+    <li><a href="#times">Your lap times</a></li>
+    <li><a href="#overlay">In-game overlay</a></li>
+    <li><a href="#changes">Your own changes in the pits</a></li>
+    <li><a href="#memory">Track memory and lock</a></li>
+    <li><a href="#race">Race setup</a></li>
+    <li><a href="#manual">Manual computation</a></li>
+    <li><a href="#rain">Rain</a></li>
+    <li><a href="#tabs">The tabs</a></li>
+    <li><a href="#files">Files and names</a></li>
+    <li><a href="#never">What SetupLab never does</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#limits">Beta limitations</a></li>
   </ol>
 </nav>
 
 <div>
 
-<section id="presentation">
-  <h2>1. À quoi sert SetupLab</h2>
-  <p>Pour chaque couple voiture × circuit, SetupLab calcule :</p>
+<section id="overview">
+  <h2>1. What SetupLab does</h2>
+  <p>For every car and track, SetupLab computes:</p>
   <ul>
-    <li>un setup de <strong>tour rapide</strong> : essai, journée circuit, hotlap, time attack, qualification ;</li>
-    <li>un setup de <strong>course</strong> : relais complet, carburant, usure des pneus, trafic.</li>
+    <li>a <strong>qualifying</strong> setup: practice, track day, hotlap, time attack, qualifying;</li>
+    <li>a <strong>race</strong> setup: full stint, fuel, tyre wear, traffic. It starts from your validated qualifying setup.</li>
   </ul>
-  <p>Il lit les fichiers de la voiture (pneus, aéro, moteur, boîte, freins, suspension, différentiel, DRS, ERS) et la ligne IA du circuit, simule le tour, cherche le meilleur setup, et <strong>explique chaque réglage</strong> qu'il propose. Il enregistre vos tours pour <strong>caler son modèle sur votre pilotage</strong>, et peut affiner le setup pendant que vous roulez.</p>
-  <div class="note">Vous gardez toujours la main : rien n'est enregistré sans votre validation, et le setup de la voiture ne change que sur votre confirmation, au stand.</div>
+  <p>It reads the car files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line, simulates the lap, searches for the best setup and <strong>explains every setting</strong> it proposes. It records your laps to <strong>fit its model to your driving</strong>, and refines the setup while you drive.</p>
+  <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed effect yourself, and the car setup only changes when you confirm it, in the pits.</div>
 </section>
 
-<section id="installation">
+<section id="install">
   <h2>2. Installation</h2>
   <ol>
-    <li>Prérequis : Assetto Corsa avec <strong>Custom Shaders Patch 0.2.11</strong> (la version gratuite, installée par Content Manager) ou plus récent, previews payantes comprises.</li>
-    <li>Décompresser l'archive <code>SetupLab-1.0.0-beta.1.2.zip</code> dans <code>assettocorsa/apps/lua/</code> : elle contient déjà le dossier <code>SetupLab/</code>. Au final, <code>assettocorsa/apps/lua/SetupLab/</code> contient <code>SetupLab.lua</code> et <code>manifest.ini</code> (pas de dossier <code>SetupLab</code> dans un autre <code>SetupLab</code>). Pour mettre à jour, remplacer les fichiers : vos réglages et la mémoire des circuits sont gardés par CSP, hors de ce dossier.</li>
-    <li>En jeu, ouvrir <strong>SetupLab</strong> depuis la barre d'apps ou l'écran de setup. Une seconde fenêtre, <strong>SetupLab Debug</strong>, sert au diagnostic (coût par image, journal).</li>
+    <li>Requirements: Assetto Corsa with <strong>Custom Shaders Patch 0.2.11</strong> (the free version installed by Content Manager) or newer, paid previews included.</li>
+    <li>Extract <code>SetupLab-1.0.0-beta.1.5.zip</code> into <code>assettocorsa/apps/lua/</code>: it already contains the <code>SetupLab/</code> folder. In the end, <code>assettocorsa/apps/lua/SetupLab/</code> holds <code>SetupLab.lua</code> and <code>manifest.ini</code> (no <code>SetupLab</code> folder inside another <code>SetupLab</code>). To update, replace the files: your settings and track memory are kept by CSP, outside this folder.</li>
+    <li>In game, open <strong>SetupLab</strong> from the app bar or the setup screen. Two more windows exist: <strong>SetupLab Overlay</strong> (on track) and <strong>SetupLab Debug</strong> (diagnostics).</li>
   </ol>
-  <p>SetupLab fonctionne <strong>hors ligne</strong> seulement : il se met en pause en ligne et en replay.</p>
+  <p>SetupLab works <strong>offline</strong> only: it pauses online and in replays.</p>
 </section>
 
-<section id="demarrage">
-  <h2>3. Premier lancement</h2>
+<section id="language">
+  <h2>3. Language</h2>
+  <p>SetupLab is in <strong>English by default</strong>. The <span class="btn plain">EN</span> / <span class="btn plain">FR</span> badge at the top of the window switches language; the choice is also in the <strong>SETTINGS</strong> tab, and it is kept from one session to the next.</p>
+  <ul>
+    <li>Everything follows the language: menus, buttons, messages, hover help, on-screen announcements, overlay and debug window. A message already on screen switches too.</li>
+    <li>The <strong>names of new files</strong> follow the language: <code>SetupLab_Quali_v1.ini</code> in English, <code>SetupLab_Qualif_v1.ini</code> in French. Files already written in the other language are still recognised (version numbers, track memory, tidying).</li>
+  </ul>
+</section>
+
+<section id="first">
+  <h2>4. First launch</h2>
   <ol>
-    <li>Lancer une séance hors ligne et ouvrir SetupLab <strong>voiture au stand</strong> : c'est là qu'il mesure la hauteur de caisse de référence.</li>
-    <li>Attendre « <strong>Découverte terminée</strong> » dans le bandeau. Le bandeau indique la voiture, le circuit, la séance détectée, la source des données et l'état du modèle (calibré ou non).</li>
-    <li>Choisir l'onglet <strong>Tour rapide</strong> ou <strong>Course</strong>, selon la séance.</li>
+    <li>Start an offline session and open SetupLab <strong>with the car in the pits</strong>: that is where it measures the reference ride height.</li>
+    <li>Wait for "<strong>Discovery finished</strong>". The header shows the car, the track, the detected session, the data source and the model state (calibrated or not).</li>
+    <li>Tick <strong>SetupLab active</strong>, then drive. The <strong>Step N/4</strong> card, always at the top of the window, tells you what to do next, with the button for that step.</li>
   </ol>
-  <p>Le setup modifié dans le menu, ou une nouvelle séance, relance la découverte tout seul.</p>
+  <p>A setup changed in the menu, or a new session, restarts the discovery on its own.</p>
 </section>
 
-<section id="cycle">
-  <h2>4. Le cycle : proposer, valider, essayer</h2>
-  <p>La façon la plus simple d'utiliser SetupLab : cocher la case <strong>SetupLab actif</strong> en haut de la fenêtre, puis rouler. Il affine tout seul le setup de la séance : <strong>tour rapide</strong> en essai, journée circuit, hotlap, time attack et qualification ; <strong>course</strong> en séance de course. Quand vous changez de séance, il suit.</p>
+<section id="steps">
+  <h2>5. The 4 steps</h2>
+  <p>With <strong>SetupLab active</strong>, SetupLab refines the session setup: <strong>qualifying</strong> in practice, track day, hotlap, time attack and qualifying; <strong>race</strong> in a race session. Each version (v1, v2…) goes through four steps, shown in green when done and in blue for the next one.</p>
   <ol class="steps">
-    <li><b>Proposée</b><span>Après un tour propre, SetupLab a le minimum d'informations : il l'annonce une fois en haut de l'écran (« v2 en préparation ») et <strong>continue d'analyser vos tours</strong> tant que vous restez en piste. À votre <strong>retour au stand</strong>, la version est annoncée prête (« v2 prêt »), avec le nombre de tours analysés.</span></li>
-    <li><b>Validée</b><span>Au stand, <span class="btn primary">Valider v1</span> : le fichier est enregistré, il devient votre setup de référence.</span></li>
-    <li><b>Chargée</b><span><span class="btn go">Charger…</span> puis <span class="btn go">Confirmer</span> : le setup est dans la voiture.</span></li>
-    <li><b>Roulée</b><span>Vous roulez avec ; SetupLab compare vos temps avec et sans, puis propose la suite.</span></li>
+    <li><b>Drive</b><span>After the minimum clean laps (see <a href="#minimum">Minimum</a>), SetupLab has the minimum information: it announces it once at the top of the screen ("v2 in preparation") and <strong>keeps analysing your laps</strong> while you stay on track. When you <strong>return to the pits</strong>, the version is announced as ready.</span></li>
+    <li><b>Try</b><span><span class="btn primary">Try v2</span> writes the whole proposed setup into a trial file (<code>…_v2_trial.ini</code>). In the pits: <span class="btn go">Load</span> then <span class="btn go">Confirm</span>, and drive with it.</span></li>
+    <li><b>Sort the effects</b><span>Each effect of the version (aero, tyres, geometry, suspension, transmission, brakes, engine, aids) is <span class="btn go">Kept</span> or <span class="btn danger">Refused</span> with one click, based on how the car feels and your times.</span></li>
+    <li><b>Validate</b><span><span class="btn primary">Validate v2 (k/n effects)</span> saves the version with only the kept effects. It becomes your reference setup for this track; load it and carry on: the refinement continues from it.</span></li>
   </ol>
-  <p>Dans la carte d'affinage, ces quatre étapes sont affichées pour chaque version : les étapes faites en vert, <strong>l'étape suivante en bleu</strong>, avec une ligne « Étape suivante : … ».</p>
-  <div class="tip">Un nouveau calcul part à chaque <strong>tour propre</strong> (données nouvelles), et juste après un chargement. Tant qu'une version attend votre avis, elle est mise à jour avec vos tours, sous le même numéro, sans nouvelle annonce. Un setup n'est proposé que s'il fait gagner au moins 0,05 s au tour.</div>
-  <p>La case <strong>SetupLab actif</strong> vaut pour ce lancement d'Assetto Corsa : au démarrage, SetupLab est toujours en veille et n'écrit rien. En veille, il analyse quand même vos tours.</p>
+  <div class="tip">While a version is on trial, SetupLab proposes nothing else: sort its effects first. A setup is only proposed if it gains at least 0.05 s per lap.</div>
+  <p>The <strong>SetupLab active</strong> box applies to this Assetto Corsa launch: at start-up, SetupLab is always on standby and writes nothing. On standby, it still analyses your laps.</p>
 </section>
 
-<section id="boutons">
-  <h2>5. Les boutons, un par un</h2>
+<section id="effects">
+  <h2>6. Sorting the effects</h2>
+  <p>A version often changes several groups of settings at once. Instead of keeping or refusing everything, you decide <strong>effect by effect</strong>: the setup is built up step by step.</p>
+  <ul>
+    <li>Each line shows the effect, its <strong>predicted gain</strong> and its first setting (old › new value); all its settings are on hover.</li>
+    <li>A <strong>refused</strong> effect keeps its old value in the validated version <strong>and in the next computations</strong>: it appears under "Your changes kept" and returns to the computation with <span class="btn plain">Release your changes</span>.</li>
+    <li>Everything kept: the trial file becomes the version (renamed). Only some effects: a new file is written with the kept effects, and the trial file goes to the Recycle Bin once the car is stopped.</li>
+    <li>No effect kept: validation is refused; "Start over" to not keep the version.</li>
+    <li><span class="btn plain">Validate without trying</span> saves the version right away with the kept effects, without the trial file.</li>
+  </ul>
+</section>
+
+<section id="minimum">
+  <h2>7. Minimum before a proposal</h2>
+  <p>Two settings in the <strong>SETTINGS</strong> tab decide when SetupLab may propose a setup or a change:</p>
+  <ul>
+    <li><strong>minimum clean laps</strong> with the setup currently in the car (2 by default);</li>
+    <li><strong>minimum driving minutes</strong> (0 by default: none), on track, car moving.</li>
+  </ul>
+  <p>Both must be reached. They are counted again after each load. Progress is shown in the step card and in the overlay ("minimum before a proposal: 1/2 clean laps").</p>
+</section>
+
+<section id="buttons">
+  <h2>8. The buttons, one by one</h2>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Bouton</th><th>Effet</th></tr></thead>
+    <thead><tr><th>Button</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td><span class="btn primary">Valider vN</span></td><td>Enregistre la version dans un nouveau fichier et en fait le setup de référence de la séance (gardé dans la mémoire du circuit). C'est l'étape avant de l'essayer : le jeu ne charge un setup que depuis un fichier.</td></tr>
-      <tr><td><span class="btn plain">Recommencer (ne pas garder vN)</span></td><td>La version n'est ni gardée ni réutilisée, et ne sera jamais reproposée. SetupLab repart de votre setup actuel et propose autre chose avec vos prochains tours. Si la version avait été validée puis essayée, votre setup de référence d'avant revient, et le fichier de la version part à la Corbeille de Windows dès que la voiture est arrêtée. Le bouton passe en rouge quand la version est plus lente en réalité.</td></tr>
-      <tr><td><span class="btn plain">Figer vN (cadenas)</span></td><td>Valide et verrouille la version : c'est le setup final de cette séance pour ce circuit. L'affinage automatique s'arrête ; le setup est proposé à chaque visite. « Déverrouiller », dans la mémoire du circuit, relance l'affinage.</td></tr>
-      <tr><td><span class="btn go">Charger le setup … dans la voiture</span></td><td>Arme le chargement du setup enregistré (voir <a href="#chargement">Charger un setup</a>).</td></tr>
-      <tr><td><span class="btn go">Confirmer le chargement</span></td><td>Second clic, dans le temps indiqué : le setup est chargé dans la voiture, après une copie de sauvegarde du setup en cours.</td></tr>
-      <tr><td><span class="btn plain">Arrêter l'affinage</span></td><td>Arrête l'affinage ; si SetupLab est actif, il passe aussi en veille.</td></tr>
-      <tr><td><span class="btn plain">Libérer vos retouches</span></td><td>Rend au calcul les réglages que vous aviez modifiés à la main (voir <a href="#retouches">Vos retouches</a>).</td></tr>
-      <tr><td><span class="btn plain">Mesurer le gain réel</span></td><td>Compare le gain prévu au gain mesuré : un tour propre avec le setup d'origine, puis un avec le setup proposé chargé.</td></tr>
+      <tr><td><span class="btn primary">Try vN</span></td><td>Writes the whole proposed setup into a trial file, to load in the pits and drive with. Nothing is kept before validation.</td></tr>
+      <tr><td><span class="btn go">Kept</span> / <span class="btn danger">Refused</span></td><td>One click keeps or refuses an effect of the version (see <a href="#effects">Sorting the effects</a>).</td></tr>
+      <tr><td><span class="btn primary">Validate vN (k/n effects)</span></td><td>Saves the version with the kept effects and makes it the session's reference setup, kept in the track memory.</td></tr>
+      <tr><td><span class="btn plain">Validate without trying</span></td><td>The same, without the trial file.</td></tr>
+      <tr><td><span class="btn plain">Start over (do not keep vN)</span></td><td>The version is neither kept nor reused, and is never proposed again. SetupLab starts again from your current setup. An already validated version gives its place back to your previous reference; its file goes to the Windows Recycle Bin as soon as the car is stopped. The button turns red when the version is actually slower.</td></tr>
+      <tr><td><span class="btn plain">Lock vN</span></td><td>Validates (kept effects) and locks: it is the final setup of this session for this track. Refinement stops; "Unlock", in the MEMORY tab, restarts it.</td></tr>
+      <tr><td><span class="btn go">Load the … setup into the car</span></td><td>Arms the load of the saved setup (see <a href="#loading">Loading a setup</a>).</td></tr>
+      <tr><td><span class="btn go">Confirm the load</span></td><td>Second click, within the time shown: the setup is loaded into the car, after a backup copy of the current setup.</td></tr>
+      <tr><td><span class="btn plain">Stop the refinement</span></td><td>Stops the refinement; if SetupLab is active, it also goes on standby.</td></tr>
+      <tr><td><span class="btn plain">Release your changes</span></td><td>Gives the settings you changed by hand, and the refused effects, back to the computation.</td></tr>
+      <tr><td><span class="btn plain">Measure the real gain</span></td><td>Compares the predicted gain with the measured gain: a clean lap with the original setup, then one with the proposed setup loaded.</td></tr>
     </tbody>
   </table>
   </div>
+  <p>Every button and every setting has an explanation on hover.</p>
 </section>
 
-<section id="chargement">
-  <h2>6. Charger un setup dans la voiture</h2>
-  <p>Le chargement se fait <strong>au stand, voiture arrêtée, menu de setup ouvert</strong>. À côté du bouton vert, SetupLab affiche :</p>
-  <ul>
-    <li>le fichier à charger ;</li>
-    <li>l'état du stand : <em>au stand</em>, <em>voiture arrêtée</em>, <em>menu de setup ouvert</em>, chacun en vert (oui) ou en orange (non) ;</li>
-    <li>la raison d'un refus, juste en dessous.</li>
-  </ul>
+<section id="loading">
+  <h2>9. Loading a setup into the car</h2>
+  <p>Loading happens <strong>in the pits, car stopped, setup menu open</strong>. Next to the green button, SetupLab shows the file to load, the pit state (<em>in the pits</em>, <em>car stopped</em>, <em>setup menu open</em>, each in green or orange) and the reason for a refusal.</p>
   <ol>
-    <li>Cliquer <span class="btn go">Charger le setup … dans la voiture</span>.</li>
-    <li>Lire l'avertissement, puis cliquer <span class="btn go">Confirmer le chargement</span> avant la fin du temps restant affiché (sinon le chargement se désarme ; « Annuler le chargement » le désarme aussi).</li>
-    <li>SetupLab copie d'abord le setup en cours dans <code>SetupLab_Avant_chargement_….ini</code>, charge le fichier, puis vérifie que la voiture a bien le setup prévu. La copie n'est pas faite quand la voiture a déjà un setup gardé de SetupLab, intact (une version validée, la référence de la mémoire) : il existe déjà dans son fichier.</li>
+    <li>Click <span class="btn go">Load the … setup into the car</span>.</li>
+    <li>Read the warning, then click <span class="btn go">Confirm the load</span> before the time shown runs out.</li>
+    <li>SetupLab first copies the current setup (<code>SetupLab_Before_load_….ini</code>, <code>SetupLab_Avant_chargement_….ini</code> in French), loads the file, then checks that the car has the expected setup. No copy is made when the car already has an intact setup kept by SetupLab.</li>
   </ol>
-  <div class="note">Seul un fichier écrit par SetupLab peut être chargé : il le reconnaît à son nom et à l'empreinte de son contenu. Un fichier modifié depuis est refusé.</div>
+  <div class="note">Only a file written by SetupLab can be loaded: it recognises it by its name and the fingerprint of its content. A file changed since then is refused.</div>
 </section>
 
-<section id="temps">
-  <h2>7. Vos temps</h2>
-  <p>SetupLab se base sur <strong>vos temps réels</strong>, pas seulement sur ses temps simulés :</p>
+<section id="times">
+  <h2>10. Your lap times</h2>
+  <p>SetupLab relies on <strong>your real lap times</strong>:</p>
   <ul>
-    <li><strong>Votre meilleur tour</strong> avec le setup actuel (en course : <strong>votre tour moyen</strong>) ;</li>
-    <li><strong>Objectif estimé</strong> : votre temps moins le gain prévu ;</li>
-    <li>dans l'historique de l'affinage, pour chaque version : <strong>vos tours</strong> avec elle, le <strong>gain prévu</strong> et le <strong>gain réel</strong> (vos temps avant, moins vos temps avec la version).</li>
+    <li><strong>your best lap</strong> with the current setup (in a race: <strong>your average lap</strong>);</li>
+    <li><strong>estimated target</strong>: your time minus the predicted gain;</li>
+    <li>for each version: <strong>your laps</strong> with it, the <strong>predicted gain</strong> and the <strong>real gain</strong>. A partial version counts the laps driven with its full trial.</li>
   </ul>
-  <p>Avec au moins 2 tours de chaque côté et un écart de plus de 0,15 s, SetupLab dit si une version est plus rapide ou plus lente en réalité ; si elle est plus lente, il propose de ne pas la garder.</p>
-  <p>Les temps simulés par le modèle sont visibles au survol. Le modèle lui-même est calé sur vos tours (calibration) : plus vous roulez, plus il est juste.</p>
-  <div class="tip">Seuls les tours <strong>valides</strong> comptent : tour de sortie des stands, tour invalidé par AC, passage par la voie des stands ou sortie de piste sont écartés (la raison s'affiche dans l'onglet Mesure). Un tour roulé après avoir touché la répartition de freinage au volant compte pour la version chargée.</div>
+  <p>With at least 2 laps on each side and a difference above 0.15 s, SetupLab says whether a version is actually faster or slower. Times simulated by the model are on hover.</p>
+  <div class="tip">Only <strong>valid</strong> laps count: out laps, laps invalidated by AC, pit lane passes and off-tracks are left out (the reason is shown in the MEASURE tab).</div>
 </section>
 
 <section id="overlay">
-  <h2>8. Overlay en jeu</h2>
-  <p>La fenêtre <strong>SetupLab Overlay</strong> s'ouvre depuis la barre d'apps de CSP, comme les autres fenêtres. Elle a un fond translucide ; placez-la où vous voulez, CSP retient sa place. Elle se met à jour à chaque tour.</p>
+  <h2>11. In-game overlay</h2>
+  <p>The <strong>SetupLab Overlay</strong> window opens from the CSP app bar. It has a translucent background and updates on every lap.</p>
   <ul>
-    <li><strong>En haut, le verdict sur vos tours</strong> : le setup en piste (par exemple <em>v3 en piste</em>), votre meilleur tour avec lui et avec le setup d'avant (votre tour moyen en course), puis <strong>Mieux de …</strong> en vert ou <strong>Moins bien de …</strong> en rouge. C'est une mesure réelle, sur le setup entier.</li>
-    <li>Votre <strong>dernier tour</strong> et son écart avec votre meilleur.</li>
-    <li><strong>Au milieu, les réglages changés</strong> qui comptent le plus : ancienne › nouvelle valeur, et le gain prévu par le modèle (vert : gain, rouge : perte, orange suivi de « ? » : à confirmer). Les autres réglages sont regroupés sur une ligne.</li>
-    <li><strong>En bas</strong>, la version suivante quand elle est prête, avec son gain prévu.</li>
-  </ul>
-  <div class="note">Un réglage seul ne se mesure pas en piste quand plusieurs changent en même temps : le gain par réglage est celui que prévoit SetupLab, le verdict du haut vient de vos temps.</div>
-</section>
-
-<section id="retouches">
-  <h2>9. Vos retouches au stand</h2>
-  <p>Après un chargement par SetupLab, vous pouvez retoucher le setup à votre goût dans le menu de setup. SetupLab le détecte à la découverte suivante et <strong>garde chaque réglage retouché à votre valeur</strong> dans les calculs suivants : si vous l'avez changé, c'est que vous êtes plus à l'aise ainsi.</p>
-  <ul>
-    <li>La ligne « <strong>Vos retouches gardées</strong> : … » liste les réglages concernés.</li>
-    <li>Un composé de pneus changé à la main est gardé aussi (en choix automatique du composé).</li>
-    <li>Le carburant n'est pas une retouche.</li>
-    <li><span class="btn plain">Libérer vos retouches</span> rend ces réglages au calcul.</li>
+    <li><strong>At the top, the verdict on your laps</strong>: the setup on track, your best lap with it and with the previous setup, then <strong>Better by …</strong> in green or <strong>Worse by …</strong> in red.</li>
+    <li>Your <strong>last lap</strong> and its difference with your best.</li>
+    <li><strong>The changed settings</strong> that matter most, with the gain predicted by the model.</li>
+    <li><strong>At the bottom</strong>, the next version when it is ready, or the minimum left before a proposal.</li>
   </ul>
 </section>
 
-<section id="memoire">
-  <h2>10. Mémoire du circuit et cadenas</h2>
-  <p>Le setup que vous validez est gardé, d'un lancement d'AC à l'autre, pour cette voiture sur ce circuit (disposition comprise), par :</p>
-  <ul>
-    <li><strong>séance</strong> : essai ou journée circuit (hotlap et time attack compris), qualification, course ;</li>
-    <li><strong>état de piste</strong> : sec ou pluie.</li>
-  </ul>
-  <p>À la visite suivante, la carte <strong>Mémoire du circuit</strong> propose de le charger, en deux clics, au stand. Un setup <strong>figé</strong> (cadenas) n'est plus changé par l'affinage automatique ; « Déverrouiller » le rend à l'affinage. Si le fichier a disparu ou a été modifié en dehors de SetupLab, la carte le dit et ne le charge pas.</p>
+<section id="changes">
+  <h2>12. Your own changes in the pits</h2>
+  <p>After a load by SetupLab, you can adjust the setup to your taste. SetupLab detects it at the next discovery and <strong>keeps each adjusted setting at your value</strong> in the next computations, like the refused effects. <span class="btn plain">Release your changes</span> gives them back to the computation. Fuel does not count as a change.</p>
 </section>
 
-<section id="manuel">
-  <h2>11. Calcul à la main</h2>
-  <p>Sans l'affinage automatique, dans l'onglet <strong>Tour rapide</strong> ou <strong>Course</strong> :</p>
+<section id="memory">
+  <h2>13. Track memory and lock</h2>
+  <p>The setup you validate is kept, from one AC launch to the next, for this car on this track (layout included), per <strong>session</strong> (practice or track day, qualifying, race) and per <strong>track state</strong> (dry or wet). The <strong>MEMORY</strong> tab lists them and offers to load them, in two clicks, in the pits. A <strong>locked</strong> setup is no longer changed by the refinement; "Unlock" gives it back to the refinement.</p>
+</section>
+
+<section id="race">
+  <h2>14. Race setup</h2>
+  <p>The race setup starts from your <strong>validated qualifying setup</strong>: your laps with it give your pace. The <strong>RACE</strong> tab shows three conditions, each with what fulfils it:</p>
   <ol>
-    <li><strong>Calculer le setup…</strong> : la durée estimée s'affiche avant (en orange au-delà de 40 s : baisser le budget dans l'onglet Réglages pour aller plus vite). Le calcul peut être annulé à tout moment.</li>
-    <li>Lire les réglages proposés : actuel, proposé, crans, gain ; survoler un réglage affiche son explication.</li>
-    <li><span class="btn primary">Enregistrer le setup…</span> : un nouveau fichier à chaque clic, autant de fois que voulu.</li>
-    <li>Au stand : <span class="btn go">Charger…</span> puis <span class="btn go">Confirmer</span>.</li>
+    <li><strong>Validated qualifying setup</strong> on this track (otherwise the setup validated in practice);</li>
+    <li><strong>in the car</strong>: <span class="btn go">Load the validated qualifying setup</span> button;</li>
+    <li><strong>number of race laps</strong>, with the slider (Ctrl + click to type it), kept for this car on this track. The lap count planned by the session is shown as a reminder.</li>
   </ol>
-  <p><strong>Affinage automatique (tour rapide)</strong> lance l'affinage pour ce seul onglet, sans cocher SetupLab actif.</p>
+  <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured.</p>
 </section>
 
-<section id="course">
-  <h2>12. Setup de course</h2>
-  <p>L'onglet <strong>Course</strong> simule le relais complet : carburant embarqué, usure des pneus par essieu, trafic (DRS dans l'air sale). Régler la durée de course dans l'onglet <strong>Réglages</strong> si la séance n'en a pas. Faire 2 ou 3 tours avant le calcul : la consommation et l'usure sont alors mesurées. Le composé n'est changé que si l'usure a été mesurée.</p>
+<section id="manual">
+  <h2>15. Manual computation</h2>
+  <p>Without automatic refinement, in the <strong>QUALIFYING</strong> or <strong>RACE</strong> tab: <strong>Compute the … setup</strong> (estimated duration shown beforehand, can be cancelled), read the proposed settings and their explanation on hover, <span class="btn primary">Save the … setup</span> (a new file on every click), then in the pits <span class="btn go">Load…</span> and <span class="btn go">Confirm</span>.</p>
 </section>
 
-<section id="pluie">
-  <h2>13. Pluie</h2>
-  <p>La pluie de CSP, et celle de Pure, qui passe par CSP, est lue directement. Dès que la piste mouille, le bandeau l'indique et chaque calcul propose un <strong>setup pluie</strong> :</p>
-  <ul>
-    <li>composé choisi entre slicks, intermédiaires et pneus pluie ;</li>
-    <li>pressions pour des pneus plus froids, aileron et réglages optimisés avec l'adhérence mouillée ;</li>
-    <li>antipatinage et ABS plus stricts (réglage « Pluie : niveaux d'aide en plus »).</li>
-  </ul>
-  <p>Les tours mouillés calibrent un modèle à part du sec. Le modèle pluie est à confirmer en jeu : la section <strong>Pluie</strong> du résultat dit l'eau retenue et les hypothèses.</p>
+<section id="rain">
+  <h2>16. Rain</h2>
+  <p>CSP rain, and Pure's rain, which goes through CSP, is read directly. As soon as the track gets wet, every computation proposes a <strong>wet setup</strong>: compound chosen between slicks, intermediates and wets; pressures for cooler tyres; wing and settings optimised with wet grip; stricter traction control and ABS. Wet laps calibrate a model separate from the dry one.</p>
 </section>
 
-<section id="onglets">
-  <h2>14. Les onglets</h2>
+<section id="tabs">
+  <h2>17. The tabs</h2>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Onglet</th><th>Contenu</th></tr></thead>
+    <thead><tr><th>Tab</th><th>Content</th></tr></thead>
     <tbody>
-      <tr><td><strong>Tour rapide</strong></td><td>Carte d'affinage, mémoire du circuit, calcul, nom du setup, résultat (tuiles, réglages, explications, graphiques).</td></tr>
-      <tr><td><strong>Course</strong></td><td>La même chose pour le relais : tour moyen, carburant, usure, trafic.</td></tr>
-      <tr><td><strong>Mesure</strong></td><td>Tours enregistrés (valides ou non, avec la raison), calibration du modèle, températures et pressions des pneus, rugosité de la piste.</td></tr>
-      <tr><td><strong>Réglages</strong></td><td>Réglages de l'app (durée de course, marges, budgets de calcul, affinage, pluie) et prise en compte de chaque réglage du setup, au sec et sous la pluie.</td></tr>
-      <tr><td><strong>Capacités</strong></td><td>Ce que CSP permet sur votre installation, et « Copier le rapport J0 » pour signaler un problème.</td></tr>
+      <tr><td><strong>QUALIFYING</strong></td><td>Refinement and versions, effects to sort, computation, setup name, result (tiles, settings, explanations, charts).</td></tr>
+      <tr><td><strong>RACE</strong></td><td>The three conditions of the race setup, then the same for the stint: average lap, fuel, wear, traffic.</td></tr>
+      <tr><td><strong>MEMORY</strong></td><td>The validated or locked setups for this track, to load or unlock.</td></tr>
+      <tr><td><strong>MEASURE</strong></td><td>Recorded laps (valid or not, with the reason), model calibration, tyres, track roughness.</td></tr>
+      <tr><td><strong>SETTINGS</strong></td><td>Language, app settings (each with its explanation on hover) and how every setup setting is handled, dry and wet.</td></tr>
+      <tr><td><strong>DIAGNOSTICS</strong></td><td>What CSP allows on your installation, and "Copy the J0 report" to report a problem.</td></tr>
+      <tr><td><strong>HELP</strong></td><td>How it works and the 4 steps, in short.</td></tr>
     </tbody>
   </table>
   </div>
-  <p>En fenêtre large (environ 740 px et plus), les graphiques passent à droite des réglages.</p>
 </section>
 
-<section id="fichiers">
-  <h2>15. Fichiers et noms</h2>
-  <p>Les setups sont écrits dans le dossier des setups de la voiture et du circuit (<code>Documents/Assetto Corsa/setups/&lt;voiture&gt;/&lt;circuit&gt;/</code>), visibles dans le menu de setup d'AC.</p>
+<section id="files">
+  <h2>18. Files and names</h2>
+  <p>Setups are written to the car and track setups folder (<code>Documents/Assetto Corsa/setups/&lt;car&gt;/&lt;track&gt;/</code>) and show in AC's setup menu. Names follow the chosen language:</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>File</th><th>In English</th><th>In French</th></tr></thead>
+    <tbody>
+      <tr><td>Qualifying version</td><td><code>SetupLab_Quali_v2.ini</code></td><td><code>SetupLab_Qualif_v2.ini</code></td></tr>
+      <tr><td>Race version, wet</td><td><code>SetupLab_Race_Wet_v3.ini</code></td><td><code>SetupLab_Course_Pluie_v3.ini</code></td></tr>
+      <tr><td>Trial of a version</td><td><code>SetupLab_Quali_v2_trial.ini</code></td><td><code>SetupLab_Qualif_v2_essai.ini</code></td></tr>
+      <tr><td>Copy before a load</td><td><code>SetupLab_Before_load_….ini</code></td><td><code>SetupLab_Avant_chargement_….ini</code></td></tr>
+    </tbody>
+  </table>
+  </div>
   <ul>
-    <li>Versions de l'affinage : <code>SetupLab_Qualif_v1.ini</code>, <code>SetupLab_Qualif_v2.ini</code>, <code>SetupLab_Course_v1.ini</code>, <code>SetupLab_Course_Pluie_v3.ini</code> sous la pluie. Les numéros continuent d'une séance à l'autre sur le même circuit.</li>
-    <li>Le champ <strong>Nom du setup</strong> remplace « SetupLab » : « Test Setup » donne <code>Test_Setup_Qualif_v1.ini</code>. Les accents et les espaces sont retirés ; le genre n'est pas répété si votre nom finit déjà par lui (« Monza qualif » donne <code>Monza_qualif_v1.ini</code>).</li>
-    <li><strong>Votre meilleur tour</strong> : une version de qualification gardée reçoit à la fin de son nom votre meilleur tour réel fait avec elle, au format d'AC : <code>SetupLab_Qualif_v2_1.41.792.ini</code>. Le nom suit vos progrès ; il change voiture arrêtée, jamais en roulant. Pas de temps pour la course.</li>
-    <li>« Enregistrer » à la main (sans affinage) : <code>SetupLab_Qualif_2026-10-22_14h32m05s.ini</code>, ou votre nom suivi du genre.</li>
-    <li>Jamais d'écrasement : un nom déjà pris reçoit <code>-2</code>, <code>-3</code>…</li>
-    <li>Renommer : changer le nom puis « Enregistrer » écrit le même setup sous le nouveau nom ; l'ancien fichier reste.</li>
+    <li>Version numbers continue from one session to the next on the same track, whatever the language.</li>
+    <li>The <strong>Setup name</strong> field replaces "SetupLab". Accents and spaces are removed; the kind is not repeated if your name already ends with it.</li>
+    <li><strong>Your best lap</strong> is added to the end of the name of a kept qualifying version (<code>SetupLab_Quali_v2_1.41.792.ini</code>), with the car stopped, never while driving.</li>
+    <li>Never overwritten: a name already taken gets <code>-2</code>, <code>-3</code>…</li>
   </ul>
-  <h3>Rangement automatique</h3>
-  <p>Il ne reste que les versions que vous gardez. Voiture arrêtée, un fichier à la fois, SetupLab met à la <strong>Corbeille de Windows</strong> :</p>
-  <ul>
-    <li>le fichier d'une version que vous ne gardez pas (« Recommencer ») ;</li>
-    <li>à chaque validation, les copies « Avant chargement » identiques à un fichier gardé (hors carburant, répartition de freinage et aides). Une copie qui contient vos retouches non enregistrées reste.</li>
-  </ul>
-  <div class="note">SetupLab ne touche jamais à vos propres fichiers ni à ceux du jeu : seulement aux fichiers qu'il a écrits pendant la séance, intacts (un fichier enregistré par-dessus dans le menu d'AC n'est plus le sien). Avec CSP 0.2.11, la Corbeille n'existe pas encore pour les apps : ces fichiers sont alors supprimés définitivement. Les fichiers d'avant la bêta 1.2 ne partent jamais à la Corbeille ; une référence gardée dans la mémoire du circuit peut toutefois recevoir votre meilleur tour dans son nom.</div>
+  <h3>Automatic tidying</h3>
+  <p>With the car stopped, one file at a time, SetupLab sends to the <strong>Windows Recycle Bin</strong> the sorted trial files, the versions not kept, and the "before load" copies identical to a kept file.</p>
+  <div class="note">SetupLab never touches your own files or the game's: only files it wrote during the session, intact. With CSP 0.2.11, the Recycle Bin is not yet available to apps: these files are then deleted permanently.</div>
 </section>
 
-<section id="jamais">
-  <h2>16. Ce que SetupLab ne fait jamais</h2>
+<section id="never">
+  <h2>19. What SetupLab never does</h2>
   <ul>
-    <li>Modifier le contenu d'un fichier, ou la physique du jeu.</li>
-    <li>Toucher à vos propres fichiers : il ne range (Corbeille, meilleur tour dans le nom) que des fichiers qu'il a écrits, intacts, voir <a href="#fichiers">Fichiers et noms</a>.</li>
-    <li>Écrire sans votre clic : seuls « Enregistrer », « Valider », « Figer » et la copie de sauvegarde avant un chargement (quand elle est utile) écrivent un fichier.</li>
-    <li>Changer le setup de la voiture sans votre confirmation au stand.</li>
-    <li>Accéder au réseau.</li>
-    <li>Fonctionner en ligne ou en replay.</li>
+    <li>Change the content of a file, or the game physics.</li>
+    <li>Touch your own files.</li>
+    <li>Write without your click: only "Try", "Save", "Validate", "Lock" and the backup copy before a load write a file.</li>
+    <li>Change the car setup without your confirmation in the pits.</li>
+    <li>Access the network, run online or in replays.</li>
   </ul>
 </section>
 
 <section id="faq">
-  <h2>17. Questions fréquentes</h2>
+  <h2>20. FAQ</h2>
   <details>
-    <summary>Je clique sur « Charger » et rien ne se passe.</summary>
-    <p>Regarder l'état du stand affiché au-dessus du bouton : il faut être au stand, voiture arrêtée, <strong>menu de setup ouvert</strong>. La raison d'un refus s'affiche juste sous le bouton. Après le premier clic, confirmer dans le temps restant indiqué.</p>
+    <summary>I click "Load" and nothing happens.</summary>
+    <p>Check the pit state shown above the button: you must be in the pits, car stopped, <strong>setup menu open</strong>. After the first click, confirm within the time shown.</p>
   </details>
   <details>
-    <summary>Les temps affichés ne correspondent pas aux miens.</summary>
-    <p>Les tuiles et l'historique montrent vos tours réels quand vous en avez roulé avec le setup concerné ; sinon « — ». Les temps simulés ne sont qu'au survol. Tant que le modèle n'est pas calibré (onglet Mesure), ses gains restent indicatifs.</p>
+    <summary>SetupLab proposes nothing.</summary>
+    <p>The step card says what is missing: the minimum clean laps or minutes (SETTINGS tab), a version on trial whose effects are waiting to be sorted, or, for the race, one of the three conditions in the RACE tab.</p>
   </details>
   <details>
-    <summary>Pourquoi certains réglages ne sont-ils jamais changés ?</summary>
-    <p>L'onglet Réglages donne la raison de chacun. Par exemple : le pincement (effet transitoire hors du modèle), le différentiel au lâcher et la précharge (non modélisés), les ressorts et amortisseurs tant qu'un tour valide sur le sec n'a pas mesuré la rugosité, ou les réglages définis par le script d'une voiture (« Puissance », « Frein moteur »…), dont l'effet est inconnu : réglez-les vous-même.</p>
+    <summary>Why are some settings never changed?</summary>
+    <p>The SETTINGS tab gives the reason for each on hover: transient effect outside the model, track roughness not measured yet, setting defined by the car's script…</p>
   </details>
   <details>
-    <summary>Je n'ai pas vu l'annonce à l'écran.</summary>
-    <p>Elle s'affiche une fois par version, environ 8 secondes, dans les messages d'AC en haut de l'écran. La version reste affichée dans la carte d'affinage, et la ligne d'état en haut de la fenêtre dit « v3 prête — à valider ou recommencer ».</p>
+    <summary>How do I switch the app to French?</summary>
+    <p>One click on the <strong>EN</strong> badge at the top of the window, or the SETTINGS tab, "Français".</p>
   </details>
   <details>
-    <summary>Le nom de mes fichiers finit par « UTC ».</summary>
-    <p>L'heure locale de Windows n'a pas pu être lue. L'onglet Capacités en donne la raison : la joindre à un signalement.</p>
-  </details>
-  <details>
-    <summary>Comment signaler un problème ?</summary>
-    <p>Ouvrir une issue sur <a href="https://github.com/VincentChevalier44/ACSetupLab/issues">GitHub</a> avec le rapport de l'onglet Capacités (« Copier le rapport J0 ») et, si possible, le tour enregistré (onglet Mesure, « Copier le tour enregistré »).</p>
+    <summary>How do I report a problem?</summary>
+    <p>Open an issue on <a href="https://github.com/VincentChevalier44/ACSetupLab/issues">GitHub</a> with the report from the DIAGNOSTICS tab ("Copy the J0 report") and, if possible, the recorded lap (MEASURE tab, "Copy the recorded lap"). The copied report and lap are in French: that is expected.</p>
   </details>
 </section>
 
-<section id="limites">
-  <h2>18. Limites de la bêta</h2>
+<section id="limits">
+  <h2>21. Beta limitations</h2>
   <ul>
-    <li>La fidélité du tour simulé à AC reste à confirmer sur plus de voitures : tant que la calibration n'atteint pas ses seuils, l'app affiche « Confiance basse : modèle non calibré ».</li>
-    <li>Le modèle pluie repose sur des hypothèses (la physique pluie de CSP n'est pas documentée) ; vos tours mouillés le calibrent.</li>
-    <li>Sur une voiture dont le carburant est un réglage du setup (DTM), chaque calcul en piste refait la découverte hors du stand : la hauteur de caisse n'est alors optimisée qu'après un chargement au stand.</li>
+    <li>How closely the simulated lap matches AC still needs confirming on more cars: until calibration reaches its thresholds, the app shows "Low confidence: model not calibrated".</li>
+    <li>The rain model relies on assumptions; your wet laps calibrate it.</li>
+    <li>The copied J0 report and lap, meant for development, stay in French.</li>
   </ul>
 </section>
 
@@ -483,9 +497,9 @@
 
 <footer>
   <div class="inner">
-    SetupLab 1.0 — bêta 1.4 (<code>1.0.0-beta.1.4</code>) · Licence MIT ·
+    SetupLab 1.0 — beta 1.5 (<code>1.0.0-beta.1.5</code>) · MIT licence ·
     <a href="https://github.com/VincentChevalier44/ACSetupLab">github.com/VincentChevalier44/ACSetupLab</a><br>
-    Assetto Corsa est une marque de Kunos Simulazioni. SetupLab est un projet indépendant.
+    Assetto Corsa is a trademark of Kunos Simulazioni. SetupLab is an independent project.
   </div>
 </footer>
 

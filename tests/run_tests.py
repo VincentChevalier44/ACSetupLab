@@ -132,6 +132,12 @@ def main():
     results = {'date': datetime.datetime.now().isoformat(timespec='seconds'), 'tests': {}}
 
     files, lint_errors = lint.run()
+    # dictionnaire anglais à jour (tests/tools/gen_lang.py)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('gen_lang', TESTS / 'tools' / 'gen_lang.py')
+    gen_lang = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gen_lang)
+    lint_errors = list(lint_errors) + gen_lang.stale()
     results['lint'] = {'files': len(files), 'errors': lint_errors}
     for error in lint_errors:
         print(f'LINT {error}')

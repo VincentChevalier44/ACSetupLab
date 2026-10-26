@@ -1,22 +1,25 @@
-# Archives de distribution : publiées dans les Releases GitHub, pas dans le dépôt
+# Distribution archives: published in the GitHub Releases, not in the repository
 dist/
 
-# Jeux de données des tests : fichiers de voitures et circuits du jeu (Kunos, mods), non redistribuables
-# À générer depuis votre installation : python -I tests/tools/make_fixtures.py
+# Test data sets: game car and track files (Kunos, mods), not redistributable
+# Generate them from your installation: python -I tests/tools/make_fixtures.py
 tests/fixtures/
 
-# Bibliothèques Python du banc (installer lupa et luaparser avec pip, voir README)
+# Python libraries of the bench (install lupa and luaparser with pip, see README)
 tests/_vendor/
 
-# Résultats du banc
+# Bench results
 tests/results.json
+
+# Internal development notes (kept locally)
+internal/
 
 # Python
 __pycache__/
 *.pyc
 .venv/
 
-# Système
+# System
 Thumbs.db
 desktop.ini
 .DS_Store

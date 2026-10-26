@@ -8,7 +8,7 @@ local M = {}
 M.appName = 'SetupLab'
 -- Première bêta publique (décision de Vincent du 22/10/2026 : « on la présentera comme la version bêta numéro
 -- un, v1.0 ») ; les versions 1.0.0 à 1.7.0 d'avant étaient internes (CHANGELOG.md).
-M.version = '1.0.0-beta.1.4'
+M.version = '1.0.0-beta.1.5'
 M.milestone = 'J0 à J8 (qualification, course, mesure, DRS, ERS, interface, persistance), chargement dans la voiture, affinage, pluie, '
   .. 'activation, mémoire du circuit, validation avant enregistrement, vos temps réels, vos retouches gardées'
 M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus récente est ignorée
@@ -34,6 +34,17 @@ M.exportQualiPrefix = M.fileDefaultName .. '_' .. M.fileGenre.quali .. '_'
 M.exportRacePrefix = M.fileDefaultName .. '_' .. M.fileGenre.race .. '_'
 -- Copie du setup en cours écrite juste avant un chargement dans la voiture (réversibilité).
 M.exportBackupPrefix = 'SetupLab_Avant_chargement_'
+
+-- Mots des noms de fichiers dans la langue choisie (décision de Vincent du 26/10/2026 : « le setup s'enregistre en
+-- français quand on a la langue française et en anglais quand on a la langue anglaise ») ; les fichiers déjà écrits
+-- dans l'autre langue restent reconnus (numéros de version, mémoire du circuit, rangement).
+M.fileWords = {
+  fr = { quali = 'Qualif', race = 'Course', wet = 'Pluie', trial = 'essai', backup = M.exportBackupPrefix },
+  en = { quali = 'Quali', race = 'Race', wet = 'Wet', trial = 'trial', backup = 'SetupLab_Before_load_' },
+}
+function M.fileWordsFor(lang)
+  return M.fileWords[lang == 'fr' and 'fr' or 'en']
+end
 
 -- Effets d'un setup proposé, validés un par un (décision de Vincent du 26/10/2026 : « au lieu de valider une fois
 -- globalement le setup, il va le valider un par un chaque effet ») : groupes de réglages par genre de variable

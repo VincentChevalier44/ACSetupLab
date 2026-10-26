@@ -6,7 +6,7 @@
 -- est traduit phrase par phrase si aucun modèle ne le reconnaît en entier. Module pur (aucune API du jeu).
 local EN = require('src/lang_en')
 
-local M = { lang = 'en', misses = nil }
+local M = { lang = 'en', misses = nil, computed = 0 }
 
 local exact = {}
 -- phrases calculées apprises avec leur traduction (explications des réglages) ; bornées
@@ -14,9 +14,12 @@ local learned, learnedCount = {}, 0
 local LEARNED_MAX = 4000
 local byLead, noLead, generic = {}, {}, {}
 local cache, cacheSize = {}, 0
+-- textes remplis par L.f (nombres qui changent à chaque image) : à part, pour ne pas chasser les traductions du cache
+local outputs, outputsSize = {}, 0
+local OUTPUTS_MAX = 600
 local CACHE_MAX = 3000
 local LEAD = 3
-local GENERIC = 3
+local GENERIC = 6
 
 local function escape(s)
   return (s:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%0'))
@@ -34,6 +37,8 @@ do
         if #chunk > #need then need = chunk end
       end
       list[#list + 1] = { pattern = pattern, en = en, lead = fr:match('^(.-)%%s') or '', literal = #fr - 2 * holes, need = need }
+      -- le modèle lui-même (L.f traduit le modèle, puis le remplit)
+      exact[fr] = en
     else
       exact[fr] = en
     end
@@ -117,8 +122,8 @@ local function tryPatterns(list, s, depth, strict)
           if c ~= '' then caps[i] = full(c, depth + 1) or c end
         end
         local out = capital(s, fill(p.en, caps))
-        -- un modèle qui laisse du français : le suivant peut mieux découper
-        if not looksFrench(out) then return out end
+        -- un modèle qui laisse du français : au premier niveau, le suivant peut mieux découper
+        if depth > 0 or not looksFrench(out) then return out end
         first = first or out
       end
     end
@@ -162,7 +167,7 @@ local STEPS = {
   function(s, depth) return precise(s, depth, true) end,
   function(s, depth) return bySentences(s, depth) end,
   function(s, depth) return precise(s, depth, false) end,
-  function(s, depth) return tryPatterns(generic, s, depth, false) end,
+  function(s, depth) return depth <= 4 and tryPatterns(generic, s, depth, false) or nil end,
 }
 function full(s, depth)
   local e = exact[s] or learned[s]
@@ -172,7 +177,7 @@ function full(s, depth)
   for _, step in ipairs(STEPS) do
     local out = step(s, depth)
     if out then
-      if not looksFrench(out) then return out end
+      if depth > 0 or not looksFrench(out) then return out end
       first = first or out
     end
   end
@@ -206,18 +211,29 @@ function M.t(s)
   if M.lang ~= 'en' or type(s) ~= 'string' or s == '' then return s end
   local hit = cache[s]
   if hit then return hit end
+  if outputs[s] then return s end
+  M.computed = M.computed + 1
+  if M.recent then M.recent[#M.recent + 1] = s end
   local out = full(s, 0) or s
   if M.misses and not (exact[s] or learned[s]) and looksFrench(out) then M.misses[s] = out end
+  -- banc : textes laissés tels quels qui contiennent des mots (à relire : français sans accent ?)
+  if M.unmatched and out == s and s:find('%l%l%l%l') then M.unmatched[s] = true end
   if cacheSize >= CACHE_MAX then
     cache, cacheSize = {}, 0
   end
   cache[s], cacheSize = out, cacheSize + 1
+  if out ~= s then cache[out], cacheSize = out, cacheSize + 1 end
   return out
 end
 
 -- Modèle français traduit puis rempli (string.format).
 function M.f(fmt, ...)
-  return string.format(M.t(fmt), ...)
+  local out = string.format(M.t(fmt), ...)
+  if M.lang == 'en' and not outputs[out] then
+    if outputsSize >= OUTPUTS_MAX then outputs, outputsSize = {}, 0 end
+    outputs[out], outputsSize = true, outputsSize + 1
+  end
+  return out
 end
 
 return M

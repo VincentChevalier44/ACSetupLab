@@ -148,13 +148,25 @@ end
 -- Base des noms de fichiers (décision de Vincent du 22/10/2026 : « on a du mal à les différencier ») : nom
 -- choisi, sinon « SetupLab », puis le genre (Qualif, Course ; pas répété si le nom choisi finit déjà par lui)
 -- et « Pluie » sous la pluie.
+-- Mots dans la langue choisie (Qualif / Quali, Course / Race, Pluie / Wet) ; le genre n'est pas ajouté si le nom
+-- choisi finit déjà par lui, dans une langue ou l'autre.
+local function fileWords()
+  return Config.fileWordsFor(app.settings.language)
+end
+app.fileWords = fileWords
+
 local function fileBase(kind, bucket)
   local custom = customName(kind)
-  local genre = Config.fileGenre[kind]
+  local words = fileWords()
   local base = custom ~= '' and custom or Config.fileDefaultName
   local low = base:lower()
-  if not (low == genre:lower() or low:sub(-#genre - 1) == '_' .. genre:lower()) then base = base .. '_' .. genre end
-  return base .. (bucket == 'pluie' and ('_' .. Config.fileWet) or '')
+  local has = false
+  for _, w in pairs(Config.fileWords) do
+    local genre = w[kind]:lower()
+    has = has or low == genre or low:sub(-#genre - 1) == '_' .. genre
+  end
+  if not has then base = base .. '_' .. words[kind] end
+  return base .. (bucket == 'pluie' and ('_' .. words.wet) or '')
 end
 app.fileBase = fileBase
 
@@ -1998,7 +2010,7 @@ local function confirmLoad(kind)
     backupNote = 'setup précédent déjà enregistré : ' .. kept
     app.backupsSkipped = (app.backupsSkipped or 0) + 1
   else
-    local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, Config.exportBackupPrefix, fileStamp())
+    local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, fileWords().backup, fileStamp())
     app.writeTest = backup
     if not backup.ok then
       app.ui.message = 'Chargement annulé : copie de sauvegarde du setup en cours impossible (' .. tostring(backup.reason) .. ').'
@@ -2599,8 +2611,10 @@ local function lastVersionOnDisk(kind)
   if not (ok and type(list) == 'table') then return 0 end
   local top = 0
   for i = 1, math.min(#list, K.scanMaxFiles) do
-    local v = Util.versionInName(list[i], Config.fileGenre[kind])
-    if v and v > top then top = v end
+    for _, w in pairs(Config.fileWords) do
+      local v = Util.versionInName(list[i], w[kind], w.wet)
+      if v and v > top then top = v end
+    end
   end
   return top
 end
@@ -2803,7 +2817,7 @@ local function refineTry(r, e)
       app.ui.message = 'Essai impossible : ' .. app.inert
       return
     end
-    local w = Exporter.writeNew(host, fileBase(r.kind, e.bucket) .. '_v' .. e.version .. '_essai', e.text)
+    local w = Exporter.writeNew(host, fileBase(r.kind, e.bucket) .. '_v' .. e.version .. '_' .. fileWords().trial, e.text)
     if not w.ok then
       app.ui.message = 'v' .. e.version .. ' : essai impossible, écriture refusée (' .. tostring(w.reason) .. ').'
       return

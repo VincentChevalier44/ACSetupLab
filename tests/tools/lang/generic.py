@@ -33,6 +33,7 @@ EN = {
     'illisible': 'unreadable',
     'échecs': 'failures',
     'Qualif': 'Qualifying',
+    '%s : %s / %s': '%s: %s / %s',
     'Meilleur %s   avant %s': 'Best %s   before %s',
     'Moyenne %s   avant %s': 'Average %s   before %s',
     'Meilleur %s (%s tour%s)': 'Best {1} ({2} lap{3})',

@@ -281,11 +281,15 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
     -- choisi ici : préfixe SetupLab), chacun précédé d'une copie de sauvegarde du setup en cours
     local copies = 0
     for path in pairs(h.written) do
-      if path:find(Config.exportBackupPrefix, 1, true) then copies = copies + 1 end
+      if path:find(Config.fileWords.fr.backup, 1, true) or path:find(Config.fileWords.en.backup, 1, true) then copies = copies + 1 end
     end
+    -- noms dans l'une ou l'autre langue (stockage corrompu : réglages par défaut, anglais)
     for _, path in ipairs(h.loadCalls) do
-      T.ok(h.written[path] and (path:find('/' .. Config.exportQualiPrefix, 1, true)
-        or path:find('/' .. Config.exportRacePrefix, 1, true)), 'chargement d\'un fichier étranger : ' .. path)
+      local own = false
+      for _, w in pairs(Config.fileWords) do
+        own = own or path:find('/SetupLab_' .. w.quali .. '_', 1, true) ~= nil or path:find('/SetupLab_' .. w.race .. '_', 1, true) ~= nil
+      end
+      T.ok(h.written[path] and own, 'chargement d\'un fichier étranger : ' .. path)
     end
     -- copie inutile quand la voiture roule avec un fichier gardé de SetupLab (réponse de Vincent du 22/10/2026)
     local skipped = app.backupsSkipped or 0
@@ -296,7 +300,7 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
     for i, event in ipairs(h.events) do
       if event[1] == 'load' then
         local previous = h.events[i - 1]
-        if not (previous and previous[1] == 'save' and previous[2]:find(Config.exportBackupPrefix, 1, true)) then
+        if not (previous and previous[1] == 'save' and (previous[2]:find(Config.fileWords.fr.backup, 1, true) or previous[2]:find(Config.fileWords.en.backup, 1, true))) then
           without = without + 1
         end
       end

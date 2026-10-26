@@ -19,7 +19,17 @@ FRENCH_WORDS = re.compile(r"\b(le|la|les|des|du|de|et|un|une|pour|avec|sur|au|au
                           r"Carburant|Aéro|Aides|Autres|Suspension|Transmission|Géométrie|inchangé|conservé|optimisé|"
                           r"modélisé|règle|choisi|disponible|indisponible|Disponible|Indisponible|Langue|Relancer|Copier|"
                           r"Annuler|Charger|Valider|Essayer|Figer|Déverrouiller|Libérer|Recommencer|Arrêter|Confirmer|"
-                          r"Enregistrer|Calibrer|Mesurer|Rouler|Gardé|Refusé|actif|arrêté|analysé|prête|prêt)\b")
+                          r"Enregistrer|Calibrer|Mesurer|Rouler|Gardé|Refusé|actif|arrêté|analysé|prête|prêt|"
+                          r"impossible|illisible|introuvable|inconnu|inconnue|absent|absente|absents|absentes|"
+                          r"erreur|Erreur|interne|contre|fichier|fichiers|mode|Mode|uniquement|reprend|trop|lire|"
+                          r"puis|confirmer|contenu|vide|attendu|froid|plancher|relais|exacts|cran|crans|grille|"
+                          r"valeur|sans|route|valide|hors|plage|longueur|masse|tampon|dossier|fonctions|volet|"
+                          r"effet|ligne|drapeau|texte|brut|Contexte|Reconnaissance|Enregistrement|Chargement|"
+                          r"Copie|Confirmation|proposition|Estimation|Gain|Usure|Trafic|Relais|Fichier|Actuel|"
+                          r"Crans|Moyenne|Meilleur|avant|marge|limite|batterie|profil|zone|zones|virages|rayon|"
+                          r"confiance|champs|identiques|lus|lues|visibles|ouvert|moteurs|aucune|aucun|Horloge|"
+                          r"boucle|locale|repli|Presse|papiers|Sondage|vertical|Stockage|persistant|raffinement|"
+                          r"inerte|suivra|autre|signature|Avec|Dont|dont|Vos)\b")
 SPEC = re.compile(r'%[-+#0]*\d*(?:\.\d+)?[dfisxgq]')
 BOUNDARY = {',', '=', 'and', 'or', 'then', 'do', 'return', 'local', 'if', 'elseif', 'else', 'end', '==', '~=', '<', '>', '<=',
             '>=', 'not', 'function', 'while', 'for', 'in', 'repeat', 'until', ';'}

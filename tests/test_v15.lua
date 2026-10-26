@@ -16,7 +16,7 @@ local tests = {}
 local function boot(opts)
   opts = opts or {}
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
-    stored = opts.stored })
+    stored = opts.stored, lang = opts.lang })
   h.sim.raceSessionType = opts.session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
@@ -322,7 +322,7 @@ tests['NV06 interface : étape en cours, essai, effets d\'un clic, validation'] 
   frames(h, 1)
   T.eq(e.status, 'essai', tostring(app.ui.message))
   frames(h, 1)
-  T.ok(shownText(h, 'Étape 2/4 · Charger l\'essai v1'), 'étape : charger l\'essai')
+  T.ok(shownText(h, 'Fichier d\'essai écrit : au stand'), 'étape 2 : charger l\'essai')
   h.click = id
   frames(h, 1)
   T.eq(e.groups[1].keep, false, 'tri pendant l\'essai')
@@ -365,6 +365,36 @@ tests['NV08 langue au badge, aide de chaque réglage'] = function()
   for _, key in ipairs(Config.EDITABLE) do
     T.ok(type(Config.help[key]) == 'string' and #Config.help[key] > 20, 'aide du réglage ' .. key)
   end
+  T.eq(app.perf.errors, 0)
+end
+
+-- Noms des fichiers dans la langue choisie (décision de Vincent du 26/10/2026) : en anglais, Quali / Race / Wet,
+-- _trial, Before_load ; numéros de version à la suite des fichiers déjà écrits en français.
+tests['NV09 noms de fichiers en anglais, numérotés à la suite des fichiers français'] = function()
+  local h, app = ready({ lang = 'en', stored = { ['setuplab:data'] = 'setuplab-store 1|settings#refineMinLaps=0|settings#language=s:en' } })
+  T.eq(app.settings.language, 'en')
+  local folder = folderOf(h)
+  h.written[folder .. '/SetupLab_Qualif_v4.ini'] = h.ac.stringifyCurrentSetup(true, false)
+  T.eq(app.fileBase('quali', 'sec'), 'SetupLab_Quali')
+  T.eq(app.fileBase('race', 'pluie'), 'SetupLab_Race_Wet')
+  app.handleIntents({ refineStart = 'quali' })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 5 and r.phase == 'tours' end), 'v5 après la v4 française')
+  app.handleIntents({ refineJudge = { version = 5, verdict = 'essayer' } })
+  local e = r.history[#r.history]
+  T.eq(e.trial and e.trial.file, 'SetupLab_Quali_v5_trial.ini', tostring(app.ui.message))
+  loadAtPit(h, app)
+  local backups = 0
+  for path in pairs(h.written) do
+    if path:find('/SetupLab_Before_load_', 1, true) then backups = backups + 1 end
+    T.no(path:find('Avant_chargement', 1, true), 'pas de nom français : ' .. path)
+  end
+  T.eq(backups, 1, 'copie de sauvegarde en anglais')
+  app.handleIntents({ refineJudge = { version = 5, verdict = 'valider' } })
+  T.eq(e.file, 'SetupLab_Quali_v5.ini', tostring(app.ui.message))
+  -- un nom choisi qui finit par le genre français : pas de genre en double
+  app.handleIntents({ name = { kind = 'quali', text = 'Mon reglage Qualif' } })
+  T.eq(app.fileBase('quali', 'sec'), 'Mon_reglage_Qualif')
   T.eq(app.perf.errors, 0)
 end
 
