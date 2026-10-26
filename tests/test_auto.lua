@@ -163,6 +163,9 @@ tests['AU01 SetupLab actif : veille au démarrage ; coché : affinage du genre d
   frames(h, 1)
   T.eq(app.auto, true)
   T.contains(app.ui.message, 'SetupLab actif')
+  frames(h, 1)
+  T.ok(shown(h, 'Étape 1/4 · Départ'), 'départ à choisir')
+  app.handleIntents({ start = 'mine' }) -- 1.5 : point de départ choisi (carte d'étape)
   T.ok(waitFor(h, function() return app.refine and app.refine.active end), 'affinage lancé')
   T.eq(app.refine.kind, 'quali', 'essai : tour rapide')
   T.ok(waitFor(h, function() return app.refine.version >= 1 end), 'v1 proposée')
@@ -193,7 +196,7 @@ tests['AU01 SetupLab actif : veille au démarrage ; coché : affinage du genre d
   h.click = 'SetupLab actif'
   frames(h, 1)
   T.ok(waitFor(h, function() return app.refine and app.refine.active end))
-  h.click = 'Arrêter l\'affinage (course)'
+  app.handleIntents({ refineStop = true })
   frames(h, 1)
   T.eq(app.auto, false)
   T.contains(app.ui.message, 'SetupLab en veille')
@@ -266,7 +269,7 @@ tests['AU03 valider : enregistrée, référence en mémoire ; écarter : jamais 
   T.eq(setupFiles(h), 0, 'rien d\'écrit avant « Valider »')
   frames(h, 1)
   T.ok(shown(h, 'v1 prête : gain prévu'), 'v1 affichée')
-  T.ok(shown(h, 'Effets gardés : '), 'ses effets affichés (1.5 : gardés ou refusés un par un)')
+  T.ok(shown(h, 'changé'), 'ses réglages changés résumés (1.5 : « Modifier… » pour les refuser un par un)')
   h.click = 'Valider v1'
   frames(h, 1)
   T.eq(v1.status, 'validée')
@@ -321,6 +324,7 @@ tests['AU04 cadenas : figé, affinage arrêté ; app relancée : proposé et cha
   local h, app = ready()
   h.click = 'SetupLab actif'
   frames(h, 1)
+  app.handleIntents({ start = 'mine' }) -- 1.5 : point de départ choisi (carte d'étape)
   T.ok(waitFor(h, function() return app.refine and app.refine.version >= 1 and app.refine.phase == 'tours' end), 'v1')
   local v1 = app.refine.history[1]
   h.click = 'Figer v1 (cadenas)'
@@ -506,6 +510,8 @@ tests['AU08 DTM, SetupLab actif, carburant qui baisse, 6 tours : aucun fichier s
   local h, app = ready('whk_dtm_2026', 1)
   h.click = 'SetupLab actif'
   frames(h, 1)
+  app.handleIntents({ start = 'mine' }) -- 1.5 : point de départ choisi (carte d'étape)
+
   T.ok(waitFor(h, function() return app.refine and app.refine.active and app.refine.phase == 'tours' end), 'premier calcul')
   local profile = drivenProfile(h, app)
   local fuel = spinner(h, 'FUEL')
@@ -584,7 +590,7 @@ tests['AU10 chargement : état du stand et refus sous le bouton, confirmation av
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   frames(h, 1)
-  T.ok(shown(h, 'Étape suivante : « Essayer v1 »'), 'étape suivante dite')
+  T.ok(shown(h, 'Étape 3/4 · Essayer v1') or shown(h, 'Étape 2/4 · Rouler'), 'étape suivante dite')
   h.click = 'Valider v1'
   frames(h, 1)
   -- au stand, menu de setup fermé

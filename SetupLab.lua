@@ -9,6 +9,7 @@ local Datasource = require('src/datasource')
 local Ui = require('src/ui')
 local Exporter = require('src/exporter')
 local TrackModel = require('src/track_model')
+local Explain = require('src/explain')
 local CarModel = require('src/car_model')
 local SetupSpace = require('src/setup_space')
 local Sim = require('src/laptime_sim')
@@ -64,6 +65,7 @@ local app = {
   memoryFiles = {},          -- chemin -> fichier de la mémoire relu (empreinte, texte, signature, instant de la relecture)
   loaded = {},               -- genre -> valeurs du dernier setup chargé par SetupLab (retouches du pilote)
   pins = { quali = {}, race = {} }, -- genre -> cran retouché à la main après un chargement -> { value, from }
+  start = {},                -- genre -> point de départ de l'affinage choisi : { mode, signature?, file?, ready }
   identityMisses = 0,        -- relectures d'affilée sans voiture ni circuit identifiés
   proposalOrigins = {},      -- genre -> signature du setup d'origine du setup proposé (validation, §14.1)
   quali = nil,               -- calcul de qualification : état, progression, résultat (§10.6)
@@ -300,6 +302,28 @@ end
 
 -- Tour simulé avec le setup actuel (§8.2, profil de vitesse du J3) ; mesure le temps de calcul d'une
 -- évaluation, hors rendus de main, pour estimer la durée d'un calcul avant son lancement (A13).
+-- Profil du circuit sur le tour simulé avec le setup actuel : virages par vitesse d'apex (lents, moyens, rapides),
+-- chicanes, lignes droites, part du tour à pleine charge, au freinage, en virage rapide ou lent.
+local function trackProfile(t, buf)
+  if not (t and t.segments and buf and buf.v) then return nil end
+  TrackModel.annotate(t, buf)
+  local p = { lent = 0, moyen = 0, rapide = 0, chicanes = 0, corners = 0, straights = 0, longest = 0 }
+  for _, seg in ipairs(t.segments) do
+    if seg.kind == 'corner' then
+      p.corners = p.corners + 1
+      p[seg.class or 'moyen'] = (p[seg.class or 'moyen'] or 0) + 1
+      if seg.chicane then p.chicanes = p.chicanes + 1 end
+    else
+      p.straights = p.straights + 1
+      if seg.length > p.longest then p.longest = seg.length end
+    end
+  end
+  local ok, stats = pcall(Explain.trackStats, t, buf)
+  if ok then p.stats = stats end
+  p.length = t.length
+  return p
+end
+
 local function simulateCurrent(d, ctx)
   local cpu, mark = 0, ctx.now()
   local function tick(weight)
@@ -315,6 +339,7 @@ local function simulateCurrent(d, ctx)
   local now = ctx.now()
   if now and mark then cpu = cpu + (now - mark) end
   local evalMs = ctx.now() and cpu * 1000 or nil
+  d.trackProfile = trackProfile(d.trackModel, buf)
   -- coût avec le DRS (qualification : volet ouvert dans toutes les zones), pour le budget tenu en temps
   -- et la durée estimée (relecture J6b, m8 : sans lui, sous-estimée de moitié)
   local evalMsDrs = nil
@@ -740,7 +765,7 @@ local function refreshContext()
     app.calibrations, app.validations = {}, {}
     app.proposalOrigins, app.pendingComputes, app.saved, app.refine = {}, {}, {}, nil
     app.memory, app.memoryFiles = {}, {}
-    app.loaded, app.pins = {}, { quali = {}, race = {} }
+    app.loaded, app.pins, app.start = {}, { quali = {}, race = {} }, {}
     app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
@@ -764,8 +789,8 @@ local function refreshContext()
       app.ui.message = 'Nouvelle séance : nouvelle découverte' .. (#lost > 0 and (' (effacés : ' .. table.concat(lost, ', ')
         .. ' ; les setups enregistrés restent chargeables)') or '') .. '.'
       log('INFO', 'session', app.ui.message)
-      -- un chargement armé ne survit pas à un changement de séance
-      app.loadArm = nil
+      -- un chargement armé ne survit pas à un changement de séance ; nouveau point de départ à choisir
+      app.loadArm, app.start = nil, {}
       startDiscovery()
     else
       app.pendingSessionKey = c.conditionsKey
@@ -2109,12 +2134,16 @@ local function loadTick()
     if check.already then
       app.loadTest = { ok = false, kind = check.kind, path = check.path,
         reason = 'non concluant : le setup en cours était déjà celui du fichier' }
+      local s = app.start[check.kind]
+      if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.ui.message = 'Setup ' .. label .. ' en place, mais le chargement n\'est pas constaté : la voiture avait déjà ce '
         .. 'setup (' .. check.backup .. ').'
     else
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
       -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
       app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
+      local s = app.start[check.kind]
+      if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.loadVerified = app.loadTest
       app.ui.message = 'Setup ' .. label .. ' chargé et vérifié dans la voiture (' .. check.backup
         .. '). Le prochain calcul relancera la découverte sur ce setup ; ses tours servent à la validation.'
@@ -2300,34 +2329,45 @@ local function groupOfKind(kind)
   return nil
 end
 
+-- Chaque réglage changé (item, clé : variable, « TYRES », « aid:section ») est gardé ou refusé ; un groupe est gardé si
+-- tous ses réglages le sont. Un choix déjà fait est conservé quand la version est mise à jour.
 local function effectGroupsOf(e, previous)
   local keep = {}
-  for _, g in ipairs(previous or {}) do keep[g.key] = g.keep end
+  for _, g in ipairs(previous or {}) do
+    for _, item in ipairs(g.items or {}) do keep[item.key] = item.keep end
+  end
   local byKey, list = {}, {}
   local function add(def, item)
     local g = byKey[def.key]
     if g == nil then
-      g = { key = def.key, label = def.label, items = {}, contribution = 0 }
-      if keep[def.key] ~= nil then g.keep = keep[def.key] else g.keep = true end
+      g = { key = def.key, label = def.label, items = {}, contribution = 0, keep = true }
       byKey[def.key] = g
     end
+    if keep[item.key] ~= nil then item.keep = keep[item.key] else item.keep = true end
     g.items[#g.items + 1] = item
     g.contribution = g.contribution + (item.contribution or 0)
+    g.keep = g.keep and item.keep
   end
   local other = Config.effectGroups[#Config.effectGroups]
   for _, c in ipairs(e.changeList or {}) do
-    add(groupOfKind(c.var.kind) or other, { change = c, label = c.var.label, contribution = c.contribution or 0 })
+    add(groupOfKind(c.var.kind) or other, { key = c.var.key, change = c, label = c.var.label, contribution = c.contribution or 0 })
   end
   local compound = e.compound
   if compound and compound.changed then
     for _, def in ipairs(Config.effectGroups) do
-      if def.compound then add(def, { compound = true, label = 'Composé de pneus', contribution = 0 }) end
+      if def.compound then add(def, { key = 'TYRES', compound = true, label = 'Composé de pneus', contribution = 0 }) end
     end
   end
-  for section, aid in pairs(e.aids or {}) do
+  local sections = {}
+  for section in pairs(e.aids or {}) do sections[#sections + 1] = section end
+  table.sort(sections)
+  for _, section in ipairs(sections) do
+    local aid = e.aids[section]
     if aid.to then
       for _, def in ipairs(Config.effectGroups) do
-        if def.aids then add(def, { aid = section, label = section, from = aid.from, to = aid.to, contribution = 0 }) end
+        if def.aids then
+          add(def, { key = 'aid:' .. section, aid = section, label = section, from = aid.from, to = aid.to, contribution = 0 })
+        end
       end
     end
   end
@@ -2337,11 +2377,14 @@ local function effectGroupsOf(e, previous)
   return list
 end
 
+-- Réglages gardés et nombre de réglages changés de la version.
 local function keptCount(e)
   local n, kept = 0, 0
   for _, g in ipairs(e.groups or {}) do
-    n = n + 1
-    if g.keep then kept = kept + 1 end
+    for _, item in ipairs(g.items) do
+      n = n + 1
+      if item.keep then kept = kept + 1 end
+    end
   end
   return kept, n
 end
@@ -2355,8 +2398,8 @@ local function keptSetup(e)
   if not (d and d.space and e.deltas) then return nil, 'données de la version absentes' end
   local refused = {}
   for _, g in ipairs(e.groups) do
-    if not g.keep then
-      for _, item in ipairs(g.items) do
+    for _, item in ipairs(g.items) do
+      if not item.keep then
         if item.change then refused[item.change.var.key] = true end
         if item.compound then refused.TYRES = true end
         if item.aid then refused['aid:' .. item.aid] = true end
@@ -2529,6 +2572,23 @@ local function refineFinish(r, q)
 end
 
 -- À chaque frame (boucle de calcul) : découverte après un chargement, calcul attendu, calcul dû.
+-- Point de départ de l'affinage (demande de Vincent du 26/10/2026 : « soit on part d'un setup par défaut et on fait
+-- affiner le setup par défaut…, si je charge un setup personnel à moi, je dois pouvoir… le faire évoluer ») : choisi une
+-- fois par genre et par séance. « mine » : le setup qui est dans la voiture ; « default » : le setup par défaut de la
+-- voiture (valeur par défaut de chaque cran, lue par CSP), écrit dans un fichier SetupLab puis chargé au stand ;
+-- « reference » : la référence validée du circuit, chargée au stand. Le choix remet à zéro vos retouches gardées.
+local function startReady(kind)
+  local s = app.start[kind]
+  return s ~= nil and s.ready == true
+end
+app.startReady = startReady
+
+local function startWaiting(kind)
+  local s = app.start[kind]
+  if s == nil then return 'choisir le point de départ' end
+  return 'charger le setup de départ au stand (' .. tostring(s.file) .. ')'
+end
+
 local function refineTick()
   local r = app.refine
   if not (r and r.active) or app.inert then return end
@@ -2540,7 +2600,11 @@ local function refineTick()
   end
   r.minClock = now
   -- progression du minimum toujours à jour (un calcul ou une calibration en cours ne la fige pas)
-  if r.phase == 'tours' and not refineMinReached(r) then r.waiting = refineMinText(r) end
+  if r.phase == 'tours' and not startReady(kind) then
+    r.waiting = startWaiting(kind)
+  elseif r.phase == 'tours' and not refineMinReached(r) then
+    r.waiting = refineMinText(r)
+  end
   -- retour au stand : la version en préparation est annoncée prête (calcul en cours : à sa fin)
   local pending = refinePending(r)
   if pending and not pending.ready and r.phase ~= 'calcul' and carAtPit() then refineAnnounce(r, pending) end
@@ -2578,7 +2642,12 @@ local function refineTick()
         return
       end
     end
-    -- minimum avant une proposition ; course : garde (référence de qualification, nombre de tours)
+    -- point de départ choisi et dans la voiture ; minimum avant une proposition ; course : garde (référence de
+    -- qualification, nombre de tours)
+    if not startReady(kind) then
+      r.waiting = startWaiting(kind)
+      return
+    end
     if not refineMinReached(r) then
       r.waiting = refineMinText(r)
       return
@@ -2619,6 +2688,20 @@ local function lastVersionOnDisk(kind)
   return top
 end
 
+-- Texte du setup par défaut de la voiture (carburant et composé : ceux du setup en cours), ou nil et la raison.
+local function defaultSetup(d)
+  local values = {}
+  for _, sp in ipairs(d.setup and d.setup.spinners or {}) do
+    if sp.name ~= 'FUEL' and sp.readOnly ~= true and sp.visible ~= false and Util.isFinite(sp.defaultValue) then
+      values[sp.name] = sp.defaultValue
+    end
+  end
+  if next(values) == nil then return nil, 'valeurs par défaut des réglages illisibles' end
+  local text, errors = SetupSpace.render(d.setup.text, values)
+  if text == nil then return nil, table.concat(errors or {}, ' ; ') end
+  return text, values
+end
+
 local function refineStart(kind)
   local base = lastVersionOnDisk(kind)
   app.refine = { kind = kind, active = true, phase = 'tours', version = base, base = base, laps = 0, history = {},
@@ -2630,9 +2713,9 @@ local function refineStart(kind)
   if f then r.minFamily, r.minLaps, r.minTime = d.family, f.count, f.sum end
   log('INFO', 'refine', 'Affinage ' .. COMPUTE[kind].label .. ' lancé')
   local why = kind == 'race' and raceBlocker() or nil
-  if not refineMinReached(r) or why then
+  if not startReady(kind) or not refineMinReached(r) or why then
     r.due, r.nextAt = true, nil
-    r.waiting = why and ('course : ' .. why) or refineMinText(r)
+    r.waiting = (not startReady(kind) and startWaiting(kind)) or (why and ('course : ' .. why)) or refineMinText(r)
     app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé : ' .. r.waiting .. '.'
     return
   end
@@ -2835,17 +2918,23 @@ local function refineTry(r, e)
   log('INFO', 'refine', app.ui.message)
 end
 
--- Garder ou refuser un effet d'une version en attente ou en essai.
+-- Garder ou refuser un réglage (clé d'item) ou un groupe entier (clé de groupe) d'une version en attente ou en essai ;
+-- key = '*' : tous les réglages.
 local function effectToggle(version, key, keep)
   local r = app.refine
   local e = r and refineEntry(r, version)
   if not (e and (e.status == nil or e.status == 'essai')) then return end
   for _, g in ipairs(e.groups or {}) do
-    if g.key == key then g.keep = keep == true end
+    local whole = key == '*' or g.key == key
+    g.keep = true
+    for _, item in ipairs(g.items) do
+      if whole or item.key == key then item.keep = keep == true end
+      g.keep = g.keep and item.keep
+    end
   end
   local kept, n = keptCount(e)
-  app.ui.message = 'v' .. e.version .. ' : ' .. kept .. ' effet' .. (kept > 1 and 's' or '') .. ' gardé' .. (kept > 1 and 's' or '')
-    .. ' sur ' .. n .. '.'
+  app.ui.message = 'v' .. e.version .. ' : ' .. kept .. ' réglage' .. (kept > 1 and 's' or '') .. ' gardé'
+    .. (kept > 1 and 's' or '') .. ' sur ' .. n .. '.'
 end
 
 local function refineJudge(version, verdict)
@@ -2858,7 +2947,7 @@ local function refineJudge(version, verdict)
   if verdict == 'valider' then
     local kept = keptCount(e)
     if kept == 0 then
-      app.ui.message = 'v' .. e.version .. ' : aucun effet gardé ; « Recommencer » pour ne pas la garder.'
+      app.ui.message = 'v' .. e.version .. ' : aucun réglage gardé ; « Recommencer » pour ne pas la garder.'
       return
     end
     refineValidate(r, e)
@@ -2920,6 +3009,56 @@ local function memoryLoad(key)
   local kind = memoryKind(m.group)
   setLoadTarget(kind, m)
   armLoad(kind, 'memory')
+end
+
+local function startChoose(kind, mode)
+  local d = app.discovery
+  if mode ~= 'mine' and not (d and d.setup and app.discoveryState == 'done') then
+    app.ui.message = 'Départ impossible : découverte en cours.'
+    return
+  end
+  local label = COMPUTE[kind].label
+  -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus
+  app.pins[kind], app.loaded[kind] = {}, nil
+  if mode == 'default' then
+    local text, values = defaultSetup(d)
+    if text == nil then
+      app.ui.message = 'Setup par défaut impossible : ' .. tostring(values) .. '.'
+      return
+    end
+    local w = Exporter.writeNew(host, fileWords().default, text)
+    if not w.ok then
+      app.ui.message = 'Setup par défaut impossible : écriture refusée (' .. tostring(w.reason) .. ').'
+      return
+    end
+    local hash = Util.hashString(text)
+    app.written[w.name] = hash
+    local rec = { file = w.name, path = w.path, text = text, hash = hash, bucket = app.wet.state,
+      signature = signatureOf(d.setup.spinners, values, d.compoundIndex), carId = d.car and d.car.id }
+    setLoadTarget(kind, rec)
+    app.start[kind] = { mode = 'default', signature = rec.signature, file = w.name, ready = rec.signature == d.signature }
+    app.ui.message = 'Départ : setup par défaut de la voiture, écrit dans ' .. w.name .. '. Au stand, menu de setup ouvert : '
+      .. '« Charger » pour le mettre dans la voiture ; l\'affinage ' .. label .. ' partira de lui.'
+  elseif mode == 'reference' then
+    local m = app.memory[memoryGroup(kind) .. '|' .. app.wet.state]
+    if not (m and m.text and m.signature) then
+      app.ui.message = 'Départ impossible : aucune référence validée sur ce circuit.'
+      return
+    end
+    setLoadTarget(kind, m)
+    app.start[kind] = { mode = 'reference', signature = m.signature, file = m.file, ready = m.signature == d.signature }
+    app.ui.message = 'Départ : votre référence ' .. m.file .. (app.start[kind].ready and ', déjà dans la voiture.'
+      or '. Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l\'affinage partira d\'elle.')
+  else
+    app.start[kind] = { mode = 'mine', ready = true }
+    app.ui.message = 'Départ : votre setup actuel (celui qui est dans la voiture). L\'affinage ' .. label .. ' part de lui.'
+  end
+  log('INFO', 'start', app.ui.message)
+  -- l'affinage repart de ce point de départ ; choisir un départ active SetupLab
+  local r = app.refine
+  if r and r.active then refineStop() end
+  app.auto = true
+  refineStart(kind)
 end
 
 local function autoToggle()
@@ -3025,7 +3164,18 @@ local function handleIntents(intents)
       app.ui.message = app.ui.message .. ' SetupLab en veille : cocher « SetupLab actif » pour reprendre.'
     end
   end
-  if intents.refineStart then refineStart(intents.refineStart) end
+  -- point de départ (carte d'étape) : { kind, mode } ou le mode seul (genre de la séance) ; startReset : à choisir de nouveau
+  if intents.startReset then app.start[intents.startReset] = nil end
+  if intents.start then
+    local s = intents.start
+    local kind = type(s) == 'table' and s.kind or autoKind()
+    startChoose(kind, type(s) == 'table' and s.mode or s)
+  end
+  -- affinage lancé à la main depuis un onglet : il part du setup qui est dans la voiture, sauf départ déjà choisi
+  if intents.refineStart then
+    if app.start[intents.refineStart] == nil then app.start[intents.refineStart] = { mode = 'mine', ready = true } end
+    refineStart(intents.refineStart)
+  end
   if intents.refineJudge then refineJudge(intents.refineJudge.version, intents.refineJudge.verdict) end
   if intents.effect then effectToggle(intents.effect.version, intents.effect.key, intents.effect.keep) end
   -- nombre de tours de la course (garde de course), gardé pour ce circuit

@@ -972,9 +972,10 @@ end
 -- Affinage (demande de Vincent du 21/10/2026)
 -- ---------------------------------------------------------------------------
 
--- Étapes d'une version (décision de Vincent du 26/10/2026 : essai complet, puis chaque effet gardé ou refusé, puis
--- validation), faites en vert, la suivante en bleu.
-local STEPS = { 'Proposée', 'Essayée', 'Effets triés', 'Validée' }
+-- Les 4 étapes (demande de Vincent du 26/10/2026 : « être un peu plus clair », « guider un peu plus l'utilisateur ») :
+-- Départ, Rouler, Essayer, Valider ; les mêmes noms partout (carte d'étape, versions, aide, notices). Faites en vert,
+-- la suivante en bleu.
+local STEPS = { 'Départ', 'Rouler', 'Essayer', 'Valider' }
 local function stepsLine(host, palette, reached)
   withFont(host, 'Small', function()
     for i, label in ipairs(STEPS) do
@@ -996,52 +997,71 @@ local function effectGain(gain)
   return (gain >= 0 and '+' or '-') .. Util.fmt(math.abs(gain), 3) .. ' s'
 end
 
--- Effets d'une version (décision de Vincent du 26/10/2026 : « il devra valider l'effet sur les ailerons arrière, sur
--- le carrossage, sur la transmission ») : chacun gardé (vert) ou refusé (rouge) d'un clic, avec son gain prévu et ses
--- réglages (tous au survol). Après la validation : la liste, sans bouton.
+-- Une ligne d'un réglage changé : « Aileron arrière 6° › 2° (+0,341 s) ».
+local function itemText(e, item)
+  local c = item.change
+  if c then
+    return L.t(c.var.label) .. ' ' .. M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to)
+      .. ' (' .. effectGain(c.contribution or 0) .. ')'
+  elseif item.compound then
+    return (L.t('Composé de pneus : %s'):gsub('%%s', tostring(e.compound and e.compound.name), 1))
+  end
+  return L.t(AID_NAMES[item.aid] or item.aid) .. ' ' .. tostring(item.from) .. ' › ' .. tostring(item.to)
+end
+
+-- Réglages changés d'une version (demande de Vincent du 26/10/2026 : « un je valide globalement le setup ou alors un
+-- petit bouton… modifier juste quelque chose… on désactive l'aileron arrière mais on garde le reste ») : un résumé,
+-- tous gardés par défaut ; « Modifier… » ouvre la liste, réglage par réglage sous le titre de sa famille, chacun gardé
+-- (vert) ou refusé (rouge) d'un clic. Après la validation : le résumé seul.
 local function effectsList(host, app, intents, e, palette, kind)
   local groups = e.groups or {}
   if #groups == 0 then return end
   local editable = e.status == nil or e.status == 'essai'
-  local kept = 0
+  local kept, total, lines = 0, 0, {}
   for _, g in ipairs(groups) do
-    if g.keep then kept = kept + 1 end
-  end
-  small(host, 'Effets gardés : ' .. kept .. '/' .. #groups .. (editable and ' — un clic pour garder ou refuser' or ''),
-    palette.muted)
-  for _, g in ipairs(groups) do
-    local details = {}
     for _, item in ipairs(g.items) do
-      local c = item.change
-      if c then
-        details[#details + 1] = L.t(c.var.label) .. ' ' .. M.physicalText(c.var.kind, c.from) .. ' › ' .. M.physicalText(c.var.kind, c.to)
-          .. ' (' .. effectGain(c.contribution or 0) .. ')'
-      elseif item.compound then
-        details[#details + 1] = L.t('Composé de pneus : %s'):gsub('%%s', tostring(e.compound and e.compound.name), 1)
-      elseif item.aid then
-        details[#details + 1] = L.t(AID_NAMES[item.aid] or item.aid) .. ' ' .. tostring(item.from) .. ' › ' .. tostring(item.to)
-      end
+      total = total + 1
+      if item.keep then kept = kept + 1 end
+      lines[#lines + 1] = itemText(e, item) .. (item.keep and '' or L.t(' · refusé'))
     end
-    if editable then
-      local id = '###effect_' .. kind .. '_' .. e.version .. '_' .. g.key
-      if actionButton(host, app.ui, palette, (g.keep and 'Gardé' or 'Refusé') .. id, g.keep and 'go' or 'danger', false) then
-        intents.effect = { version = e.version, key = g.key, keep = not g.keep }
+  end
+  local summary = total .. ' réglage' .. (total > 1 and 's' or '') .. ' changé' .. (total > 1 and 's' or '')
+    .. (kept < total and (' · ' .. kept .. ' gardé' .. (kept > 1 and 's' or '')) or '')
+  small(host, summary, palette[kept < total and 'pending' or 'muted'])
+  tip(host, table.concat(lines, '\n'))
+  if not editable then return end
+  app.ui.modify = app.ui.modify or {}
+  local key = kind .. '_' .. e.version
+  local open = app.ui.modify[key] == true
+  nextInline(host, 'Modifier…')
+  if host.ui.button((open and 'Masquer le détail' or 'Modifier…') .. '###modify_' .. key) then app.ui.modify[key] = not open end
+  tip(host, 'Pour garder la version sauf un ou plusieurs réglages : les refuser un par un (un réglage refusé garde son ancienne '
+    .. 'valeur, dans cette version et dans les calculs suivants).')
+  if not open then return end
+  for _, g in ipairs(groups) do
+    withFont(host, 'Small', function()
+      colored(host, L.t(g.label):upper() .. ' · ' .. (L.t('%s prévu'):gsub('%%s', effectGain(g.contribution or 0), 1)),
+        palette.muted)
+    end)
+    for _, item in ipairs(g.items) do
+      local id = '###effect_' .. kind .. '_' .. e.version .. '_' .. item.key
+      if actionButton(host, app.ui, palette, (item.keep and 'Gardé' or 'Refusé') .. id, item.keep and 'go' or 'danger', false) then
+        intents.effect = { version = e.version, key = item.key, keep = not item.keep }
       end
-      tip(host, g.keep and 'Gardé : cet effet sera dans la version validée. Un clic pour le refuser.'
-        or 'Refusé : ses réglages gardent leur ancienne valeur, dans cette version et dans les calculs suivants. Un clic pour le garder.')
+      tip(host, item.keep and 'Gardé : ce réglage sera dans la version validée. Un clic pour le refuser.'
+        or 'Refusé : ce réglage garde son ancienne valeur, dans cette version et dans les calculs suivants. Un clic pour le garder.')
       host.ui.sameLine()
+      colored(host, itemText(e, item), palette[item.keep and 'text' or 'muted'])
     end
-    colored(host, L.t(g.label) .. ' · ' .. L.t('%s prévu'):gsub('%%s', effectGain(g.contribution or 0), 1) .. ' · '
-      .. tostring(details[1] or '') .. (#details > 1 and (' (+' .. (#details - 1) .. ')') or '')
-      .. ((not editable and not g.keep) and L.t(' · refusé') or ''),
-      palette[g.keep and 'text' or 'muted'])
-    tip(host, table.concat(details, '\n'))
+  end
+  if kept < total and host.ui.button('Tout garder###keep_all_' .. key) then
+    intents.effect = { version = e.version, key = '*', keep = true }
   end
 end
 
 -- Une version de l'affinage (décision de Vincent du 26/10/2026) : proposée (rien d'enregistré), essayée (fichier
--- d'essai chargé au stand, roulé), effets triés, validée (fichier des effets gardés). suffix : libellés de la version
--- en piste quand ce n'est pas la dernière (identifiants ImGui uniques).
+-- d'essai chargé au stand, roulé), validée (fichier des réglages gardés). Un seul bouton principal à la fois ; les
+-- autres choix en petit dessous. suffix : libellés de la version en piste quand ce n'est pas la dernière.
 local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   local ui = host.ui
   local v = 'v' .. e.version
@@ -1071,16 +1091,21 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
         palette.unavailable)
     end
   end
-  local kept, total = 0, #(e.groups or {})
+  local kept, total = 0, 0
   for _, g in ipairs(e.groups or {}) do
-    if g.keep then kept = kept + 1 end
+    for _, item in ipairs(g.items) do
+      total = total + 1
+      if item.keep then kept = kept + 1 end
+    end
   end
+  local partial = kept < total and (' (' .. kept .. '/' .. total .. ' réglages)') or ''
   local base = app.fileBase and app.fileBase(kind, e.bucket) .. '_v' .. e.version or v
+  local laps = mine and mine.count or 0
   if e.status == nil then
     -- en piste : provisoire, l'analyse continue jusqu'au retour au stand (décision de Vincent du 22/10/2026)
     local ready = e.ready ~= false
     local analyzed = before and before.count or 0
-    stepsLine(host, palette, 0)
+    stepsLine(host, palette, 2)
     wrapped(host, v .. (ready and ' prête : gain prévu ' or ' en préparation : gain prévu provisoire ') .. Util.fmt(e.gain, 3) .. ' s'
       .. (tBefore and (' ; objectif estimé ' .. M.lapTime(tBefore - e.gain) .. ' (votre ' .. M.lapTime(tBefore)
         .. ' moins le gain prévu)') or ' ; roulez un tour propre pour un objectif sur vos temps'), palette.accent)
@@ -1089,49 +1114,49 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
         .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
     effectsList(host, app, intents, e, palette, kind)
-    small(host, 'Étape suivante : « Essayer ' .. v .. ' » écrit le setup proposé entier dans un fichier d\'essai ; le charger '
-      .. 'au stand et rouler, puis garder ou refuser chaque effet et valider.', palette.accent)
     if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', true) then
       intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
     tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé avant '
       .. 'la validation.')
-    if actionButton(host, app.ui, palette, 'Valider sans essai (' .. kept .. '/' .. total .. ' effets)###Valider ' .. v .. suffix,
-      nil, false) then
+    if ui.button('Valider sans essai' .. partial .. '###Valider ' .. v .. suffix) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    tip(host, 'Enregistre tout de suite ' .. base .. '.ini avec les effets gardés, sans l\'essayer ; il devient le setup de '
+    tip(host, 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer ; il devient le setup de '
       .. 'référence de cette séance, gardé en mémoire pour ce circuit.')
+    nextInline(host, 'Recommencer')
   elseif e.status == 'essai' then
-    stepsLine(host, palette, driven and ((mine and mine.count > 0) and 2 or 1) or 1)
+    stepsLine(host, palette, (driven and laps > 0) and 3 or 2)
     wrapped(host, v .. ' en essai : ' .. tostring(e.trial and e.trial.file) .. (driven and ' (en piste)' or ' — à charger au stand'),
       palette[driven and 'available' or 'accent'])
     timesLine()
+    if not driven then
+      small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
+    elseif laps == 0 then
+      small(host, 'Roulez au moins un tour propre avec elle, puis validez-la.', palette.accent)
+    end
     effectsList(host, app, intents, e, palette, kind)
-    small(host, driven and 'Étape suivante : gardez ou refusez chaque effet, puis validez.'
-      or 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
-    if actionButton(host, app.ui, palette, 'Valider ' .. v .. ' (' .. kept .. '/' .. total .. ' effets)###Valider ' .. v .. suffix,
-      driven and 'primary' or nil, true) then
+    if actionButton(host, app.ui, palette, 'Valider ' .. v .. partial .. '###Valider ' .. v .. suffix,
+      (driven and laps > 0) and 'primary' or nil, true) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    tip(host, 'Enregistre ' .. base .. '.ini avec les seuls effets gardés et en fait le setup de référence de cette séance, gardé '
-      .. 'en mémoire pour ce circuit. Les effets refusés gardent leur ancienne valeur dans les calculs suivants.')
+    tip(host, 'Enregistre ' .. base .. '.ini avec les réglages gardés et en fait le setup de référence de cette séance, gardé en '
+      .. 'mémoire pour ce circuit.')
   else
     stepsLine(host, palette, 4)
     wrapped(host, v .. ' : ' .. tostring(e.file) .. ' — ' .. e.status .. (driven and not e.trialInCar and ' (en piste)' or ''),
       palette[driven and 'available' or 'text'])
-    if total > 0 and kept < total then small(host, kept .. '/' .. total .. ' effets gardés.', palette.muted) end
     timesLine()
     if e.trialInCar then
-      small(host, 'L\'essai complet est encore dans la voiture : charger ' .. v .. ' (effets gardés) au stand.', palette.pending)
+      small(host, 'L\'essai complet est encore dans la voiture : charger ' .. v .. ' (réglages gardés) au stand.', palette.pending)
     elseif not driven then
       small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous).', palette.accent)
     end
     effectsList(host, app, intents, e, palette, kind)
   end
-  -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») : ne pas garder cette version,
-  -- ne pas la réutiliser ; validée puis essayée : la référence d'avant revient (son fichier part à la Corbeille)
+  -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») et Figer : en petit, sous le bouton
+  -- principal
   local lock = 'Figer ' .. v .. suffix .. ' (cadenas)'
   local no = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix
   if actionButton(host, app.ui, palette, no, verdict == 'slower' and 'danger' or nil, false) then
@@ -1145,7 +1170,7 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   nextInline(host, lock)
   padlock(host, true)
   if ui.button(lock) then intents.refineLock = e.version end
-  tip(host, 'Valide (effets gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, '
+  tip(host, 'Valide (réglages gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, '
     .. 'proposé à chaque visite ; l\'affinage automatique s\'arrête. Déverrouillable (onglet Mémoire).')
 end
 
@@ -1566,7 +1591,21 @@ local function kindSection(host, app, intents, kind, palette)
   local q = app[kind]
   local d = app.discovery
   small(host, spec.intro, palette.muted)
-  if kind == 'race' then racePanel(host, app, intents, palette) end
+  if kind == 'race' then
+    racePanel(host, app, intents, palette)
+    local _, action = nil, nil
+    if app.raceBlocker then _, action = app.raceBlocker() end
+    if action == 'qualif' then
+      -- rien d'autre tant qu'aucune qualification n'est validée : le setup de course part d'elle
+      wrapped(host, 'Le setup de course se fait après une version de qualification validée (au moins une v1) : onglet QUALIF.',
+        palette.pending)
+      if host.ui.skin and actionButton(host, app.ui, palette, 'Aller à l\'onglet QUALIF###goto_quali', 'primary', false) then
+        app.ui.tab = 'Tour rapide'
+      end
+      if app.qualiBlocker and app.qualiBlocker() then computeArea(host, app, intents, kind, palette) end
+      return
+    end
+  end
   local refineOwnsLoad = refineCard(host, app, intents, kind, palette)
   pinsLine(host, app, intents, kind, palette)
   computeArea(host, app, intents, kind, palette)
@@ -1755,6 +1794,45 @@ end
 -- ---------------------------------------------------------------------------
 
 -- Statut de chaque réglage du setup (§10.3) : optimisé ou conservé, la raison au survol.
+-- Ce que SetupLab prend en compte (demande de Vincent du 26/10/2026 : « la météo, les conditions de température, la
+-- piste, le grip de la piste, le nombre de virages serrés, courts, longs… ») : conditions, profil du circuit, réglages
+-- de la voiture, calibration sur vos tours.
+local function inputsSection(host, app, palette)
+  local d = app.discovery
+  if not d then return end
+  section(host, 'Ce que SetupLab prend en compte', 'inputs', true, function()
+    local c = d.conditions or {}
+    local wet = app.wet and app.wet.state == 'pluie'
+    small(host, 'Météo et piste : air ' .. Util.fmt(c.airTemp, 0) .. ' °C, piste ' .. Util.fmt(c.roadTemp, 0) .. ' °C, grip '
+      .. Util.fmt((c.roadGrip or 0) * 100, 0) .. ' %, ' .. (wet and ('piste mouillée (eau ' .. Util.fmt((app.wet.water or 0)
+      * 100, 0) .. ' %)') or 'piste sèche') .. ' ; recalcul quand elles changent.', palette.text)
+    local p = d.trackProfile
+    if p then
+      small(host, 'Circuit : ' .. Util.fmt((p.length or 0) / 1000, 2) .. ' km, ' .. p.corners .. ' virages (' .. p.lent
+        .. ' lents, ' .. p.moyen .. ' moyens, ' .. p.rapide .. ' rapides, ' .. p.chicanes .. ' en chicane), plus longue ligne '
+        .. 'droite ' .. Util.fmt(p.longest, 0) .. ' m.', palette.text)
+      tip(host, 'Virage lent : sous ' .. K.slowCornerKmh .. ' km/h à l\'apex ; rapide : au-delà de ' .. K.fastCornerKmh
+        .. ' km/h. Chaque virage est simulé à son rayon, avec la pente et le dévers de la piste.')
+      local s = p.stats
+      if s then
+        small(host, 'Part du tour : pleine charge ' .. Util.fmt(s.power * 100, 0) .. ' %, freinage ' .. Util.fmt(s.brake * 100, 0)
+          .. ' %, virages rapides ' .. Util.fmt(s.fast * 100, 0) .. ' %, virages lents ' .. Util.fmt(s.slow * 100, 0) .. ' %.',
+          palette.text)
+      end
+    end
+    if d.space then
+      local rows = SetupSpace.statusRows(d.space)
+      local optimized = 0
+      for _, row in ipairs(rows) do
+        if row.status == 'optimisé' then optimized = optimized + 1 end
+      end
+      small(host, 'Voiture : ' .. optimized .. ' réglages optimisés, ' .. (#rows - optimized) .. ' conservés (raison de chacun '
+        .. 'ci-dessous).', palette.text)
+    end
+    small(host, 'Votre pilotage : modèle ' .. M.modelState(app) .. ' (calé sur vos tours valides).', palette.text)
+  end)
+end
+
 local function settingsSection(host, app, palette)
   local d = app.discovery
   if not (d and d.space) then return end
@@ -1956,59 +2034,93 @@ end
 
 -- Étape en cours (décision de Vincent du 26/10/2026 : « qu'on comprenne mieux le déroulement du principe de création de
 -- setup, de continuation de setup ») : toujours en tête, ce qu'il faut faire maintenant et son bouton.
+local START_NAMES = { mine = 'votre setup actuel', default = 'setup par défaut de la voiture', reference = 'votre référence' }
 local function stepCard(host, app, intents, palette)
   if app.inert then return end
   local r = app.refine
   local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
-  local title, text, color, action = nil, nil, palette.accent, nil
+  local tabName = kind == 'race' and 'COURSE' or 'QUALIF'
+  local start = app.start and app.start[kind]
+  local title, text, color, actions = nil, nil, palette.accent, {}
   local pending, trial, validated = nil, nil, nil
-  for _, e in ipairs(r and r.history or {}) do
+  for _, e in ipairs(r and r.active and r.kind == kind and r.history or {}) do
     if e.version and e.status == nil and e.version == r.version then pending = e end
     if e.version and e.status == 'essai' then trial = e end
     if e.version and e.status == 'validée' and app.saved and app.saved[kind] and app.saved[kind].signature == e.signature
         and r.driven ~= e.version then validated = e end
   end
   local raceWhy = kind == 'race' and app.raceBlocker and app.raceBlocker() or nil
-  if not (r and r.active) and not app.auto then
-    title, text, color = 'Étape 1/4 · Rouler', 'Cochez « SetupLab actif » puis roulez : SetupLab propose un setup dès le minimum '
-      .. 'de tours atteint (onglet Réglages).', palette.muted
+  local memory = app.memory and app.memoryGroupOf and app.memory[app.memoryGroupOf(kind) .. '|' .. (app.wet and app.wet.state or 'sec')]
+  if start == nil then
+    -- 1. Départ (demande de Vincent du 26/10/2026) : de quel setup partir ; le choix active SetupLab
+    title, text = 'Étape 1/4 · Départ', 'De quel setup SetupLab part-il ? Il le fait évoluer avec vos tours, version après '
+      .. 'version (v1, v2…).'
+    if memory and memory.text then
+      actions[#actions + 1] = { label = 'Reprendre ma référence ' .. tostring(memory.file) .. '###start_reference',
+        intent = { start = { kind = kind, mode = 'reference' } }, style = 'primary',
+        tip = 'Votre setup validé sur ce circuit : chargé au stand, puis affiné.' }
+    end
+    actions[#actions + 1] = { label = 'Mon setup actuel###start_mine', intent = { start = { kind = kind, mode = 'mine' } },
+      style = #actions == 0 and 'primary' or nil,
+      tip = 'Le setup qui est dans la voiture : le vôtre (chargé depuis le menu de setup d\'AC) ou celui par défaut.' }
+    actions[#actions + 1] = { label = 'Setup par défaut de la voiture###start_default',
+      intent = { start = { kind = kind, mode = 'default' } },
+      tip = 'Le setup d\'origine de la voiture : écrit dans un fichier SetupLab, chargé au stand, puis affiné.' }
+  elseif not start.ready then
+    title, text, color = 'Étape 1/4 · Charger le départ', 'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet '
+      .. tabName .. ') pour mettre ' .. tostring(start.file) .. ' dans la voiture.', palette.pending
+  elseif not app.auto and not (r and r.active and r.kind == kind) then
+    title, text, color = 'SetupLab en veille', 'Cochez « SetupLab actif » pour reprendre l\'affinage.', palette.muted
   elseif raceWhy then
     title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. ' (onglet COURSE).', palette.pending
   elseif trial then
     local v = 'v' .. trial.version
+    local f = realLaps(app, trial.family, trial.bucket)
     if r.driven ~= trial.version then
-      title, text = 'Étape 2/4 · Essayer ' .. v, 'Fichier d\'essai écrit : au stand, menu de setup ouvert, bouton vert '
-        .. '« Charger » (onglet ' .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis roulez.'
+      title, text = 'Étape 3/4 · Essayer ' .. v, 'Fichier d\'essai écrit : au stand, menu de setup ouvert, bouton vert '
+        .. '« Charger » (onglet ' .. tabName .. '), puis roulez.'
+    elseif f and f.count > 0 then
+      title, text = 'Étape 4/4 · Valider ' .. v, 'Elle vous convient : validez-la. Pour refuser un réglage précis : « Modifier… » '
+        .. '(onglet ' .. tabName .. ').'
+      actions[1] = { label = 'Valider ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,
+        verdict = 'valider' } }, style = 'primary' }
     else
-      local f = realLaps(app, trial.family, trial.bucket)
-      if f and f.count > 0 then
-        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Gardez ou refusez chaque effet (onglet '
-          .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis étape 4 : valider.'
-        action = { label = 'Valider ' .. v .. '###step_action', verdict = 'valider', version = trial.version }
-      else
-        title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Roulez d\'abord au moins un tour propre avec elle, puis gardez ou '
-          .. 'refusez chaque effet.'
-      end
+      title, text = 'Étape 3/4 · Essayer ' .. v, 'Roulez au moins un tour propre avec elle.'
     end
   elseif pending and pending.ready == false then
-    title, text, color = 'Étape 1/4 · v' .. pending.version .. ' en préparation', 'SetupLab continue d\'analyser vos tours ; '
-      .. 'elle sera prête à votre retour au stand.', palette.pending
+    title, text, color = 'Étape 2/4 · Rouler', 'v' .. pending.version .. ' en préparation : SetupLab continue d\'analyser vos '
+      .. 'tours ; elle sera prête à votre retour au stand.', palette.pending
   elseif pending then
     local v = 'v' .. pending.version
-    title, text = 'Étape 2/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » écrit le fichier '
+    title, text = 'Étape 3/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » écrit le fichier '
       .. 'd\'essai ; puis « Charger » au stand.'
-    action = { label = 'Essayer ' .. v .. '###step_action', verdict = 'essayer', version = pending.version }
+    actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = pending.version,
+      verdict = 'essayer' } }, style = 'primary' }
   elseif validated then
     title, text = 'v' .. validated.version .. ' validée · à charger au stand', 'Au stand, bouton vert « Charger », puis roulez : '
-      .. 'l\'affinage repart d\'elle (étape 1).'
+      .. 'l\'affinage repart d\'elle (étape 2).'
   else
-    title, text = 'Étape 1/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
+    title, text = 'Étape 2/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
   end
   card(host, app.ui, color, function()
     withFont(host, 'Title', function() colored(host, title, color) end)
     wrapped(host, text, palette.text)
-    if action and actionButton(host, app.ui, palette, action.label, 'primary', true) then
-      intents.refineJudge = { version = action.version, verdict = action.verdict }
+    for i, a in ipairs(actions) do
+      if i > 1 then nextInline(host, a.label) end
+      if actionButton(host, app.ui, palette, a.label, a.style, #actions == 1) then
+        for k, value in pairs(a.intent) do intents[k] = value end
+      end
+      if a.tip then tip(host, a.tip) end
+    end
+    -- départ choisi : rappel discret, et le changer
+    if start then
+      withFont(host, 'Small', function()
+        colored(host, 'Départ : ' .. tostring(START_NAMES[start.mode] or start.mode)
+          .. (start.file and (' (' .. start.file .. ')') or ''), palette.muted)
+      end)
+      nextInline(host, 'Changer de départ')
+      if host.ui.button('Changer de départ###start_change') then intents.startReset = kind end
+      tip(host, 'Repartir d\'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.')
     end
   end)
 end
@@ -2078,18 +2190,19 @@ local HELP = {
     'Rien n\'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre confirmation, au stand.',
   } },
   { 'Les 4 étapes', {
-    '1. Rouler : cochez « SetupLab actif » et roulez. Après le minimum de tours propres (onglet Réglages), SetupLab propose '
-      .. 'une version. En piste, il annonce qu\'il a le minimum d\'informations et continue d\'analyser vos tours.',
-    '2. Essayer : au stand, « Essayer vN » écrit le setup proposé entier dans un fichier d\'essai ; « Charger » le met dans la '
-      .. 'voiture. Roulez avec.',
-    '3. Trier les effets : chaque effet (aéro, pneus, géométrie, suspension, transmission, freins, moteur, aides) est gardé '
-      .. 'ou refusé d\'un clic. Un effet refusé garde son ancienne valeur, ici et dans les calculs suivants.',
-    '4. Valider : « Valider vN » enregistre la version avec les effets gardés ; elle devient votre référence pour ce circuit. '
-      .. 'Chargez-la et continuez : SetupLab repart d\'elle.',
+    '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par '
+      .. 'défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab.',
+    '2. Rouler : après le minimum de tours propres (onglet Réglages), SetupLab propose une version. En piste, il annonce '
+      .. 'qu\'il a le minimum d\'informations et continue d\'analyser vos tours ; elle est prête à votre retour au stand.',
+    '3. Essayer : « Essayer vN » écrit la version dans un fichier d\'essai ; « Charger » la met dans la voiture. Roulez avec.',
+    '4. Valider : « Valider vN » la garde telle quelle ; « Modifier… » pour refuser un réglage précis (par exemple l\'aileron '
+      .. 'arrière) et garder le reste. Elle devient votre référence pour ce circuit ; chargez-la et continuez : SetupLab '
+      .. 'repart d\'elle.',
   } },
   { 'Course', {
-    'Le setup de course part de votre setup de qualification validé, monté dans la voiture : vos tours avec lui donnent votre '
-      .. 'rythme. Saisissez le nombre de tours de la course dans l\'onglet COURSE.',
+    'Le setup de course se fait après une version de qualification validée (au moins une v1) : il part d\'elle, montée '
+      .. 'dans la voiture, et vos tours avec elle donnent votre rythme. Saisissez seulement le nombre de tours de la course '
+      .. '(onglet COURSE).',
   } },
   { 'Overlay en jeu', {
     'La fenêtre « SetupLab Overlay » (barre d\'apps de CSP) montre en roulant si le setup en piste est mieux ou moins bien que '
@@ -2246,6 +2359,7 @@ function M.main(host, app, intents)
     { 'MESURE###Mesure', function() measureSection(host, app, intents, palette) end },
     { 'RÉGLAGES###Réglages', function()
       settingsEditor(host, app, intents, palette)
+      inputsSection(host, app, palette)
       settingsSection(host, app, palette)
     end },
     { 'DIAGNOSTIC###Capacités', function() M.capsSection(host, app, intents, palette) end },

@@ -39,8 +39,10 @@ M.exportBackupPrefix = 'SetupLab_Avant_chargement_'
 -- français quand on a la langue française et en anglais quand on a la langue anglaise ») ; les fichiers déjà écrits
 -- dans l'autre langue restent reconnus (numéros de version, mémoire du circuit, rangement).
 M.fileWords = {
-  fr = { quali = 'Qualif', race = 'Course', wet = 'Pluie', trial = 'essai', backup = M.exportBackupPrefix },
-  en = { quali = 'Quali', race = 'Race', wet = 'Wet', trial = 'trial', backup = 'SetupLab_Before_load_' },
+  fr = { quali = 'Qualif', race = 'Course', wet = 'Pluie', trial = 'essai', backup = M.exportBackupPrefix,
+    default = 'SetupLab_Defaut' },
+  en = { quali = 'Quali', race = 'Race', wet = 'Wet', trial = 'trial', backup = 'SetupLab_Before_load_',
+    default = 'SetupLab_Default' },
 }
 function M.fileWordsFor(lang)
   return M.fileWords[lang == 'fr' and 'fr' or 'en']

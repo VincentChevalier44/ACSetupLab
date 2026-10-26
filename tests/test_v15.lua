@@ -191,6 +191,8 @@ tests['NV03 affinage en séance de course : en attente de la garde, sans calcul 
   local h, app = ready({ session = 3 })
   h.click = 'SetupLab actif'
   frames(h, 1)
+  app.handleIntents({ start = 'mine' }) -- 1.5 : point de départ choisi (carte d'étape)
+
   T.ok(waitFor(h, function() return app.refine and app.refine.active end))
   T.eq(app.refine.kind, 'race')
   frames(h, 300)
@@ -223,7 +225,8 @@ tests['NV04 effets un par un : essai complet, un groupe refusé, version avec le
   -- tri : le premier groupe refusé
   local refused = e.groups[1]
   app.handleIntents({ effect = { version = 1, key = refused.key, keep = false } })
-  T.eq(app.keptCount(e), #e.groups - 1)
+  local _, total = app.keptCount(e)
+  T.eq(app.keptCount(e), total - #refused.items, 'groupe refusé : tous ses réglages')
   local trialSignature = e.signature
   app.handleIntents({ refineJudge = { version = 1, verdict = 'valider' } })
   T.eq(e.status, 'validée', tostring(app.ui.message))
@@ -285,7 +288,7 @@ tests['NV05 effets : tout gardé après l\'essai, le fichier d\'essai devient la
   for _, g in ipairs(e2.groups) do app2.handleIntents({ effect = { version = 1, key = g.key, keep = false } }) end
   app2.handleIntents({ refineJudge = { version = 1, verdict = 'valider' } })
   T.eq(e2.status, nil)
-  T.contains(app2.ui.message, 'aucun effet gardé')
+  T.contains(app2.ui.message, 'aucun réglage gardé')
   T.eq(app.perf.errors + app2.perf.errors, 0)
 end
 
@@ -298,38 +301,47 @@ end
 
 -- Interface (demande de Vincent du 26/10/2026) : étape en cours toujours en tête, effets gardés ou refusés d'un clic,
 -- « Essayer », puis « Valider vN (k/n effets) » ; mêmes boutons quelle que soit la langue.
-tests['NV06 interface : étape en cours, essai, effets d\'un clic, validation'] = function()
+tests['NV06 interface : départ, essai, « Modifier… » réglage par réglage, validation'] = function()
   local h, app = ready({ skin = true })
   frames(h, 1)
-  T.ok(shownText(h, 'Étape 1/4 · Rouler'), 'étape 1 en tête')
-  h.click = 'Affinage automatique (tour rapide)'
+  T.ok(shownText(h, 'Étape 1/4 · Départ'), 'étape 1 : départ à choisir')
+  T.ok(shownText(h, 'Mon setup actuel') and shownText(h, 'Setup par défaut de la voiture'), 'deux départs proposés')
+  h.click = 'start_mine'
   frames(h, 1)
+  T.eq(app.auto, true, 'le choix active SetupLab')
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   frames(h, 1)
-  T.ok(shownText(h, 'Étape 2/4 · Essayer v1'), 'étape 2')
-  T.ok(shownText(h, 'Effets gardés : '), 'effets listés')
+  T.ok(shownText(h, 'Étape 3/4 · Essayer v1'), 'étape 3')
+  T.ok(shownText(h, 'changé'), 'réglages changés résumés')
   local e = r.history[#r.history]
-  -- un clic sur le bouton d'un effet : refusé, puis gardé de nouveau
-  local id = 'effect_quali_1_' .. e.groups[1].key
+  local item = e.groups[1].items[1]
+  local id = 'effect_quali_1_' .. item.key
+  -- détail fermé : pas de bouton par réglage
   h.click = id
   frames(h, 1)
-  T.eq(e.groups[1].keep, false, 'refusé d\'un clic')
+  T.eq(item.keep, true, 'détail fermé : rien à cliquer')
+  h.click = 'modify_quali_1'
+  frames(h, 1)
   h.click = id
   frames(h, 1)
-  T.eq(e.groups[1].keep, true, 'gardé de nouveau')
-  h.click = 'Essayer v1'
+  T.eq(item.keep, false, 'refusé d\'un clic')
+  h.click = id
+  frames(h, 1)
+  T.eq(item.keep, true, 'gardé de nouveau')
+  h.click = 'step_action'
   frames(h, 1)
   T.eq(e.status, 'essai', tostring(app.ui.message))
   frames(h, 1)
-  T.ok(shownText(h, 'Fichier d\'essai écrit : au stand'), 'étape 2 : charger l\'essai')
+  T.ok(shownText(h, 'Fichier d\'essai écrit : au stand'), 'étape 3 : charger l\'essai')
   h.click = id
   frames(h, 1)
-  T.eq(e.groups[1].keep, false, 'tri pendant l\'essai')
+  T.eq(item.keep, false, 'refus pendant l\'essai')
   h.click = 'Valider v1'
   frames(h, 1)
   T.eq(e.status, 'validée', tostring(app.ui.message))
-  T.eq(app.keptCount(e), #e.groups - 1)
+  local kept, total = app.keptCount(e)
+  T.eq(kept, total - 1, 'un seul réglage refusé')
   T.eq(app.perf.errors, 0)
 end
 
@@ -339,7 +351,7 @@ tests['NV07 interface course : conditions, chargement de la référence, nombre 
   h.tab = 'Course'
   frames(h, 1)
   T.ok(shownText(h, '1. Qualification validée : aucune'), 'condition 1')
-  T.ok(shownText(h, 'Calcul course en attente : '), 'calcul en attente, raison dite')
+  T.ok(shownText(h, 'au moins une v1'), 'course verrouillée avant une qualification validée')
   h.sliders = { race_laps = 22 }
   frames(h, 1)
   T.eq(app.raceLaps, 22, tostring(app.ui.message))
@@ -357,7 +369,7 @@ tests['NV08 langue au badge, aide de chaque réglage'] = function()
   frames(h, 1)
   T.eq(app.settings.language, 'en', 'badge : anglais')
   frames(h, 1)
-  T.ok(shownText(h, 'Step 1/4 · Drive'), 'interface en anglais')
+  T.ok(shownText(h, 'Step 1/4 · Start'), 'interface en anglais')
   T.no(shownText(h, 'Étape 1/4'), 'plus de français')
   h.tab, h.click = 'Réglages', 'lang_fr'
   frames(h, 1)
@@ -449,7 +461,87 @@ tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
   h.tab = nil
   app.handleIntents({ setting = { key = 'language', value = 'en' } })
   frames(h, 1)
-  T.ok(shownText(h, 'Step 1/4 · Drive'), 'texte traduit')
+  T.ok(shownText(h, 'Step 1/4 · Start'), 'texte traduit')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Départ du setup par défaut (demande de Vincent du 26/10/2026) : écrit dans un fichier SetupLab, chargé au stand ;
+-- l'affinage attend le chargement ; un setup personnel chargé ensuite depuis AC ne laisse aucune retouche gardée.
+tests['NV12 départ : setup par défaut écrit puis chargé ; mon setup sans retouches gardées'] = function()
+  local h, app = ready()
+  local folder = folderOf(h)
+  -- un réglage changé à la main, pour que le setup par défaut diffère du setup en cours
+  local arb = spinner(h, 'ARB_FRONT')
+  arb.value = arb.value + (arb.value + (arb.step or 1) <= arb.max and (arb.step or 1) or -(arb.step or 1))
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.handleIntents({ start = 'default' })
+  local s = app.start.quali
+  T.eq(s and s.mode, 'default', tostring(app.ui.message))
+  T.eq(s.file, 'SetupLab_Defaut.ini')
+  T.ok(h.written[folder .. '/SetupLab_Defaut.ini'], 'fichier du setup par défaut')
+  T.eq(s.ready, false, 'à charger au stand')
+  T.eq(app.saved.quali.name, 'SetupLab_Defaut.ini', 'setup à charger')
+  frames(h, 120)
+  T.eq(app.refine.version, 0, 'rien de proposé avant le chargement')
+  T.contains(app.refine.waiting, 'charger le setup de départ')
+  loadAtPit(h, app)
+  T.eq(arb.value, arb.defaultValue, 'réglage revenu à sa valeur par défaut')
+  T.eq(app.start.quali.ready, true, 'départ dans la voiture')
+  -- setup personnel chargé ensuite depuis le menu d'AC, puis « Mon setup actuel » : aucune retouche gardée
+  arb.value = arb.value + (arb.value + (arb.step or 1) <= arb.max and (arb.step or 1) or -(arb.step or 1))
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.handleIntents({ start = 'mine' })
+  T.eq(next(app.pins.quali), nil, 'aucune retouche gardée')
+  T.eq(app.start.quali.mode, 'mine')
+  T.eq(app.perf.errors, 0)
+end
+
+-- « On désactive l'aileron arrière mais on garde le reste » : un réglage refusé seul garde son ancienne valeur, ceux de
+-- sa famille gardés prennent la nouvelle ; seul le réglage refusé est gardé pour les calculs suivants.
+tests['NV13 un seul réglage refusé : ancienne valeur pour lui, nouvelle pour sa famille'] = function()
+  local h, app = ready()
+  local folder = folderOf(h)
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  local e = r.history[#r.history]
+  local group, refused, kept
+  for _, g in ipairs(e.groups) do
+    local changes = {}
+    for _, item in ipairs(g.items) do
+      if item.change then changes[#changes + 1] = item end
+    end
+    if #changes >= 2 and group == nil then group, refused, kept = g, changes[1], changes[2] end
+  end
+  T.ok(group, 'une famille avec deux réglages changés')
+  app.handleIntents({ effect = { version = e.version, key = refused.key, keep = false } })
+  T.eq(group.keep, false, 'famille partiellement gardée')
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  local values = app.setupValues(h.written[folder .. '/' .. e.file])
+  for _, m in ipairs(refused.change.var.members) do
+    T.eq(values[m.name], m.current, 'refusé : ancienne valeur ' .. m.name)
+    T.ok(app.pins.quali[m.name] and app.pins.quali[m.name].refused, 'refusé gardé pour la suite : ' .. m.name)
+  end
+  for _, m in ipairs(kept.change.var.members) do
+    T.ok(values[m.name] ~= m.current, 'gardé : nouvelle valeur ' .. m.name)
+    T.eq(app.pins.quali[m.name], nil, 'gardé : pas figé ' .. m.name)
+  end
+  T.eq(app.perf.errors, 0)
+end
+
+-- Onglet COURSE avant toute qualification validée : verrouillé, avec le chemin vers QUALIF.
+tests['NV14 onglet COURSE verrouillé avant une qualification validée'] = function()
+  local h, app = ready({ skin = true })
+  h.tab = 'Course'
+  frames(h, 1)
+  T.ok(shownText(h, 'au moins une v1'), 'verrou dit')
+  T.no(shownText(h, 'Calculer le setup course'), 'pas de calcul de course')
+  h.tab, h.click = nil, 'goto_quali'
+  frames(h, 1)
+  T.eq(app.ui.tab, 'Tour rapide', 'vers l\'onglet QUALIF')
   T.eq(app.perf.errors, 0)
 end
 

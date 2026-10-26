@@ -138,8 +138,10 @@ tests['EN01 parcours complet en anglais (affinage, essai, tri, validation, overl
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'discovery')
   app.settings.compoundChoice = app.discovery.compoundIndex
   render(h)
-  -- affinage, version, essai, tri, validation
+  -- départ (carte d'étape dessinée en anglais), affinage, version, essai, tri, validation
   app.handleIntents({ autoToggle = true })
+  render(h)
+  app.handleIntents({ start = 'mine' })
   T.ok(waitFor(h, function() return app.refine and app.refine.version >= 1 and app.refine.phase == 'tours' end), 'v1')
   render(h)
   local r = app.refine
@@ -235,7 +237,7 @@ tests['EN02 annonces à l\'écran et séance de course en anglais'] = function()
   render(h)
   local h2, app2 = boot()
   T.ok(waitFor(h2, function() return app2.discoveryState == 'done' end))
-  app2.handleIntents({ autoToggle = true })
+  app2.handleIntents({ start = 'mine' })
   T.ok(waitFor(h2, function() return app2.refine and app2.refine.version >= 1 end))
   render(h2)
   for _, m in ipairs(h2.messages or {}) do

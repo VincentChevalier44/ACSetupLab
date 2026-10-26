@@ -999,12 +999,13 @@ function F.new(opts)
       uiCall()
       assert(type(size) == 'table' and size.x > 0 and size.y > 0, 'taille de bouton invalide : ' .. tostring(label))
       register('bouton', label)
+      h.lastRect = { x = 8 + size.x, y = 300 + size.y }
       local id = label:match('###(.*)$')
       if id and h.tab ~= nil and id == 'tab_' .. h.tab then return true end
       return clicked(label)
     end
     h.ui.itemRectMin = function() return { x = 8, y = 300 } end
-    h.ui.itemRectMax = function() return { x = 108, y = 326 } end
+    h.ui.itemRectMax = function() return h.lastRect or { x = 108, y = 326 } end
     h.ui.itemActive = function() return false end
     h.ui.drawCircleFilled = uiCall
     h.ui.drawLine = uiCall

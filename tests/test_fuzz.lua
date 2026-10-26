@@ -198,7 +198,8 @@ local BUTTONS = { 'Calculer le setup tour rapide', 'Annuler le calcul', 'Calcule
   -- 1.4.0 : SetupLab actif, valider, écarter, figer, mémoire du circuit
   'SetupLab actif', 'Valider v1', 'Recommencer (ne pas garder v1)', 'Figer v1 (cadenas)', 'Valider v2',
   'Recommencer (ne pas garder v2)', 'Libérer vos retouches (tour rapide)',
-  'Affinage automatique (tour rapide)', 'Affinage automatique (course)', 'Charger###memload_qualif_sec',
+  'Affinage automatique (tour rapide)', 'Affinage automatique (course)', 'start_mine', 'start_default', 'start_reference',
+  'start_change', 'Charger###memload_qualif_sec',
   'Figer (cadenas)###memlock_qualif_sec', 'Déverrouiller###memlock_qualif_sec', 'Confirmer le chargement (tour rapide)' }
 local TABS = { 'Tour rapide', 'Course', 'Mesure', 'Réglages', 'Capacités' }
 tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] = function()
@@ -288,6 +289,7 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
       local own = false
       for _, w in pairs(Config.fileWords) do
         own = own or path:find('/SetupLab_' .. w.quali .. '_', 1, true) ~= nil or path:find('/SetupLab_' .. w.race .. '_', 1, true) ~= nil
+          or path:find('/' .. w.default, 1, true) ~= nil
       end
       T.ok(h.written[path] and own, 'chargement d\'un fichier étranger : ' .. path)
     end
