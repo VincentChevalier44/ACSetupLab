@@ -731,6 +731,9 @@ function F.new(opts)
     error('opération interdite (aucune suppression, aucun déplacement)')
   end
   h.written, h.dirs, h.refreshes = {}, {}, 0
+  -- stockage de départ du banc (1.5) : minimum avant une proposition à 0 (les tests de l'affinage proposent dès la
+  -- découverte ; le minimum a ses propres tests) et interface en français (assertions sur les textes)
+  h.stored = opts.stored or { ['setuplab:data'] = 'setuplab-store 1|settings#refineMinLaps=0|settings#language=s:fr' }
   h.recycled, h.moves, h.fileOpCalls = {}, {}, 0
   local function listDir(dir, mask)
     local pattern = '^' .. (mask or '*'):gsub('[%.%-%+%[%]%(%)%%%^%$]', '%%%0'):gsub('%*', '.*'):gsub('%?', '.') .. '$'
@@ -990,6 +993,29 @@ function F.install(h)
     rawset(s, name, fn)
   end })
   rawset(_G, 'script', script)
+end
+
+-- Garde de course (1.5, décision de Vincent du 26/10/2026) : référence de qualification validée de ce circuit (fichier
+-- écrit par SetupLab, mémoire stockée), montée dans la voiture (setup en cours), nombre de tours saisi. Après la
+-- découverte.
+function F.raceReady(h, app, laps)
+  local Store = require('src/store')
+  local Util = require('src/util')
+  local Exporter = require('src/exporter')
+  local folder = assert(Exporter.targetFolder({ ac = h.ac, io = h.io }))
+  local text = h.ac.stringifyCurrentSetup(true, false)
+  local name = 'SetupLab_Qualif_v1.ini'
+  h.written[folder .. '/' .. name] = text
+  local d = assert(app.discovery, 'découverte d\'abord')
+  local track, layout = d.trackFiles.fullId:match('^([^/]+)/([^/]+)$')
+  if track == nil then track, layout = d.trackFiles.fullId, '-' end
+  local bucket = app.wet and app.wet.state or 'sec'
+  Store.put(app.store, Store.entryKey('mem', d.car.id, track, layout, 'qualif', bucket),
+    { file = name, hash = Util.hashString(text), version = 1, gain = 0, time = 0, locked = false })
+  Store.put(app.store, Store.entryKey('rlaps', d.car.id, track, layout), { laps = laps or 20 })
+  app.raceLaps = laps or 20
+  app.memoryFiles = {}
+  app.refreshMemory()
 end
 
 return F

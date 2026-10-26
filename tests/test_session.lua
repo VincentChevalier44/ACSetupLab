@@ -128,6 +128,7 @@ tests['Z01 rugosité et espace optimisable pris au même instant (calcul en atte
     script.SETUPLAB__MAIN(1 / 60)
   end
   app.settings.optBudgetEvalsC, app.settings.optBudgetEvalsQ = 400, 200
+  Fake.raceReady(h, app, 20)
   local launched, done = false, false
   for _ = 1, 60 * 600 do
     local before = app.recorder.finished
@@ -183,6 +184,8 @@ tests['Z02 deux calculs demandés pendant la découverte : les deux lancés à s
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
   app.settings.optBudgetEvalsQ, app.settings.optBudgetEvalsC = 60, 20
   touch(h)
+  -- garde de course (1.5) : référence de qualification = setup touché, relu à la nouvelle découverte
+  Fake.raceReady(h, app, 20)
   app.handleIntents({ qualiStart = true })
   T.ok(app.pendingComputes.quali)
   T.eq(app.discoveryState, 'running')
@@ -199,6 +202,7 @@ tests['Z03 calcul en cours interrompu par une redécouverte : dit dans le messag
   local h, app = boot()
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
   app.settings.optBudgetEvalsC = 400
+  Fake.raceReady(h, app, 20)
   app.handleIntents({ raceStart = true })
   frames(h, 5)
   T.eq(app.race.state, 'running')

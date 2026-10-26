@@ -347,7 +347,8 @@ end
 
 tests['J05 deux genres enregistrés : la confirmation est propre au genre ; nouvel enregistrement : désarmé'] = function()
   local h, app = ready()
-  app.settings.optBudgetEvalsC, app.settings.raceLaps = 20, 10
+  app.settings.optBudgetEvalsC = 20
+  Fake.raceReady(h, app, 10)
   h.tab, h.click = 'Course', 'Calculer le setup course'
   T.ok(untilDone(h, app, function(a) return a.race and a.race.state ~= 'running' end))
   T.eq(app.race.state, 'done', tostring(app.race.error))

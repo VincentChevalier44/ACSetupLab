@@ -10,23 +10,23 @@ local tests = {}
 
 tests['Y01 format : aller-retour, champs invalides ou piégés rejetés, versions'] = function()
   local entries = {
-    settings = { raceLaps = 25, calibrationAuto = false, perfStab = 0.4 },
+    settings = { refineMinLaps = 15, calibrationAuto = false, perfStab = 0.4 },
     ['cal:urd_px1_aura:monza:1'] = { mu = 0.97, power = 1.02, drag = 1.01, lift = 0.95, brake = 1, roadTemp = 31, stamp = 1700000000 },
     ['last:urd_px1_aura:monza:quali'] = { file = 'SetupLab_Quali_20261020-1530.ini', gain = -0.8, stamp = 1700000000 },
   }
   local text = Store.serialize(entries)
   local back, reason = Store.parse(text)
   T.eq(reason, nil)
-  T.eq(back.settings.raceLaps, 25)
+  T.eq(back.settings.refineMinLaps, 15)
   T.eq(back.settings.calibrationAuto, false)
   T.near(back['cal:urd_px1_aura:monza:1'].mu, 0.97, 1e-15)
   T.eq(back['last:urd_px1_aura:monza:quali'].file, 'SetupLab_Quali_20261020-1530.ini')
   T.eq(Store.serialize(back), text, 'format stable')
   -- contenu hostile ou corrompu : chaque ligne fautive est rejetée, le reste est gardé
   local hostile = 'setuplab-store 1|'
-    .. 'settings:autre#raceLaps=10|'                    -- fausse clé de réglages
+    .. 'settings:autre#refineMinLaps=10|'                    -- fausse clé de réglages
     .. 'settings#enabled=false|'                        -- réglage non modifiable dans l'interface
-    .. 'settings#raceLaps=9999|'                         -- hors bornes
+    .. 'settings#refineMinLaps=9999|'                         -- hors bornes
     .. 'settings#inconnu=3|'                             -- champ inconnu
     .. 'cal:x:y:1#mu=abc|'                               -- type
     .. 'cal:x:y:1#mu=0.98|'                              -- valide
@@ -46,13 +46,13 @@ tests['Y01 format : aller-retour, champs invalides ou piégés rejetés, version
   T.eq(parsed['drs:x'], nil)
   T.eq(parsed['cal:x:y:2'], nil, 'caractère de contrôle refusé')
   T.eq(parsed['settings:autre'], nil, 'clé de réglages unique')
-  T.eq(next((Store.parse('setuplab-store 0|settings#raceLaps=10'))), nil, 'version 0 inconnue')
+  T.eq(next((Store.parse('setuplab-store 0|settings#refineMinLaps=10'))), nil, 'version 0 inconnue')
   T.contains(why, 'rejetée')
   -- versions et en-tête
-  local newer, reasonNewer = Store.parse('setuplab-store 99|settings#raceLaps=10')
+  local newer, reasonNewer = Store.parse('setuplab-store 99|settings#refineMinLaps=10')
   T.eq(next(newer), nil)
   T.contains(reasonNewer, 'plus récente')
-  local headless, reasonHeadless = Store.parse('settings#raceLaps=10')
+  local headless, reasonHeadless = Store.parse('settings#refineMinLaps=10')
   T.eq(next(headless), nil)
   T.contains(reasonHeadless, 'en-tête')
   T.eq(next((Store.parse(''))), nil, 'vide')
@@ -74,8 +74,8 @@ tests['Y02 put / get : validation à l\'écriture, horodatage d\'usage, purge de
   Store.put(store, 'rough:x:y', { G0 = 1e-5 }, 1e30)
   T.eq(store.entries['rough:x:y'].stamp, nil, 'horodatage hors bornes non retenu')
   store.entries['rough:x:y'] = nil
-  T.ok(Store.put(store, 'settings', { raceLaps = 12, perfStab = 7 }, 100))
-  T.eq(store.entries.settings.raceLaps, 12)
+  T.ok(Store.put(store, 'settings', { refineMinLaps = 12, perfStab = 7 }, 100))
+  T.eq(store.entries.settings.refineMinLaps, 12)
   T.eq(store.entries.settings.perfStab, nil, 'réglage hors bornes refusé')
   -- purge : taille maximale réduite, les entrées datées les plus anciennes partent, les réglages restent
   local saved = K.storeMaxBytes
@@ -90,22 +90,23 @@ tests['Y02 put / get : validation à l\'écriture, horodatage d\'usage, purge de
 end
 
 tests['Y03 ouverture et écriture par ac.storage ; stockage indisponible signalé'] = function()
-  local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza') })
+  local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
+    stored = {} })
   local store = Store.open(h)
   T.eq(store.status, 'ouvert')
   T.eq(next(store.entries), nil)
-  Store.put(store, 'settings', { raceLaps = 30 })
+  Store.put(store, 'settings', { refineMinLaps = 9 })
   T.ok(Store.flush(store))
   T.no(Store.flush(store), 'rien à écrire')
-  T.contains(h.stored[Store.KEY], 'settings#raceLaps=30')
+  T.contains(h.stored[Store.KEY], 'settings#refineMinLaps=9')
   T.no(h.stored[Store.KEY]:find('%c'), 'aucun caractère de contrôle')
   local again = Store.open(h)
-  T.eq(again.entries.settings.raceLaps, 30, 'relu au chargement suivant')
+  T.eq(again.entries.settings.refineMinLaps, 9, 'relu au chargement suivant')
   -- stockage indisponible : l'app continue sans persistance
   h.ac.storage = nil
   local none = Store.open(h)
   T.eq(none.status, 'indisponible')
-  Store.put(none, 'settings', { raceLaps = 5 })
+  Store.put(none, 'settings', { refineMinLaps = 5 })
   T.no(Store.flush(none))
 end
 

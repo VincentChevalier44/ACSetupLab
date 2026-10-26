@@ -396,7 +396,8 @@ tests['M11 setup course depuis l\'app : mesures du tour, fichier, validation (J6
     return app.recorder.laps.last ~= nil
   end, profile), 'tour de référence')
   T.ok(app.recorder.laps.last.valid, tostring(app.recorder.laps.last.reason))
-  app.settings.optBudgetEvalsC, app.settings.raceLaps = 40, 12
+  app.settings.optBudgetEvalsC = 40
+  Fake.raceReady(h, app, 12)
   h.click = 'Calculer le setup course'
   T.ok(waitFor(h, function() return app.race and app.race.state ~= 'running' end, profile), 'calcul course')
   T.eq(app.race.state, 'done', tostring(app.race.error))
@@ -645,12 +646,13 @@ tests['M16 essai et journée circuit : piste qui évolue à chaque tour, aucun r
   frames(h, 1, profile)
   T.ok(app.quali.saved and app.quali.saved.ok, tostring(app.ui.message))
   loadByButton(h, app, 'tour rapide')
-  -- course : aucune course au programme d'un essai, durée supposée et signalée
+  -- course : part du setup de qualification validé, nombre de tours saisi (garde de course, 1.5)
   app.settings.optBudgetEvalsC = 30
+  Fake.raceReady(h, app, 15)
   h.tab, h.click = 'Course', 'Calculer le setup course'
   frames(h, 1)
   h.tab = nil
-  T.ok(waitFor(h, function() return app.race and app.race.state ~= 'running' end), 'calcul course après la redécouverte')
+  T.ok(waitFor(h, function() return app.race and app.race.state ~= 'running' end), 'calcul course après la redécouverte : ' .. tostring(app.ui.message))
   T.eq(app.race.state, 'done', tostring(app.race.error))
   T.eq(#refusals, 0, table.concat(refusals, ' | '))
   T.eq(app.perf.errors, 0)

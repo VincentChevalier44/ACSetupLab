@@ -77,46 +77,47 @@ end
 
 tests['I02 réglages modifiés, enregistrés, relus au chargement suivant (§13)'] = function()
   local h = newHost()
+  h.stored = {} -- stockage vide au départ (ce test lit ce qui est écrit)
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
   local label
   for _, def in ipairs(Config.settings) do
-    if def.key == 'raceLaps' then label = def.label end
+    if def.key == 'refineMinLaps' then label = def.label end
   end
-  h.sliders = { [label] = 27 }
+  h.sliders = { [label] = 7 }
   frame(h)
-  T.eq(app.settings.raceLaps, 27)
+  T.eq(app.settings.refineMinLaps, 7)
   -- écrit au rythme du contexte (1 Hz)
   for _ = 1, 90 do frame(h) end
-  T.contains(h.stored[Store.KEY] or '', 'settings#raceLaps=27')
+  T.contains(h.stored[Store.KEY] or '', 'settings#refineMinLaps=7')
   -- valeur hors bornes : ramenée dans les bornes
   h.sliders = { [label] = 100000 }
   frame(h)
-  T.eq(app.settings.raceLaps, 500)
-  h.sliders = { [label] = 27 }
+  T.eq(app.settings.refineMinLaps, 20)
+  h.sliders = { [label] = 7 }
   frame(h)
   for _ = 1, 90 do frame(h) end
   -- rechargement du script (nouvelle séance) : réglage relu ; persistance confirmée dans les capacités
   T.eq(app.discovery.caps.byId.storage.status, 'pending', 'rien de relu à la première séance')
   local again = load(h)
-  T.eq(again.settings.raceLaps, 27)
+  T.eq(again.settings.refineMinLaps, 7)
   T.ok(untilDone(h, again, function(a) return a.discoveryState == 'done' end))
   T.eq(again.discovery.caps.byId.storage.status, 'available')
   T.contains(again.discovery.caps.byId.storage.detail, 'relue')
   -- stockage corrompu : réglages par défaut, aucune erreur
-  h.stored[Store.KEY] = 'setuplab-store 1|settings#raceLaps=abc|settings#perfStab=99'
+  h.stored[Store.KEY] = 'setuplab-store 1|settings#refineMinLaps=abc|settings#perfStab=99'
   local third = load(h)
-  T.eq(third.settings.raceLaps, 0)
+  T.eq(third.settings.refineMinLaps, 2)
   T.eq(third.settings.perfStab, 0.6)
   T.ok(untilDone(h, third, function(a) return a.discoveryState == 'done' end))
   T.eq(third.perf.errors, 0)
   -- réglages non modifiables dans l'interface : jamais relus (un stockage ne désactive pas l'app et ne
   -- change pas la tranche de calcul)
-  h.stored[Store.KEY] = 'setuplab-store 1|settings#enabled=false|settings#sliceBudgetMs=0.25|settings#raceLaps=12'
+  h.stored[Store.KEY] = 'setuplab-store 1|settings#enabled=false|settings#sliceBudgetMs=0.25|settings#refineMinLaps=12'
   local fourth = load(h)
   T.eq(fourth.settings.enabled, true)
   T.eq(fourth.settings.sliceBudgetMs, Config.defaults().sliceBudgetMs)
-  T.eq(fourth.settings.raceLaps, 12)
+  T.eq(fourth.settings.refineMinLaps, 12)
 end
 
 tests['I03 explication par réglage (§12.2), équilibre par virage (§12.1)'] = function()
@@ -313,7 +314,8 @@ tests['I08 validation par genre (§14.1) : setups proposés distincts, verdict s
   local h = newHost()
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
-  app.settings.optBudgetEvalsQ, app.settings.optBudgetEvalsC, app.settings.raceLaps = 100, 20, 10
+  app.settings.optBudgetEvalsQ, app.settings.optBudgetEvalsC = 100, 20
+  Fake.raceReady(h, app, 10)
   for _, kind in ipairs({ 'quali', 'race' }) do
     h.click = kind == 'race' and 'Calculer le setup course' or 'Calculer le setup tour rapide'
     T.ok(untilDone(h, app, function(a) return a[kind] and a[kind].state ~= 'running' end))
@@ -332,24 +334,25 @@ end
 
 tests['I09 mode inerte (en ligne, replay) : aucune intention exécutée, rien d\'écrit'] = function()
   local h = newHost()
+  h.stored = {} -- stockage vide au départ (ce test lit ce qui est écrit)
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end), 'inerte en ligne')
   local label
   for _, def in ipairs(Config.settings) do
-    if def.key == 'raceLaps' then label = def.label end
+    if def.key == 'refineMinLaps' then label = def.label end
   end
-  h.sliders = { [label] = 33 }
+  h.sliders = { [label] = 13 }
   frame(h)
-  T.no(app.settings.raceLaps == 33, 'réglage non modifié en ligne')
+  T.no(app.settings.refineMinLaps == 13, 'réglage non modifié en ligne')
   -- réglage modifié juste avant le passage en ligne (écriture en attente) : rien n'est écrit en ligne
   h.sim.isOnlineRace = false
   T.ok(untilDone(h, app, function(a) return a.inert == nil end))
   app.nextContextAt = app.now + 30
-  h.sliders = { [label] = 21 }
+  h.sliders = { [label] = 11 }
   frame(h)
-  T.eq(app.settings.raceLaps, 21)
+  T.eq(app.settings.refineMinLaps, 11)
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end))
   app.nextContextAt = 0
@@ -366,7 +369,8 @@ tests['I10 onglet Course : gain en %, profils et équilibre par virage ; explica
   local h = newHost()
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
-  app.settings.optBudgetEvalsC, app.settings.raceLaps = 30, 10
+  app.settings.optBudgetEvalsC = 30
+  Fake.raceReady(h, app, 10)
   h.click = 'Calculer le setup course'
   T.ok(untilDone(h, app, function(a) return a.race and a.race.state ~= 'running' end))
   T.eq(app.race.state, 'done', tostring(app.race.error))
@@ -472,6 +476,7 @@ tests['I13 tableau de bord : 360, 520, 730 et 900 px, tous les onglets, aucun id
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
   app.settings.optBudgetEvalsQ, app.settings.optBudgetEvalsC = 60, 20
+  Fake.raceReady(h, app, 10)
   h.click = 'Calculer le setup tour rapide'
   T.ok(untilDone(h, app, function(a) return a.quali and a.quali.state ~= 'running' end))
   h.click = 'Calculer le setup course'

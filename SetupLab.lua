@@ -560,6 +560,9 @@ local function restoreStored(d)
     app.storeNote = app.storeNote:sub(1, 1):upper() .. app.storeNote:sub(2)
     log('INFO', 'store', app.storeNote)
   end
+  -- nombre de tours de la course saisi pour ce circuit
+  local rlaps = Store.get(app.store, storeKey('rlaps', d), now)
+  app.raceLaps = rlaps and rlaps.laps or nil
   app.lastSaved = {}
   local folder = Exporter.targetFolder(host)
   for _, kind in ipairs({ 'quali', 'race' }) do
@@ -1017,6 +1020,12 @@ local function onLap(lap)
   -- affinage : tours propres avec le même setup, comptés depuis la fin du dernier calcul ; version roulée
   local r = app.refine
   if r and r.active then
+    -- minimum avant une proposition (décision de Vincent du 26/10/2026) : tours propres avec le setup en cours
+    if lap.family ~= nil and lap.family == r.minFamily then
+      r.minLaps = (r.minLaps or 0) + 1
+    else
+      r.minFamily, r.minLaps, r.minTime = lap.family, 1, lap.time or 0
+    end
     if r.phase == 'tours' then
       local lapKey = Recorder.bestKey(lap.signature, lap.bucket)
       r.laps = lapKey == r.lapSignature and r.laps + 1 or 1
@@ -1205,6 +1214,35 @@ local function qualiBlocker()
 end
 app.qualiBlocker = qualiBlocker
 
+-- Setup de course (décision de Vincent du 26/10/2026) : « il faut attendre d'avoir fait un setup de qualification
+-- avant, et le setup de course sera calculé sur le rythme sur le setup qui a déjà été fait en qualification et qui est
+-- validé » ; « l'utilisateur devra saisir le nombre de tours ». Référence de tour rapide validée de ce circuit et de cet
+-- état de piste (qualification, sinon essai), montée dans la voiture (vos tours avec elle donnent le rythme), nombre
+-- de tours saisi (gardé par circuit). Renvoie la raison et l'action qui la lève ('qualif', 'load', 'laps'), ou nil.
+local function raceReference()
+  local bucket = app.wet and app.wet.state or 'sec'
+  for _, group in ipairs({ 'qualif', 'essai' }) do
+    local m = app.memory[group .. '|' .. bucket]
+    if m and m.text and not m.problem then return m, group .. '|' .. bucket end
+  end
+  return nil, nil
+end
+
+local function raceBlocker()
+  local m = raceReference()
+  if m == nil then return 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'qualif' end
+  -- monté dans la voiture : setup de la découverte, ou chargé et vérifié depuis (avant la nouvelle découverte)
+  local d = app.discovery
+  local loaded = false
+  for _, l in pairs(app.loaded) do loaded = loaded or (l.name ~= nil and l.name == m.file) end
+  if not (loaded or (d and d.family and m.family and d.family == m.family)) then
+    return 'charger d\'abord le setup de qualification validé (' .. tostring(m.file) .. ') : la course part de lui', 'load'
+  end
+  if not (Util.isFinite(app.raceLaps) and app.raceLaps >= 1) then return 'saisir le nombre de tours de la course', 'laps' end
+  return nil, nil
+end
+app.raceReference, app.raceBlocker = raceReference, raceBlocker
+
 -- Premier réglage dont le cran du jeu diffère de celui de l'espace (setup changé depuis la découverte).
 local function changedSetting(d)
   local live = Datasource.readSetup(host, Util.syncContext())
@@ -1315,6 +1353,13 @@ local function startCompute(kind, fromPending)
     startDiscovery()
     return
   end
+  if kind == 'race' then
+    local why = raceBlocker()
+    if why then
+      app.ui.message = 'Calcul course impossible : ' .. why .. '.'
+      return
+    end
+  end
   Util.schedulerCancel(app.scheduler, kind)
   local budget = app.settings[spec.budgetKey]
   local q = { kind = kind, state = 'running', discovery = d, opt = Optimizer.newState({ budget = budget }), budget = budget }
@@ -1329,6 +1374,8 @@ local function startCompute(kind, fromPending)
     q.conditions = conditions
     local settings = {}
     for key, value in pairs(app.settings) do settings[key] = value end
+    -- course : nombre de tours saisi pour ce circuit (garde de course)
+    if kind == 'race' and Util.isFinite(app.raceLaps) then settings.raceLaps, settings.raceMinutes = app.raceLaps, 0 end
     -- aides au pilotage (règle pluie, D16 amendé) : niveaux du fichier de setup du calcul, aides du jeu
     local file = d.setup and d.setup.file
     local aids = SetupSpace.aidsPlan(d.carBase.aids, {
@@ -1428,7 +1475,8 @@ local function proposalOf(kind)
     if e.to then aidValues[section] = e.to end
   end
   if next(aidValues) then text = SetupSpace.renderOptional(text, aidValues) end
-  return { q = q, d = d, text = text, signature = signature, family = family, originFamily = d.family, changed = changed,
+  return { q = q, d = d, text = text, baseText = base, signature = signature, family = family, originFamily = d.family,
+    changed = changed,
     bucket = q.conditions and q.conditions.bucket or 'sec',
     known = { label = 'setup proposé (' .. COMPUTE[kind].label .. ')', predicted = q.result.timeProposed,
       predictedFrom = q.result.timeCurrent, setup = physicalSetup(d, q.result.deltas, compound and compound.slot),
@@ -2061,6 +2109,8 @@ local function loadTick()
       local r = app.refine
       if r and r.active and r.kind == check.kind then
         r.needsDiscovery, r.laps, r.lapSignature, r.due, r.nextAt = true, 0, nil, true, nil
+        -- minimum avant une proposition : compté de nouveau avec le setup chargé
+        r.minLaps, r.minTime, r.minFamily = 0, 0, nil
         for _, entry in ipairs(r.history) do
           if entry.version and app.saved[check.kind] and entry.signature == app.saved[check.kind].signature then
             r.driven = entry.version
@@ -2197,6 +2247,145 @@ local function refinePreparing(r, e)
   log('INFO', 'refine', title .. ' — ' .. text)
 end
 
+-- Voiture qui roule en piste (minutes de roulage du minimum).
+local function carRolling()
+  local ok, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  if not (ok and car) then return false end
+  if Util.get(car, 'isInPit') == true or Util.get(car, 'isInPitlane') == true then return false end
+  local speed = Util.get(car, 'speedMs')
+  return Util.isFinite(speed) and math.abs(speed) * 3.6 > K.loadMaxSpeedKmh
+end
+
+-- Minimum avant une proposition (décision de Vincent du 26/10/2026 : « combien de minimum de temps ou de tour il faut
+-- avant que SetupLab propose un setup ou une modification ») : tours propres et minutes de roulage avec le setup en
+-- cours dans la voiture, les deux atteints ; remis à zéro à chaque chargement.
+local function refineMinReached(r)
+  local laps, minutes = app.settings.refineMinLaps or 0, app.settings.refineMinMinutes or 0
+  return (r.minLaps or 0) >= laps and (r.minTime or 0) >= minutes * 60
+end
+
+local function refineMinText(r)
+  local laps, minutes = app.settings.refineMinLaps or 0, app.settings.refineMinMinutes or 0
+  local text = 'minimum avant une proposition : ' .. math.min(r.minLaps or 0, laps) .. '/' .. laps .. ' tour'
+    .. (laps > 1 and 's' or '') .. ' propre' .. (laps > 1 and 's' or '')
+  if minutes > 0 then
+    text = text .. ' · ' .. Util.fmt(math.min((r.minTime or 0) / 60, minutes), 1) .. '/' .. Util.fmt(minutes, 0) .. ' min'
+  end
+  return text
+end
+app.refineMinReached, app.refineMinText = refineMinReached, refineMinText
+
+-- Effets d'une version (décision de Vincent du 26/10/2026) : ses réglages changés regroupés (Config.effectGroups),
+-- chacun gardé par défaut ; un groupe déjà trié garde son choix quand la version est mise à jour.
+local function groupOfKind(kind)
+  for _, g in ipairs(Config.effectGroups) do
+    if g.kinds and g.kinds[kind] then return g end
+  end
+  return nil
+end
+
+local function effectGroupsOf(e, previous)
+  local keep = {}
+  for _, g in ipairs(previous or {}) do keep[g.key] = g.keep end
+  local byKey, list = {}, {}
+  local function add(def, item)
+    local g = byKey[def.key]
+    if g == nil then
+      g = { key = def.key, label = def.label, items = {}, contribution = 0 }
+      if keep[def.key] ~= nil then g.keep = keep[def.key] else g.keep = true end
+      byKey[def.key] = g
+    end
+    g.items[#g.items + 1] = item
+    g.contribution = g.contribution + (item.contribution or 0)
+  end
+  local other = Config.effectGroups[#Config.effectGroups]
+  for _, c in ipairs(e.changeList or {}) do
+    add(groupOfKind(c.var.kind) or other, { change = c, label = c.var.label, contribution = c.contribution or 0 })
+  end
+  local compound = e.compound
+  if compound and compound.changed then
+    for _, def in ipairs(Config.effectGroups) do
+      if def.compound then add(def, { compound = true, label = 'Composé de pneus', contribution = 0 }) end
+    end
+  end
+  for section, aid in pairs(e.aids or {}) do
+    if aid.to then
+      for _, def in ipairs(Config.effectGroups) do
+        if def.aids then add(def, { aid = section, label = section, from = aid.from, to = aid.to, contribution = 0 }) end
+      end
+    end
+  end
+  for _, def in ipairs(Config.effectGroups) do
+    if byKey[def.key] then list[#list + 1] = byKey[def.key] end
+  end
+  return list
+end
+
+local function keptCount(e)
+  local n, kept = 0, 0
+  for _, g in ipairs(e.groups or {}) do
+    n = n + 1
+    if g.keep then kept = kept + 1 end
+  end
+  return kept, n
+end
+app.keptCount = keptCount
+
+-- Setup des seuls effets gardés : texte, signature et famille ; nil et la raison si impossible.
+local function keptSetup(e)
+  local kept, n = keptCount(e)
+  if kept == n then return { text = e.text, signature = e.signature, family = e.family, all = true } end
+  local d = e.disc
+  if not (d and d.space and e.deltas) then return nil, 'données de la version absentes' end
+  local refused = {}
+  for _, g in ipairs(e.groups) do
+    if not g.keep then
+      for _, item in ipairs(g.items) do
+        if item.change then refused[item.change.var.key] = true end
+        if item.compound then refused.TYRES = true end
+        if item.aid then refused['aid:' .. item.aid] = true end
+      end
+    end
+  end
+  local deltas = {}
+  for key, value in pairs(e.deltas) do
+    if not refused[key] then deltas[key] = value end
+  end
+  local values, errors = SetupSpace.values(d.space, deltas, { fuel = true })
+  if #errors > 0 then return nil, table.concat(errors, ' ; ') end
+  local compound = e.compound
+  local tyres = d.compoundIndex
+  if compound and compound.changed and not refused.TYRES then
+    values.TYRES = compound.index
+    tyres = compound.index
+  end
+  local text, why = SetupSpace.render(e.baseText, values)
+  if text == nil then return nil, table.concat(why or {}, ' ; ') end
+  local aidValues = {}
+  for section, aid in pairs(e.aids or {}) do
+    if aid.to and not refused['aid:' .. section] then aidValues[section] = aid.to end
+  end
+  if next(aidValues) then text = SetupSpace.renderOptional(text, aidValues) end
+  return { text = text, signature = signatureOf(d.setup.spinners, values, tyres),
+    family = signatureOf(d.setup.spinners, values, tyres, K.familyIgnored), refused = refused, all = false }
+end
+
+-- Effets refusés : gardés à leur ancienne valeur par les calculs suivants (sinon le même changement reviendrait au
+-- calcul suivant), jusqu'à « Libérer » ; même mécanisme que vos retouches au stand.
+local function pinRefused(kind, e, refused)
+  local pins = app.pins[kind]
+  for _, var in ipairs(e.disc and e.disc.space and e.disc.space.vars or {}) do
+    if refused[var.key] then
+      for _, member in ipairs(var.members) do
+        pins[member.name] = { value = member.current, from = member.current, refused = true }
+      end
+    end
+  end
+  if refused.TYRES and e.disc and e.disc.compoundIndex then
+    pins.TYRES = { value = e.disc.compoundIndex, from = e.compound and e.compound.index, refused = true }
+  end
+end
+
 -- Historique : une seule ligne pour la même note d'affilée ; au-delà de K.refineHistory lignes, les notes
 -- partent d'abord, jamais la version en attente.
 local function refineNote(r, entry)
@@ -2297,6 +2486,10 @@ local function refineFinish(r, q)
       e.bucket, e.group, e.carId, e.at = p.bucket, memoryGroup(r.kind), p.d.car and p.d.car.id, app.now
       e.timeCurrent, e.timeProposed, e.calibrated, e.gain = result.timeCurrent, result.timeProposed, result.calibrated, gain
       e.changes, e.changeList, e.refined = #result.changes, result.changes, result.refined
+      -- tri effet par effet : deltas, découverte d'origine, composé et aides gardés avec la version (le calcul
+      -- suivant remplace app[kind])
+      e.deltas, e.disc, e.compound, e.aids, e.baseText = result.deltas, p.d, result.compound, result.aids, p.baseText
+      e.groups = effectGroupsOf(e, e.groups)
       -- même setup déjà enregistré à la main : validable sans nouveau fichier
       local saved = app.saved[r.kind]
       if saved and saved.signature == p.signature and saved.text == p.text then
@@ -2324,6 +2517,14 @@ local function refineTick()
   local r = app.refine
   if not (r and r.active) or app.inert then return end
   local kind = r.kind
+  -- minutes de roulage avec le setup en cours (en piste, voiture qui roule, jeu non en pause)
+  local now = app.now
+  if r.minClock and now > r.minClock and now - r.minClock < 1 and not app.recordContext.paused and carRolling() then
+    r.minTime = (r.minTime or 0) + (now - r.minClock)
+  end
+  r.minClock = now
+  -- progression du minimum toujours à jour (un calcul ou une calibration en cours ne la fige pas)
+  if r.phase == 'tours' and not refineMinReached(r) then r.waiting = refineMinText(r) end
   -- retour au stand : la version en préparation est annoncée prête (calcul en cours : à sa fin)
   local pending = refinePending(r)
   if pending and not pending.ready and r.phase ~= 'calcul' and carAtPit() then refineAnnounce(r, pending) end
@@ -2353,6 +2554,25 @@ local function refineTick()
     if app.pendingComputes[kind] or (q and q.state == 'running') or app.discoveryState == 'running'
         or Util.schedulerBusy(app.scheduler) then
       return
+    end
+    -- version en essai : rien de nouveau avant son tri (une seule version ouverte à la fois)
+    for _, e in ipairs(r.history) do
+      if e.version and e.status == 'essai' then
+        r.waiting = 'v' .. e.version .. ' en essai : gardez ou refusez ses effets puis validez (ou recommencez)'
+        return
+      end
+    end
+    -- minimum avant une proposition ; course : garde (référence de qualification, nombre de tours)
+    if not refineMinReached(r) then
+      r.waiting = refineMinText(r)
+      return
+    end
+    if kind == 'race' then
+      local why = raceBlocker()
+      if why then
+        r.waiting = 'course : ' .. why
+        return
+      end
     end
     refineCompute(r)
   end
@@ -2385,8 +2605,20 @@ local function refineStart(kind)
   local base = lastVersionOnDisk(kind)
   app.refine = { kind = kind, active = true, phase = 'tours', version = base, base = base, laps = 0, history = {},
     rejected = {} }
+  local r = app.refine
+  -- tours propres déjà roulés avec le setup en cours (avant d'activer l'affinage) : ils comptent pour le minimum
+  local d = app.discovery
+  local f = d and d.family and app.recorder.laps.family[Recorder.bestKey(d.family, app.wet.state)]
+  if f then r.minFamily, r.minLaps, r.minTime = d.family, f.count, f.sum end
   log('INFO', 'refine', 'Affinage ' .. COMPUTE[kind].label .. ' lancé')
-  refineCompute(app.refine)
+  local why = kind == 'race' and raceBlocker() or nil
+  if not refineMinReached(r) or why then
+    r.due, r.nextAt = true, nil
+    r.waiting = why and ('course : ' .. why) or refineMinText(r)
+    app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé : ' .. r.waiting .. '.'
+    return
+  end
+  refineCompute(r)
   if app.refine.phase == 'calcul' then
     app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé : premier calcul, puis un nouveau '
       .. (app.settings.refineLaps > 1 and ('tous les ' .. app.settings.refineLaps .. ' tours propres') or 'à chaque tour propre')
@@ -2431,14 +2663,38 @@ end
 -- (sinon « SetupLab »), genre, pluie, « _vN » (22/10/2026) ; jamais d'écrasement. Elle devient le setup à charger
 -- au stand. Renvoie vrai, ou faux et la raison.
 local function writeVersion(r, e)
-  if e.file then
+  -- effets gardés (décision de Vincent du 26/10/2026) : la version enregistrée n'a que les groupes gardés
+  local kept, why = keptSetup(e)
+  if kept == nil then return false, why end
+  if e.file and kept.all then
     setLoadTarget(r.kind, e)
     return true
   end
   if app.inert then return false, app.inert end
-  local w = Exporter.writeNew(host, fileBase(r.kind, e.bucket) .. '_v' .. e.version, e.text)
+  local trial = e.trial
+  local base = fileBase(r.kind, e.bucket) .. '_v' .. e.version
+  local w
+  if kept.all and trial and app.written[trial.file] == trial.hash then
+    -- tout gardé après l'essai : le fichier d'essai devient la version (renommé, jamais réécrit)
+    w = Exporter.renameOwn(host, trial.file, trial.hash, base)
+    if w.ok then followRename(trial.file, w.name, w.path) end
+  else
+    w = Exporter.writeNew(host, base, kept.text)
+  end
   if not w.ok then return false, tostring(w.reason) end
-  e.file, e.path, e.hash, e.ownFile = w.name, w.path, Util.hashString(e.text), true
+  if not kept.all then
+    -- version partielle : son contenu et sa famille ; l'essai, encore dans la voiture, n'est plus une base de calcul,
+    -- son fichier part à la Corbeille ; effets refusés gardés à leur ancienne valeur
+    if trial then
+      r.rejected[trial.signature] = true
+      queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash, why = 'essai de v' .. e.version .. ' trié' })
+    end
+    pinRefused(r.kind, e, kept.refused)
+    e.trialFamily = trial and trial.family or e.trialFamily
+    e.text, e.signature, e.family = kept.text, kept.signature, kept.family
+  end
+  e.trial = nil
+  e.file, e.path, e.hash, e.ownFile = w.name, w.path, Util.hashString(kept.text), true
   app.written[w.name] = e.hash
   setLoadTarget(r.kind, e)
   -- tours roulés avec elle : calibration et validation en jeu (§14.1)
@@ -2493,6 +2749,12 @@ local function refineReject(r, e)
   r.rejected[e.signature] = true
   -- son fichier, écrit à sa validation, part à la Corbeille voiture arrêtée (réponse de Vincent du 22/10/2026) ;
   -- un fichier enregistré à la main reste
+  -- fichier d'essai (version essayée puis refusée en entier) : à la Corbeille aussi
+  if e.trial and app.written[e.trial.file] == e.trial.hash then
+    queueFileOp({ op = 'corbeille', name = e.trial.file, hash = e.trial.hash, why = 'essai de v' .. e.version .. ' non gardé' })
+    if app.saved[r.kind] and app.saved[r.kind].name == e.trial.file then app.saved[r.kind] = nil end
+    e.trial = nil
+  end
   local recycle = e.file ~= nil and e.ownFile == true and e.hash ~= nil
   if recycle then queueFileOp({ op = 'corbeille', name = e.file, hash = e.hash, why = 'v' .. e.version .. ' non gardée' }) end
   -- référence validée puis écartée (après l'essai) : la référence d'avant revient, sinon plus de référence
@@ -2523,6 +2785,50 @@ local function refineReject(r, e)
   log('INFO', 'memory', app.ui.message)
 end
 
+-- Essayer (décision de Vincent du 26/10/2026 : « il propose un setup, l'utilisateur essaye ce setup ») : le setup
+-- proposé entier est écrit dans un fichier d'essai (…_vN_essai), à charger au stand ; après l'essai, chaque effet est
+-- gardé ou refusé, puis « Valider » enregistre la version avec les effets gardés.
+local function refineTry(r, e)
+  if e.status ~= nil and e.status ~= 'essai' then
+    app.ui.message = 'v' .. e.version .. ' : déjà ' .. tostring(e.status) .. '.'
+    return
+  end
+  if e.trial == nil then
+    if app.inert then
+      app.ui.message = 'Essai impossible : ' .. app.inert
+      return
+    end
+    local w = Exporter.writeNew(host, fileBase(r.kind, e.bucket) .. '_v' .. e.version .. '_essai', e.text)
+    if not w.ok then
+      app.ui.message = 'v' .. e.version .. ' : essai impossible, écriture refusée (' .. tostring(w.reason) .. ').'
+      return
+    end
+    local hash = Util.hashString(e.text)
+    app.written[w.name] = hash
+    e.trial = { file = w.name, path = w.path, hash = hash, text = e.text, signature = e.signature, family = e.family,
+      bucket = e.bucket, origin = e.origin, carId = e.carId }
+    if e.known then rememberSetup(e.signature, e.known) end
+  end
+  e.status = 'essai'
+  setLoadTarget(r.kind, e.trial)
+  app.ui.message = 'v' .. e.version .. ' en essai : ' .. e.trial.file .. '. Au stand, menu de setup ouvert : « Charger » ; '
+    .. 'roulez, puis gardez ou refusez chaque effet et validez.'
+  log('INFO', 'refine', app.ui.message)
+end
+
+-- Garder ou refuser un effet d'une version en attente ou en essai.
+local function effectToggle(version, key, keep)
+  local r = app.refine
+  local e = r and refineEntry(r, version)
+  if not (e and (e.status == nil or e.status == 'essai')) then return end
+  for _, g in ipairs(e.groups or {}) do
+    if g.key == key then g.keep = keep == true end
+  end
+  local kept, n = keptCount(e)
+  app.ui.message = 'v' .. e.version .. ' : ' .. kept .. ' effet' .. (kept > 1 and 's' or '') .. ' gardé' .. (kept > 1 and 's' or '')
+    .. ' sur ' .. n .. '.'
+end
+
 local function refineJudge(version, verdict)
   local r = app.refine
   local e = r and refineEntry(r, version)
@@ -2530,7 +2836,18 @@ local function refineJudge(version, verdict)
     app.ui.message = 'Version v' .. tostring(version) .. ' introuvable.'
     return
   end
-  if verdict == 'valider' then refineValidate(r, e) else refineReject(r, e) end
+  if verdict == 'valider' then
+    local kept = keptCount(e)
+    if kept == 0 then
+      app.ui.message = 'v' .. e.version .. ' : aucun effet gardé ; « Recommencer » pour ne pas la garder.'
+      return
+    end
+    refineValidate(r, e)
+  elseif verdict == 'essayer' then
+    refineTry(r, e)
+  else
+    refineReject(r, e)
+  end
 end
 
 -- Figer (cadenas) : la référence de la séance et de l'état de piste est verrouillée, gardée en mémoire et
@@ -2691,6 +3008,23 @@ local function handleIntents(intents)
   end
   if intents.refineStart then refineStart(intents.refineStart) end
   if intents.refineJudge then refineJudge(intents.refineJudge.version, intents.refineJudge.verdict) end
+  if intents.effect then effectToggle(intents.effect.version, intents.effect.key, intents.effect.keep) end
+  -- nombre de tours de la course (garde de course), gardé pour ce circuit
+  if intents.raceLaps ~= nil then
+    local n = tonumber(intents.raceLaps)
+    if n and n >= 1 and n <= K.raceMaxLaps and n == math.floor(n) then
+      app.raceLaps = n
+      local key = storeKey('rlaps', app.discovery)
+      if key then Store.put(app.store, key, { laps = n }, stamp()) end
+      app.ui.message = 'Course : ' .. n .. ' tours, gardés pour ce circuit.'
+    else
+      app.ui.message = 'Nombre de tours de course refusé : entier de 1 à ' .. K.raceMaxLaps .. '.'
+    end
+  end
+  if intents.raceRefLoad then
+    local _, key = raceReference()
+    if key then memoryLoad(key) end
+  end
   if intents.refineLock then refineLock(intents.refineLock) end
   if intents.memoryLock then memoryLock(intents.memoryLock.key, intents.memoryLock.locked) end
   if intents.memoryLoad then memoryLoad(intents.memoryLoad) end

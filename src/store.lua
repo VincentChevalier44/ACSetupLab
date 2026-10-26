@@ -49,6 +49,8 @@ M.SCHEMAS = {
   -- désigné par son nom de fichier et l'empreinte de son contenu ; figé (cadenas) ou non
   mem = { file = { 'string' }, hash = HASH, version = { 'number', 0, 1000 }, gain = { 'number', -120, 120 },
     time = { 'number', 0, 1e4 }, locked = FLAG, stamp = STAMP },
+  -- nombre de tours de la course saisi (décision de Vincent du 26/10/2026), gardé par voiture et circuit
+  rlaps = { laps = { 'number', 1, 500 }, stamp = STAMP },
 }
 
 -- Clé d'entrée : genre puis identifiants sûrs (voiture, circuit, composé…), séparés par « : ».

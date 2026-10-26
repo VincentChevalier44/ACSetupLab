@@ -144,7 +144,7 @@ end
 -- erreur, chaque champ relu respecte son schéma, et le texte réécrit est relu à l'identique.
 local STORE_KEYS = { 'settings', 'cal:car:monza:-:1', 'cal:car:ks_red_bull_ring:layout_gp:0', 'rough:car:spa:-',
   'last:car:monza:-:quali', 'frame:car', 'cal:../x:1', 'x();os.exit()', '' }
-local STORE_FIELDS = { 'raceLaps', 'perfStab', 'calibrationAuto', 'mu', 'power', 'drag', 'lift', 'brake', 'roadTemp', 'G0',
+local STORE_FIELDS = { 'refineMinLaps', 'perfStab', 'calibrationAuto', 'mu', 'power', 'drag', 'lift', 'brake', 'roadTemp', 'G0',
   'front', 'speed', 'file', 'gain', 'stamp', 'inconnu', '' }
 local STORE_VALUES = { '25', '0.6', '-1', '1e9', 'nan', 'inf', 'true', 'false', '0.97', '1.0e-5', 's:SetupLab_Quali.ini',
   's:../../evil.lua', 's:', 'abc', '' }

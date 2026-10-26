@@ -16,8 +16,11 @@ M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus
 -- Réglages modifiables dans l'interface (§11), seuls conservés d'une séance à l'autre (§13) : les autres
 -- (app active, tranche de calcul, garde de frame…) gardent leur valeur par défaut, un stockage ne peut
 -- donc ni désactiver l'app ni casser le budget de frame.
-M.EDITABLE = { 'raceLaps', 'raceMinutes', 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
-  'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps' }
+-- 1.5 (décision de Vincent du 26/10/2026) : le nombre de tours de course se saisit dans l'onglet Course et se garde
+-- par circuit (plus de réglage global) ; minimum avant une proposition ; langue.
+M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
+  'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps',
+  'refineMinLaps', 'refineMinMinutes', 'language' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
 -- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
@@ -31,6 +34,23 @@ M.exportQualiPrefix = M.fileDefaultName .. '_' .. M.fileGenre.quali .. '_'
 M.exportRacePrefix = M.fileDefaultName .. '_' .. M.fileGenre.race .. '_'
 -- Copie du setup en cours écrite juste avant un chargement dans la voiture (réversibilité).
 M.exportBackupPrefix = 'SetupLab_Avant_chargement_'
+
+-- Effets d'un setup proposé, validés un par un (décision de Vincent du 26/10/2026 : « au lieu de valider une fois
+-- globalement le setup, il va le valider un par un chaque effet ») : groupes de réglages par genre de variable
+-- (setup_space). Le composé de pneus va avec les pneus, les aides de la règle pluie avec les aides.
+M.effectGroups = {
+  { key = 'aero', label = 'Aéro', kinds = { wing = true } },
+  { key = 'tyres', label = 'Pneus', kinds = { pressure = true }, compound = true },
+  { key = 'geometry', label = 'Géométrie', kinds = { camber = true, toe = true } },
+  { key = 'suspension', label = 'Suspension', kinds = { arb = true, spring = true, heave = true, rod = true, damperSlow = true,
+    damperFast = true, heaveDamper = true, bumpStop = true, packer = true } },
+  { key = 'transmission', label = 'Transmission', kinds = { gear = true, final = true, diffPower = true, diffCoast = true,
+    diffPreload = true, awd = true } },
+  { key = 'brakes', label = 'Freins', kinds = { brakeBias = true, brakePower = true, brakeDuct = true } },
+  { key = 'engine', label = 'Moteur', kinds = { limiter = true, engineMap = true } },
+  { key = 'aids', label = 'Aides au pilotage', aids = true },
+  { key = 'other', label = 'Autres réglages', other = true },
+}
 
 -- Mémoire du circuit (décision de Vincent du 21/10/2026 : « une mémoire par circuit et par type de séance ») :
 -- setup validé par voiture, circuit, disposition, séance et état de piste. AC ne distingue pas une journée
@@ -75,7 +95,14 @@ M.settings = {
   -- calcul dès la fin du précédent, sans attendre de tour
   { key = 'refineLaps', kind = 'integer', default = 0, min = 0, max = 5,
     label = 'Affinage : tours propres avant un nouveau calcul (0 = en continu)' },
-  { key = 'language', kind = 'enum', values = { 'fr' }, default = 'fr', label = 'Langue' },
+  -- minimum avant une proposition (décision de Vincent du 26/10/2026 : « combien de minimum de temps ou de tour il
+  -- faut avant que SetupLab propose un setup ») : les deux, avec le setup en cours dans la voiture
+  { key = 'refineMinLaps', kind = 'integer', default = 2, min = 0, max = 20,
+    label = 'Affinage : tours propres minimum avant une proposition' },
+  { key = 'refineMinMinutes', kind = 'number', default = 0, min = 0, max = 60,
+    label = 'Affinage : minutes de roulage minimum avant une proposition (0 = sans)' },
+  -- langue (décision de Vincent du 26/10/2026 : anglais par défaut, français au choix)
+  { key = 'language', kind = 'enum', values = { 'en', 'fr' }, default = 'en', label = 'Langue' },
   { key = 'debugLog', kind = 'boolean', default = false, label = 'Journal détaillé (DEBUG)' },
 }
 
