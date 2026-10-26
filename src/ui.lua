@@ -12,6 +12,7 @@ local Config = require('src/config')
 local Caps = require('src/caps')
 local SetupSpace = require('src/setup_space')
 local L = require('src/i18n')
+local Skin = require('src/skin')
 
 local M = {}
 
@@ -32,8 +33,8 @@ local STATUS_COLOR = {
   field = { 0.15, 0.16, 0.17, 1 },
   fieldHover = { 0.22, 0.25, 0.28, 1 },
   accentDark = { 0.12, 0.42, 0.78, 1 },
-  bg = { 0.08, 0.085, 0.087, 0.97 },
-  overlay = { 0.04, 0.05, 0.07, 0.62 }, -- fond de l'overlay en jeu (fenêtre sans fond : lisible sur la piste)
+  bg = { 0.08, 0.085, 0.087, 0.98 },
+  overlay = { 0.105, 0.111, 0.117, 0.96 }, -- fond de l'overlay en jeu : celui des panneaux de SuperHUD
   -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles)
   primaryButton = { 0.20, 0.59, 1.0, 1 }, primaryButtonHovered = { 0.30, 0.66, 1.0, 1 },
   primaryButtonActive = { 0.12, 0.42, 0.78, 1 },
@@ -79,11 +80,30 @@ local TRANSLATED = {
   progressBar = function(real, f, size, overlay, ...) return real.progressBar(f, size, L.t(overlay), ...) end,
 }
 
--- Hôte qui dessine en traduisant (créé une fois par hôte).
+-- Hôte qui dessine en traduisant (créé une fois par hôte) et, si l'hôte le permet, avec le thème de SuperHUD
+-- (src/skin.lua) : textes Segoe UI, boutons plats, interrupteurs. ui.skin, ui.skinText, ui.skinButton et ui.skinBadge
+-- n'existent qu'avec le thème ; ui.plainText : texte ImGui (infobulles, comme dans SuperHUD).
 function M.translating(host)
   if host.translating then return host end
   local real = host.ui
+  local overrides = { plainText = function(s, ...) return real.text(L.t(s), ...) end }
+  local okS, skin = false, nil
+  if Skin.available(real) and host.rgbm and host.vec2 then
+    okS, skin = pcall(Skin.new, real, host.rgbm, host.vec2, function(s) return L.t(s) end)
+  end
+  if okS and skin then
+    for _, name in ipairs({ 'text', 'textWrapped', 'textColored', 'drawText', 'measureText', 'pushFont', 'popFont', 'checkbox' }) do
+      overrides[name] = skin[name]
+    end
+    overrides.button = function(label, size) return skin.button(label, size, nil) end
+    overrides.skin, overrides.skinText, overrides.skinButton, overrides.skinBadge = skin, skin.textAs, skin.button, skin.badge
+  end
   local proxy = setmetatable({}, { __index = function(t, key)
+    local own = overrides[key]
+    if own ~= nil then
+      rawset(t, key, own)
+      return own
+    end
     local value = real[key]
     local wrap = TRANSLATED[key]
     if wrap and type(value) == 'function' then
@@ -99,8 +119,8 @@ end
 local translated = setmetatable({}, { __mode = 'k' })
 local function hostFor(host, app)
   L.set(app.settings and app.settings.language)
-  -- en français, les textes du code s'affichent tels quels : l'hôte d'origine, sans détour
-  if L.lang == 'fr' then return host end
+  -- en français sans thème (hôte sans DWrite), rien à changer : l'hôte d'origine, sans détour
+  if L.lang == 'fr' and not Skin.available(host.ui) then return host end
   local h = translated[host]
   if h == nil or h.ui == nil then
     h = M.translating(host)
@@ -168,7 +188,9 @@ end
 -- ---------------------------------------------------------------------------
 
 local function colored(host, text, color)
-  if color then
+  if host.ui.skinText then
+    host.ui.skinText(text, color, false)
+  elseif color then
     host.ui.textColored(text, color)
   else
     host.ui.text(text)
@@ -188,6 +210,10 @@ end
 -- Texte coloré qui revient à la ligne (couleur du texte poussée) ; sans pushStyleColor : texte coloré.
 local function wrapped(host, text, color)
   local ui = host.ui
+  if ui.skinText then
+    ui.skinText(text, color, true)
+    return
+  end
   local styles = Util.get(ui, 'StyleColor')
   local pushed = color ~= nil and type(styles) == 'table' and styles.Text ~= nil and Util.call(ui.pushStyleColor, styles.Text, color)
   if color ~= nil and not pushed then
@@ -211,7 +237,7 @@ local function tip(host, text)
   if not (okH and hovered) then return end
   Util.call(ui.tooltip, function()
     local pushed = Util.call(ui.pushTextWrapPosition, K.uiTooltipWidth)
-    ui.text(text)
+    if ui.plainText then ui.plainText(text) else ui.text(text) end
     if pushed then Util.call(ui.popTextWrapPosition) end
   end)
 end
@@ -319,6 +345,11 @@ end
 -- un identifiant en double, se voient) ; seules les couleurs passent par Util.call, autant retirées que posées.
 local function actionButton(host, state, palette, label, style, full)
   local ui = host.ui
+  if ui.skinButton then
+    local size = full and vec(host, state, 'bigButton') or nil
+    if size then size.x, size.y = -1, K.uiBigButtonHeight end
+    return ui.skinButton(label, size, style)
+  end
   local styles = Util.get(ui, 'StyleColor')
   local pushed = 0
   if style and type(styles) == 'table' then
@@ -334,16 +365,45 @@ local function actionButton(host, state, palette, label, style, full)
   return clicked
 end
 
--- Carte : contenu en retrait, barre de couleur à gauche (dessinée après coup, sans rien recouvrir).
+-- Carte : contenu en retrait, barre de couleur à gauche (dessinée après coup, sans rien recouvrir). Avec le thème :
+-- fond comme le module sélectionné de SuperHUD (FIELD, trait de 2 px), dessiné avant le contenu à la hauteur de l'image
+-- précédente, pour ne rien recouvrir.
 local function card(host, state, color, fn)
   local ui = host.ui
   local okA, top = Util.call(ui.getCursor)
   local x, y = okA and top and top.x, okA and top and top.y
+  local p, q = vec(host, state, 'cardA'), vec(host, state, 'cardB')
+  if ui.skin and x and p and q then
+    -- carte n de l'image (numérotées dans l'ordre d'affichage, remis à zéro à chaque image)
+    state.cardIndex = (state.cardIndex or 0) + 1
+    local key = state.cardIndex
+    state.cardHeights = state.cardHeights or {}
+    local h = state.cardHeights[key]
+    local okW, avail = Util.call(ui.availableSpaceX)
+    if h and okW and Util.isFinite(avail) then
+      p.x, p.y = x, y
+      q.x, q.y = x + avail, y + h
+      Util.call(ui.drawRectFilled, p, q, ui.skin.colors.field, 2)
+      q.x = x + 2
+      Util.call(ui.drawRectFilled, p, q, color, 1)
+    end
+    q.x, q.y = 1, 6
+    Util.call(ui.dummy, q)
+    Util.call(ui.indent, 12)
+    fn()
+    Util.call(ui.unindent, 12)
+    q.x, q.y = 1, 4
+    Util.call(ui.dummy, q)
+    local okB, bottom = Util.call(ui.getCursor)
+    if okB and bottom and Util.isFinite(bottom.y) then state.cardHeights[key] = math.max(0, bottom.y - y - 4) end
+    q.x, q.y = 1, 4
+    Util.call(ui.dummy, q)
+    return
+  end
   Util.call(ui.indent, K.uiIndent)
   fn()
   Util.call(ui.unindent, K.uiIndent)
   local okB, bottom = Util.call(ui.getCursor)
-  local p, q = vec(host, state, 'cardA'), vec(host, state, 'cardB')
   if x and okB and bottom and p and q and Util.isFinite(bottom.y) and bottom.y > y then
     p.x, p.y = x, y
     q.x, q.y = x + 3, bottom.y - 4
@@ -1919,7 +1979,7 @@ local function stepCard(host, app, intents, palette)
       if f and f.count > 0 then
         title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Gardez ou refusez chaque effet (onglet '
           .. (kind == 'race' and 'COURSE' or 'QUALIF') .. '), puis étape 4 : valider.'
-        action = { label = 'Valider ' .. v .. '###Valider ' .. v, verdict = 'valider', version = trial.version }
+        action = { label = 'Valider ' .. v .. '###step_action', verdict = 'valider', version = trial.version }
       else
         title, text = 'Étape 3/4 · Trier les effets de ' .. v, 'Roulez d\'abord au moins un tour propre avec elle, puis gardez ou '
           .. 'refusez chaque effet.'
@@ -1932,7 +1992,7 @@ local function stepCard(host, app, intents, palette)
     local v = 'v' .. pending.version
     title, text = 'Étape 2/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » écrit le fichier '
       .. 'd\'essai ; puis « Charger » au stand.'
-    action = { label = 'Essayer ' .. v, verdict = 'essayer', version = pending.version }
+    action = { label = 'Essayer ' .. v .. '###step_action', verdict = 'essayer', version = pending.version }
   elseif validated then
     title, text = 'v' .. validated.version .. ' validée · à charger au stand', 'Au stand, bouton vert « Charger », puis roulez : '
       .. 'l\'affinage repart d\'elle (étape 1).'
@@ -1956,7 +2016,8 @@ local THEME = {
   { 'Header', 'field' }, { 'HeaderHovered', 'fieldHover' }, { 'HeaderActive', 'accentDark' },
   { 'Tab', 'bg' }, { 'TabHovered', 'fieldHover' }, { 'TabActive', 'field' }, { 'TabUnfocused', 'bg' },
   { 'TabUnfocusedActive', 'field' }, { 'CheckMark', 'accent' }, { 'SliderGrab', 'accent' }, { 'SliderGrabActive', 'accent' },
-  { 'PlotHistogram', 'accent' }, { 'PopupBg', 'bg' },
+  { 'PlotHistogram', 'accent' }, { 'PopupBg', 'bg' }, { 'ScrollbarBg', 'bg' }, { 'ScrollbarGrab', 'field' },
+  { 'ScrollbarGrabHovered', 'fieldHover' }, { 'ScrollbarGrabActive', 'accentDark' },
 }
 -- Trait bleu de 2 px sous l'onglet actif : appelé en tête du contenu de l'onglet, l'élément précédent est l'onglet.
 local function tabUnderline(host, state, palette)
@@ -2047,29 +2108,186 @@ local function helpSection(host, palette)
   end
 end
 
+-- En-tête du thème (SuperHUD : SUPERHUD en gras, badge de langue bleu, version en gris ; interrupteur à droite),
+-- voiture, circuit et séance en dessous.
+local function skinHeader(host, app, intents, palette)
+  local ui = host.ui
+  local d = app.discovery
+  ui.skinText('SETUPLAB', palette.text, false, Skin.SIZE.header, true)
+  tip(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone
+    .. (d and d.car and ('\nVoiture : ' .. tostring(d.car.id)) or '')
+    .. (d and d.trackFiles and ('\nCircuit : ' .. tostring(d.trackFiles.fullId)) or ''))
+  local p = vec(host, app.ui, 'headerAt')
+  local function nextTo(dy)
+    ui.sameLine(0, 14)
+    local ok, cur = Util.call(ui.getCursor)
+    if ok and cur and p and Util.isFinite(cur.y) then
+      p.x, p.y = cur.x, cur.y + dy
+      Util.call(ui.setCursor, p)
+    end
+  end
+  nextTo(7)
+  local english = app.settings.language ~= 'fr'
+  if ui.skinBadge((english and 'EN' or 'FR') .. '###lang_toggle') then
+    intents.setting = { key = 'language', value = english and 'fr' or 'en' }
+  end
+  tip(host, 'Language / Langue : English, Français.')
+  nextTo(1)
+  ui.skinText(Config.version, palette.muted, false, 10, false)
+  -- SetupLab actif, à droite (décision de Vincent du 21/10/2026 : « on l'ouvre, on l'active, on roule »)
+  ui.sameLine()
+  local okC, cur = Util.call(ui.getCursor)
+  local okR, room = Util.call(ui.availableSpaceX)
+  local okM, m = Util.call(ui.measureText, 'SetupLab actif')
+  local need = okM and m and type(m) ~= 'number' and m.x and (m.x + 60) or 200
+  if okC and cur and okR and Util.isFinite(room) and p then
+    if room > need then
+      p.x, p.y = cur.x + room - need, cur.y - 8
+      Util.call(ui.setCursor, p)
+    else
+      Util.call(ui.newLine)
+    end
+  end
+  if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
+  tip(host, 'Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et '
+    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses effets et de la '
+    .. 'valider. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce lancement d\'AC : jamais actif tout seul au '
+    .. 'démarrage.')
+  local title = {}
+  if d and d.car then title[#title + 1] = tostring(d.car.name) end
+  if d and d.trackFiles then title[#title + 1] = tostring(d.trackFiles.name) end
+  local session = M.sessionLine(app.context)
+  if session then title[#title + 1] = L.t(session) end
+  if #title > 0 then small(host, table.concat(title, '  ·  '), palette.muted) end
+end
+
+-- État : SetupLab actif, découverte, données et calculs (en tête du contenu).
+local function statusLines(host, app, palette)
+  local d = app.discovery
+  local autoText, autoColor = M.autoLine(app)
+  small(host, autoText, palette[autoColor])
+  local status, kind = M.statusLine(app)
+  small(host, '● ' .. status, palette[kind])
+  if d then
+    local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
+      or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')
+    local function stateOf(q)
+      if q == nil then return 'non lancé' end
+      return ({ running = 'en cours', done = 'terminé', failed = 'en échec', cancelled = 'annulé' })[q.state] or q.state
+    end
+    small(host, 'Données : ' .. source .. ' ; modèle ' .. M.modelState(app) .. ' ; tour rapide ' .. stateOf(app.quali)
+      .. ', course ' .. stateOf(app.race), palette.muted)
+  end
+end
+
+-- Onglets du thème (SuperHUD) : capitales, clair si actif, gris sinon, trait bleu de 2 px sous l'actif, filet gris
+-- sous la rangée ; resserrés si la fenêtre est étroite. Renvoie l'identifiant de l'onglet choisi.
+local function skinTabs(host, app, tabs)
+  local ui = host.ui
+  local S = ui.skin
+  local okC, origin = Util.call(ui.getCursor)
+  local okW, avail = Util.call(ui.availableSpaceX)
+  local p, q = vec(host, app.ui, 'tabA'), vec(host, app.ui, 'tabB')
+  if not (okC and origin and okW and Util.isFinite(avail) and p and q) then return app.ui.tab end
+  local items, total = {}, 0
+  local size, pad = Skin.SIZE.tab, 14
+  for i, tab in ipairs(tabs) do
+    local visible, id = Skin.split(tab[1])
+    visible = L.t(visible)
+    local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
+    local w = okM and m and m.x or (#visible * 8)
+    items[i] = { id = id, text = visible, w = w }
+    total = total + w + 2 * pad
+  end
+  local scale = total > avail and math.max(0.6, avail / total) or 1
+  local fs, gap = math.max(10, size * scale), math.max(6, pad * scale)
+  local x, y0 = origin.x, origin.y
+  for _, it in ipairs(items) do
+    local w = it.w * (fs / size) + 2 * gap
+    p.x, p.y = x, y0
+    Util.call(ui.setCursor, p)
+    q.x, q.y = w, 30
+    if ui.invisibleButton('###tab_' .. it.id, q) then app.ui.tab = it.id end
+    local active = app.ui.tab == it.id
+    p.x, p.y = x + gap, y0 + 7
+    S.withWeight(active, function() ui.skin.real.dwriteDrawText(it.text, fs, p, active and S.colors.light or S.colors.grey) end)
+    if active then
+      p.x, p.y = x, y0 + 28
+      q.x, q.y = x + w, y0 + 30
+      Util.call(ui.drawRectFilled, p, q, S.colors.blue, 0)
+    end
+    x = x + w
+  end
+  p.x, p.y = origin.x, y0 + 31
+  q.x, q.y = origin.x + avail, y0 + 32
+  Util.call(ui.drawRectFilled, p, q, S.colors.line, 0)
+  p.x, p.y = origin.x, y0 + 38
+  Util.call(ui.setCursor, p)
+  return app.ui.tab
+end
+
 function M.main(host, app, intents)
   host = hostFor(host, app)
   local ui = host.ui
   local palette = colors(app.ui, host)
   local pushed = pushTheme(host, app.ui, palette)
+  app.ui.cardIndex = 0
+  -- onglets (décision de Vincent du 26/10/2026 : onglets propres, l'onglet actif en couleur) ; identifiants français
+  -- stables, libellés traduits
+  local tabs = {
+    { 'QUALIF###Tour rapide', function() kindSection(host, app, intents, 'quali', palette) end },
+    { 'COURSE###Course', function() kindSection(host, app, intents, 'race', palette) end },
+    { 'MÉMOIRE###Mémoire', function() memorySection(host, app, intents, palette) end },
+    { 'MESURE###Mesure', function() measureSection(host, app, intents, palette) end },
+    { 'RÉGLAGES###Réglages', function()
+      settingsEditor(host, app, intents, palette)
+      settingsSection(host, app, palette)
+    end },
+    { 'DIAGNOSTIC###Capacités', function() M.capsSection(host, app, intents, palette) end },
+    { 'AIDE###Aide', function() helpSection(host, palette) end },
+  }
   local ok, err = pcall(function()
+    if ui.skin then
+      -- thème SuperHUD : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
+      -- qui défile dans une fenêtre enfant
+      app.ui.tab = app.ui.tab or 'Tour rapide'
+      local okC, origin = Util.call(ui.getCursor)
+      local okS, size = Util.call(ui.windowSize)
+      local p, q = vec(host, app.ui, 'bgA'), vec(host, app.ui, 'bgB')
+      local good = okC and origin and okS and size and p and q and Util.isFinite(size.x) and Util.isFinite(size.y)
+      if good then
+        p.x, p.y = origin.x, origin.y
+        q.x, q.y = origin.x + size.x, origin.y + size.y
+        Util.call(ui.drawRectFilled, p, q, ui.skin.colors.bg, 0)
+        p.x, p.y = origin.x + 16, origin.y + 10
+        Util.call(ui.setCursor, p)
+      end
+      Util.call(ui.indent, 16)
+      skinHeader(host, app, intents, palette)
+      local selected = skinTabs(host, app, tabs)
+      Util.call(ui.unindent, 16)
+      local function body()
+        statusLines(host, app, palette)
+        stepCard(host, app, intents, palette)
+        if app.ui.message then small(host, app.ui.message, palette.accent) end
+        for _, tab in ipairs(tabs) do
+          if select(2, Skin.split(tab[1])) == selected then tab[2]() end
+        end
+      end
+      local okY, cur = Util.call(ui.getCursor)
+      if good and okY and cur and ui.childWindow then
+        p.x, p.y = origin.x + 16, cur.y
+        Util.call(ui.setCursor, p)
+        q.x, q.y = math.max(100, size.x - 24), math.max(100, origin.y + size.y - cur.y - 6)
+        ui.childWindow('setuplab_body', q, false, 0, body)
+      else
+        body()
+      end
+      return
+    end
     header(host, app, intents, palette)
     stepCard(host, app, intents, palette)
     if app.ui.message then small(host, app.ui.message, palette.accent) end
-    -- onglets (décision de Vincent du 26/10/2026 : onglets propres, l'onglet actif en couleur) ; identifiants
-    -- français stables, libellés traduits
-    local tabs = {
-      { 'QUALIF###Tour rapide', function() kindSection(host, app, intents, 'quali', palette) end },
-      { 'COURSE###Course', function() kindSection(host, app, intents, 'race', palette) end },
-      { 'MÉMOIRE###Mémoire', function() memorySection(host, app, intents, palette) end },
-      { 'MESURE###Mesure', function() measureSection(host, app, intents, palette) end },
-      { 'RÉGLAGES###Réglages', function()
-        settingsEditor(host, app, intents, palette)
-        settingsSection(host, app, palette)
-      end },
-      { 'DIAGNOSTIC###Capacités', function() M.capsSection(host, app, intents, palette) end },
-      { 'AIDE###Aide', function() helpSection(host, palette) end },
-    }
     -- sans ui.tabBar, sections les unes sous les autres (une erreur dans un onglet n'est pas rattrapée ici : la colle
     -- la compte, sans redessiner les sections en double)
     if ui.tabBar and ui.tabItem then

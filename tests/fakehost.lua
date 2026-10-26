@@ -981,6 +981,35 @@ function F.new(opts)
     end,
     setNextItemWidth = function() uiCall() end,
   }
+  -- Thème SuperHUD (src/skin.lua) : DWrite et boutons invisibles, comme CSP 0.2.11 et plus récent, avec opts.skin ;
+  -- sans, l'interface garde les contrôles ImGui (tous les onglets affichés, h.tab : un seul). Le texte DWrite est vu
+  -- comme un texte affiché ; avec le thème, h.tab = identifiant d'onglet : clic sur cet onglet.
+  h.skin = opts.skin == true
+  if h.skin then
+    h.ui.dwriteText = function(text) return h.ui.text(text) end
+    h.ui.dwriteTextWrapped = function(text) return h.ui.text(text) end
+    h.ui.dwriteDrawText = function(text, size, pos)
+      assert(type(pos) == 'table' and type(pos.x) == 'number', 'position de texte invalide')
+      return h.ui.text(text)
+    end
+    h.ui.measureDWriteText = function(text, size) return { x = 0.55 * (size or 14) * #tostring(text), y = (size or 14) * 1.3 } end
+    h.ui.pushDWriteFont = uiCall
+    h.ui.popDWriteFont = uiCall
+    h.ui.invisibleButton = function(label, size)
+      uiCall()
+      assert(type(size) == 'table' and size.x > 0 and size.y > 0, 'taille de bouton invalide : ' .. tostring(label))
+      register('bouton', label)
+      local id = label:match('###(.*)$')
+      if id and h.tab ~= nil and id == 'tab_' .. h.tab then return true end
+      return clicked(label)
+    end
+    h.ui.itemRectMin = function() return { x = 8, y = 300 } end
+    h.ui.itemRectMax = function() return { x = 108, y = 326 } end
+    h.ui.itemActive = function() return false end
+    h.ui.drawCircleFilled = uiCall
+    h.ui.drawLine = uiCall
+    h.ui.windowSize = function() return { x = h.width + 16, y = 640 } end
+  end
   h.ffi = ffi
 
   for _, path in ipairs(opts.missing or {}) do setPath(h, path, nil) end

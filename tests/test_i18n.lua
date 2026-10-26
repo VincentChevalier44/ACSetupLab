@@ -16,7 +16,7 @@ local tests = {}
 
 local function boot(carId, session)
   local h = Fake.new({ car = require('fixtures/cars/' .. (carId or 'lamborghini_huracan_gt3_evo2')),
-    track = require('fixtures/tracks/monza'), stored = { ['setuplab:data'] = EN_STORE }, lang = 'en' })
+    track = require('fixtures/tracks/monza'), stored = { ['setuplab:data'] = EN_STORE }, lang = 'en', skin = true })
   h.sim.raceSessionType = session or 2
   h.hover, h.openSections = true, true
   h.shown = {}
@@ -45,11 +45,18 @@ local function frames(h, n, profile)
   end
 end
 
--- Une image de chaque fenêtre (principale, overlay, diagnostic).
+-- Une image de chaque fenêtre (principale, overlay, diagnostic), chaque onglet de la fenêtre principale.
+local TABS = { 'Tour rapide', 'Course', 'Mémoire', 'Mesure', 'Réglages', 'Capacités', 'Aide' }
 local function render(h)
   h.sim.time = h.sim.time + 1000 / 60
   script.SETUPLAB__UPDATE(1 / 60)
+  for _, tab in ipairs(TABS) do
+    h.tab = tab
+    script.SETUPLAB__MAIN(1 / 60)
+  end
+  h.tab = 'Tour rapide'
   script.SETUPLAB__MAIN(1 / 60)
+  h.tab = nil
   script.SETUPLAB__OVERLAY(1 / 60)
   script.SETUPLAB__DEBUG(1 / 60)
 end
@@ -202,6 +209,16 @@ tests['EN01 parcours complet en anglais (affinage, essai, tri, validation, overl
   app.nextContextAt = 0
   frames(h, 2)
   render(h)
+  if app.perf.errors > 0 then
+    local Util = require('src/util')
+    local seen = 0
+    for _, e in ipairs(Util.logEntries(app.log)) do
+      if e.level ~= 'INFO' and seen < 4 then
+        seen = seen + 1
+        PY.note('EN01 erreur ' .. seen, e.code .. ' : ' .. e.text)
+      end
+    end
+  end
   T.eq(app.perf.errors, 0)
   local n = report('EN01')
   L.misses, L.unmatched = nil, nil

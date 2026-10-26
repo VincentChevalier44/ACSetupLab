@@ -16,7 +16,7 @@ local tests = {}
 local function boot(opts)
   opts = opts or {}
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
-    stored = opts.stored, lang = opts.lang })
+    stored = opts.stored, lang = opts.lang, skin = opts.skin })
   h.sim.raceSessionType = opts.session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
@@ -299,7 +299,7 @@ end
 -- Interface (demande de Vincent du 26/10/2026) : étape en cours toujours en tête, effets gardés ou refusés d'un clic,
 -- « Essayer », puis « Valider vN (k/n effets) » ; mêmes boutons quelle que soit la langue.
 tests['NV06 interface : étape en cours, essai, effets d\'un clic, validation'] = function()
-  local h, app = ready()
+  local h, app = ready({ skin = true })
   frames(h, 1)
   T.ok(shownText(h, 'Étape 1/4 · Rouler'), 'étape 1 en tête')
   h.click = 'Affinage automatique (tour rapide)'
@@ -335,7 +335,7 @@ end
 
 -- Onglet Course : trois conditions dites, nombre de tours au curseur (gardé pour ce circuit).
 tests['NV07 interface course : conditions, chargement de la référence, nombre de tours au curseur'] = function()
-  local h, app = ready()
+  local h, app = ready({ skin = true })
   h.tab = 'Course'
   frames(h, 1)
   T.ok(shownText(h, '1. Qualification validée : aucune'), 'condition 1')
@@ -351,7 +351,7 @@ end
 
 -- Langue : badge EN/FR dans l'en-tête, choix dans les réglages ; aide sur chaque réglage modifiable.
 tests['NV08 langue au badge, aide de chaque réglage'] = function()
-  local h, app = ready()
+  local h, app = ready({ skin = true })
   T.eq(app.settings.language, 'fr')
   h.click = 'lang_toggle'
   frames(h, 1)
@@ -359,8 +359,9 @@ tests['NV08 langue au badge, aide de chaque réglage'] = function()
   frames(h, 1)
   T.ok(shownText(h, 'Step 1/4 · Drive'), 'interface en anglais')
   T.no(shownText(h, 'Étape 1/4'), 'plus de français')
-  h.click = 'lang_fr'
+  h.tab, h.click = 'Réglages', 'lang_fr'
   frames(h, 1)
+  h.tab = nil
   T.eq(app.settings.language, 'fr', 'réglages : français')
   for _, key in ipairs(Config.EDITABLE) do
     T.ok(type(Config.help[key]) == 'string' and #Config.help[key] > 20, 'aide du réglage ' .. key)
@@ -395,6 +396,43 @@ tests['NV09 noms de fichiers en anglais, numérotés à la suite des fichiers fr
   -- un nom choisi qui finit par le genre français : pas de genre en double
   app.handleIntents({ name = { kind = 'quali', text = 'Mon reglage Qualif' } })
   T.eq(app.fileBase('quali', 'sec'), 'Mon_reglage_Qualif')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Thème SuperHUD (demande de Vincent du 26/10/2026 : « la même interface, les mêmes couleurs, le même fond… que
+-- SuperHUD ») : en-tête, onglets dessinés (un clic change d'onglet, seul l'onglet choisi est dessiné), interrupteur
+-- « SetupLab actif », sans contrôle ImGui pour les boutons, cases et onglets.
+tests['NV10 thème SuperHUD : onglets dessinés, interrupteur, boutons plats'] = function()
+  local h, app = ready({ skin = true })
+  local imgui = { button = 0, checkbox = 0, tabItem = 0 }
+  for name in pairs(imgui) do
+    local real = h.ui[name]
+    h.ui[name] = function(...)
+      imgui[name] = imgui[name] + 1
+      return real(...)
+    end
+  end
+  frames(h, 1)
+  T.ok(shownText(h, 'SETUPLAB'), 'en-tête')
+  T.ok(shownText(h, 'QUALIF') and shownText(h, 'AIDE'), 'onglets dessinés')
+  T.eq(app.ui.tab, 'Tour rapide', 'onglet par défaut')
+  T.ok(shownText(h, 'Tour rapide : essai'), 'contenu de l\'onglet QUALIF')
+  T.no(shownText(h, 'Mesure et calibration'), 'les autres onglets ne sont pas dessinés')
+  h.click = 'tab_Mesure'
+  frames(h, 1)
+  T.eq(app.ui.tab, 'Mesure', 'un clic change d\'onglet')
+  frames(h, 1)
+  T.ok(shownText(h, 'Mesure et calibration'), 'contenu de l\'onglet MESURE')
+  T.no(shownText(h, 'Tour rapide : essai'), 'QUALIF masqué')
+  h.click = 'SetupLab actif'
+  frames(h, 1)
+  T.eq(app.auto, true, 'interrupteur')
+  h.click = 'lang_toggle'
+  frames(h, 1)
+  T.eq(app.settings.language, 'en', 'badge de langue')
+  frames(h, 1)
+  T.ok(shownText(h, 'MEASURE'), 'onglets en anglais')
+  T.eq(imgui.button + imgui.checkbox + imgui.tabItem, 0, 'aucun bouton, case ni onglet ImGui')
   T.eq(app.perf.errors, 0)
 end
 
