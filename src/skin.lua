@@ -5,6 +5,7 @@
 -- section gris. SuperHUD n'a aucun dégradé : des aplats seulement. Actif si l'hôte a DWrite et les boutons invisibles
 -- (CSP 0.2.11 et plus récent) ; sinon l'interface garde les contrôles ImGui.
 local Util = require('src/util')
+local Caps = require('src/caps')
 
 local M = {}
 
@@ -24,10 +25,11 @@ M.SIZE = { main = 13, small = 11, title = 16, button = 12, header = 24, tab = 13
 local BOLD = 'Segoe UI;Weight=Bold'
 local REGULAR = 'Segoe UI'
 
-function M.available(ui)
+-- ffi : pour reconnaître une fonction C de CSP (cdata) comme appelable.
+function M.available(ui, ffi)
   for _, name in ipairs({ 'dwriteText', 'dwriteTextWrapped', 'dwriteDrawText', 'measureDWriteText', 'invisibleButton',
     'itemRectMin', 'itemRectMax', 'itemHovered', 'itemActive', 'drawRectFilled', 'pushDWriteFont', 'popDWriteFont' }) do
-    if type(Util.get(ui, name)) ~= 'function' then return false end
+    if not Caps.isCallable(Util.get(ui, name), ffi) then return false, name end
   end
   return true
 end

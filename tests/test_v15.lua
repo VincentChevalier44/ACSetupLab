@@ -16,7 +16,7 @@ local tests = {}
 local function boot(opts)
   opts = opts or {}
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
-    stored = opts.stored, lang = opts.lang, skin = opts.skin })
+    stored = opts.stored, lang = opts.lang, skin = opts.skin, cdata = opts.cdata })
   h.sim.raceSessionType = opts.session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
@@ -433,6 +433,23 @@ tests['NV10 thème SuperHUD : onglets dessinés, interrupteur, boutons plats'] =
   frames(h, 1)
   T.ok(shownText(h, 'MEASURE'), 'onglets en anglais')
   T.eq(imgui.button + imgui.checkbox + imgui.tabItem, 0, 'aucun bouton, case ni onglet ImGui')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Constat en jeu de Vincent (26/10/2026, capture) : fenêtre transparente, contrôles ImGui. CSP expose une partie de ui
+-- en fonctions C (cdata) : le thème doit les reconnaître comme appelables, et la traduction aussi.
+tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
+  local h, app = ready({ skin = true, cdata = true })
+  T.eq(type(h.ui.dwriteText), 'table', 'banc : fonction non Lua')
+  frames(h, 1)
+  T.ok(shownText(h, 'SETUPLAB'), 'en-tête du thème')
+  h.tab = 'Capacités'
+  frames(h, 1)
+  T.ok(shownText(h, 'Thème SuperHUD : actif'), 'thème actif')
+  h.tab = nil
+  app.handleIntents({ setting = { key = 'language', value = 'en' } })
+  frames(h, 1)
+  T.ok(shownText(h, 'Step 1/4 · Drive'), 'texte traduit')
   T.eq(app.perf.errors, 0)
 end
 

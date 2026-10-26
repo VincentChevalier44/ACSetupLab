@@ -88,8 +88,13 @@ function M.translating(host)
   local real = host.ui
   local overrides = { plainText = function(s, ...) return real.text(L.t(s), ...) end }
   local okS, skin = false, nil
-  if Skin.available(real) and host.rgbm and host.vec2 then
+  -- une fonction de l'ui peut être une fonction C de CSP (cdata, J0) : appelable comme une fonction Lua
+  local ffi = host.ffi
+  local okA, missing = Skin.available(real, ffi)
+  M.skinStatus = okA and 'actif' or ('indisponible : ui.' .. tostring(missing) .. ' absente')
+  if okA and host.rgbm and host.vec2 then
     okS, skin = pcall(Skin.new, real, host.rgbm, host.vec2, function(s) return L.t(s) end)
+    if not okS then M.skinStatus = 'en échec : ' .. Util.truncate(tostring(skin), 160) end
   end
   if okS and skin then
     for _, name in ipairs({ 'text', 'textWrapped', 'textColored', 'drawText', 'measureText', 'pushFont', 'popFont', 'checkbox' }) do
@@ -106,7 +111,7 @@ function M.translating(host)
     end
     local value = real[key]
     local wrap = TRANSLATED[key]
-    if wrap and type(value) == 'function' then
+    if wrap and Caps.isCallable(value, ffi) then
       local fn = function(...) return wrap(real, ...) end
       rawset(t, key, fn)
       return fn
@@ -120,7 +125,7 @@ local translated = setmetatable({}, { __mode = 'k' })
 local function hostFor(host, app)
   L.set(app.settings and app.settings.language)
   -- en français sans thème (hôte sans DWrite), rien à changer : l'hôte d'origine, sans détour
-  if L.lang == 'fr' and not Skin.available(host.ui) then return host end
+  if L.lang == 'fr' and not Skin.available(host.ui, host.ffi) then return host end
   local h = translated[host]
   if h == nil or h.ui == nil then
     h = M.translating(host)
@@ -2036,7 +2041,7 @@ end
 local function pushTheme(host, state, palette)
   local ui = host.ui
   local push = Util.get(ui, 'pushStyleColor')
-  if type(push) ~= 'function' then return 0 end
+  if not Caps.isCallable(push, host.ffi) then return 0 end
   local list = state.theme
   if list == nil then
     list = {}
@@ -2285,6 +2290,14 @@ function M.main(host, app, intents)
       end
       return
     end
+    local okC0, origin0 = Util.call(ui.getCursor)
+    local okS0, size0 = Util.call(ui.windowSize)
+    local a0, b0 = vec(host, app.ui, 'bgA'), vec(host, app.ui, 'bgB')
+    if okC0 and origin0 and okS0 and size0 and a0 and b0 and Util.isFinite(size0.x) and Util.isFinite(size0.y) then
+      a0.x, a0.y = origin0.x, origin0.y
+      b0.x, b0.y = origin0.x + size0.x, origin0.y + size0.y
+      Util.call(ui.drawRectFilled, a0, b0, palette.bg, 0)
+    end
     header(host, app, intents, palette)
     stepCard(host, app, intents, palette)
     if app.ui.message then small(host, app.ui.message, palette.accent) end
@@ -2350,6 +2363,7 @@ function M.capsSection(host, app, intents, palette)
   else
     small(host, 'Écriture non testée.', palette.muted)
   end
+  small(host, 'Thème SuperHUD : ' .. tostring(M.skinStatus or 'non évalué'), palette[ui.skin and 'available' or 'pending'])
   small(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone, palette.muted)
 end
 

@@ -1009,6 +1009,16 @@ function F.new(opts)
     h.ui.drawCircleFilled = uiCall
     h.ui.drawLine = uiCall
     h.ui.windowSize = function() return { x = h.width + 16, y = 640 } end
+    -- en jeu, CSP expose une partie de ui en fonctions C (cdata, constat du J0 et du 26/10/2026) : opts.skin = 'cdata'
+    -- les remplace par des tables appelables (ni fonction Lua ni nil), pour qu'aucun type(f) == 'function' ne passe
+    if opts.cdata then
+      for _, name in ipairs({ 'dwriteText', 'dwriteTextWrapped', 'dwriteDrawText', 'measureDWriteText', 'invisibleButton',
+        'itemRectMin', 'itemRectMax', 'itemHovered', 'itemActive', 'drawRectFilled', 'pushDWriteFont', 'popDWriteFont', 'text',
+        'textWrapped', 'textColored', 'button', 'pushStyleColor' }) do
+        local fn = h.ui[name]
+        h.ui[name] = setmetatable({}, { __call = function(_, ...) return fn(...) end })
+      end
+    end
   end
   h.ffi = ffi
 
