@@ -393,7 +393,8 @@ tests['AU05 mémoire par séance et état de piste : qualification, essai, pluie
   T.ok(waitFor(h, function() return app.discoveryState == 'running' end), 'nouvelle découverte')
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
   T.ok(app.memory['qualif|sec'] and app.memory['qualif|sec'].text, 'qualification gardée')
-  h.click = 'Relancer l\'affinage (tour rapide)'
+  -- 1.5 : nouvelle séance, nouveau point de départ (carte d'étape)
+  app.handleIntents({ start = 'mine' })
   frames(h, 1)
   -- numérotation à la suite sur le circuit (décision de Vincent du 22/10/2026) : SetupLab_Qualif_v1 existe déjà
   T.eq(app.refine.base, 1, 'v1 déjà dans le dossier')
@@ -478,7 +479,7 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient ; ri
     return r.phase == 'tours' and last.note ~= nil and last.note:find('version non gardée', 1, true) ~= nil
   end), 'calcul parti de v2 : rien de proposé')
   T.eq(h.writeCalls, writes, 'aucun nouveau fichier')
-  T.contains(r.waiting, 'charger la référence')
+  T.contains(r.waiting, 'charger au stand le setup validé')
   frames(h, 1)
   T.ok(shown(h, 'v2 non gardée : pas reproposée. Encore dans la voiture'))
   -- la référence se charge : l'affinage repart d'elle

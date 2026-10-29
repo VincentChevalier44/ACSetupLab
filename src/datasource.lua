@@ -207,7 +207,7 @@ function M.collectLutNames(ini, tick)
       table.sort(keys)
       for _, key in ipairs(keys) do
         local value = data.sections[section][key]
-        local name = type(value) == 'string' and value:lower():match('^%s*([%w_%-%.]+%.lut)%s*$') or nil
+        local name = type(value) == 'string' and value:lower():match('^%s*(.-%.lut)%s*$') or nil
         if name and Util.isSafeId(name) and not seen[name] then
           if #names >= K.maxLutFiles then return names end
           seen[name] = true
@@ -225,7 +225,7 @@ function M.collectRtoNames(setupIni)
   if setupIni == nil then return names end
   for _, section in ipairs(setupIni.order) do
     local value = setupIni.sections[section].RATIOS
-    local name = type(value) == 'string' and value:lower():match('^%s*([%w_%-%.]+%.rto)%s*$') or nil
+    local name = type(value) == 'string' and value:lower():match('^%s*(.-%.rto)%s*$') or nil
     if name and Util.isSafeId(name) and not seen[name] and #names < K.maxRtoFiles then
       seen[name] = true
       names[#names + 1] = name
@@ -679,7 +679,7 @@ function M.sampleTrack(host, ds, ctx)
   local span = t.open == true and (n - 1) or n
   for i = 0, n - 1 do
     ctx.tick(2 * K.tickWeightApiCall)
-    local p = i / span
+    local p = math.min(i / span, 1 - 1e-6)
     local okp, pos = call(toWorld, p)
     local x, y, z = num(pos, 'x'), num(pos, 'y'), num(pos, 'z')
     if not (okp and x and y and z) then

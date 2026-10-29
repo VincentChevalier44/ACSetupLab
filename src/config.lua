@@ -225,16 +225,17 @@ M.K = {
   utcOffsetMax = 14 * 3600,   -- décalage au-delà : lecture de l'heure locale rejetée (s)
 
   -- Circuit (§7)
-  trackMinLength = 500,       -- m
-  trackMaxLength = 25000,     -- m
+  trackMinLength = 200,       -- m (karting)
+  trackMaxLength = 75000,     -- m (Nordschleife Endurance, Île de Man)
   trackMinSamples = 16,
   trackMaxSamples = 25000,
   trackMaxFailureRatio = 0.01,    -- points invalides tolérés lors de l'échantillonnage
   trackLengthTolSim = 0.005,      -- ±0,5 % vs longueur de la ligne IA (§7.4)
   trackLengthTolDeclared = 0.02,  -- ±2 % vs ui_track.json, informatif (arbitrage API_NOTES)
   trackDefaultWidth = 12,     -- largeur prise si la ligne IA ne la donne pas (m)
-  curvatureBaseM = 4,         -- base du cercle à trois points pour la courbure (m)
-  curvatureSmoothM = 2,       -- écart type du lissage gaussien de la courbure (m)
+  curvatureBaseM = 8,         -- base du cercle à trois points pour la courbure (m) ; 8 m : peu sensible au bruit d'une
+                              -- ligne IA de mod (relecture du 29/10/2026)
+  curvatureSmoothM = 3,       -- écart type du lissage gaussien de la courbure (m)
   kappaMax = 1 / 6,           -- courbure maximale admise (rayon 6 m)
   slopeBaseM = 10,            -- base de la pente et de la courbure verticale (m)
   slopeSmoothM = 8,           -- lissage de la pente (m)

@@ -279,7 +279,9 @@ tests['S07 minima de vitesse aux virages lents de la ligne IA'] = function()
           local value = aiSpeedAt((sSim + d) % track.length)
           if value < best then best, bestD = value, d end
         end
-        T.ok(math.abs(bestD) <= 45, case[2] .. ' : virage s = ' .. sSim .. ', minimum IA à ' .. bestD .. ' m')
+        -- long virage à double apex (Red Bull Ring, 388 m) : le point le plus lent est mal défini, tolérance au quart
+        T.ok(math.abs(bestD) <= math.max(45, seg.length / 4), case[2] .. ' : virage s = ' .. sSim .. ', minimum IA à '
+          .. bestD .. ' m')
         checked = checked + 1
       end
     end

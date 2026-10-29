@@ -268,7 +268,8 @@ tests['AF04 arrêt : plus aucun calcul ; relance possible ; nouveau circuit : af
   T.ok(shown(h, 'Affinage tour rapide (arrêté) — v1'))
   h.click = 'Relancer l\'affinage (tour rapide)'
   frames(h, 1, profile)
-  T.ok(app.refine.active and app.refine ~= r, 'relancé')
+  -- 1.5 (relecture du 29/10/2026) : relancé, il reprend où il en était (versions gardées)
+  T.ok(app.refine.active and app.refine == r and #r.history == 1, 'relancé, repris')
   h.trackId = 'autre'
   app.contextKey = 'autre'
   app.nextContextAt = 0

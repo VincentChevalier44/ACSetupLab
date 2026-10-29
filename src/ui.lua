@@ -1114,7 +1114,7 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
         .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, not ui.skin and 'primary' or nil, true) then
+    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, nil, true) then
       intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
@@ -1137,8 +1137,7 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
       small(host, 'Roulez au moins un tour propre avec elle, puis validez-la.', palette.accent)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, 'Valider ' .. v .. partial .. '###Valider ' .. v .. suffix,
-      (driven and laps > 0) and 'primary' or nil, true) then
+    if actionButton(host, app.ui, palette, 'Valider ' .. v .. partial .. '###Valider ' .. v .. suffix, nil, true) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
     tip(host, 'Enregistre ' .. base .. '.ini avec les réglages gardés et en fait le setup de référence de cette séance, gardé en '
@@ -1180,6 +1179,10 @@ end
 local function refineCard(host, app, intents, kind, palette)
   local r = app.refine
   if not (r and r.kind == kind) then return false end
+  if kind ~= 'race' and app.start and app.start[kind] == nil then
+    small(host, 'Choisissez d\'abord le point de départ (carte du haut).', palette.accent)
+    return false
+  end
   local ui = host.ui
   local name = KIND[kind].name
   card(host, app.ui, palette[r.active and 'accent' or 'na'], function()
@@ -1308,7 +1311,7 @@ local function computeArea(host, app, intents, kind, palette)
       local label = 'Affinage automatique (' .. spec.name .. ')'
       nextInline(host, label)
       if ui.button(label) then intents.refineStart = kind end
-      tip(host, 'Calcule tout de suite, enregistre chaque setup amélioré tout seul, puis recalcule '
+      tip(host, 'Calcule tout de suite et annonce chaque setup amélioré (rien n\'est enregistré avant « Valider »), puis recalcule '
         .. (app.settings.refineLaps > 0 and ('tous les ' .. app.settings.refineLaps .. ' tour(s) propre(s) avec le même setup')
           or 'en continu (chaque tour roulé affine la calibration)') .. ', jusqu\'à l\'arrêt. Le chargement se fait au stand, '
         .. 'en deux clics.')
@@ -1804,8 +1807,12 @@ local function inputsSection(host, app, palette)
     local c = d.conditions or {}
     local wet = app.wet and app.wet.state == 'pluie'
     small(host, 'Météo et piste : air ' .. Util.fmt(c.airTemp, 0) .. ' °C, piste ' .. Util.fmt(c.roadTemp, 0) .. ' °C, grip '
-      .. Util.fmt((c.roadGrip or 0) * 100, 0) .. ' %, ' .. (wet and ('piste mouillée (eau ' .. Util.fmt((app.wet.water or 0)
+      .. Util.fmt((c.roadGrip or 1) * 100, 0) .. ' %, ' .. (wet and ('piste mouillée (eau ' .. Util.fmt((app.wet.water or 0)
       * 100, 0) .. ' %)') or 'piste sèche') .. ' ; recalcul quand elles changent.', palette.text)
+    if c.roadGripIgnored then
+      small(host, 'Grip de la piste lu dans CSP hors plage (' .. tostring(c.roadGripIgnored) .. ') : 100 % pris à la place.',
+        palette.pending)
+    end
     local p = d.trackProfile
     if p then
       small(host, 'Circuit : ' .. Util.fmt((p.length or 0) / 1000, 2) .. ' km, ' .. p.corners .. ' virages (' .. p.lent
@@ -2053,49 +2060,84 @@ local START_NAMES = { mine = 'votre setup actuel', default = 'setup par défaut 
 local function stepCard(host, app, intents, palette)
   if app.inert then return end
   local r = app.refine
-  local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
+  local kind = (r and r.active and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
+  if r and r.kind ~= kind then r = nil end
   local tabName = kind == 'race' and 'COURSE' or 'QUALIF'
+  local tabId = kind == 'race' and 'Course' or 'Tour rapide'
   local start = app.start and app.start[kind]
   local title, text, color, actions = nil, nil, palette.accent, {}
-  local pending, trial, validated = nil, nil, nil
-  for _, e in ipairs(r and r.active and r.kind == kind and r.history or {}) do
+  local pending, trial, validated, keptInCar, rejectedInCar = nil, nil, nil, nil, nil
+  for _, e in ipairs(r and r.history or {}) do
     if e.version and e.status == nil and e.version == r.version then pending = e end
     if e.version and e.status == 'essai' then trial = e end
+    if e.version and e.status == 'validée' and e.trialInCar then keptInCar = e end
+    if e.version and e.status == 'écartée' and r.driven == e.version then rejectedInCar = e end
     if e.version and e.status == 'validée' and app.saved and app.saved[kind] and app.saved[kind].signature == e.signature
         and r.driven ~= e.version then validated = e end
   end
-  local raceWhy = kind == 'race' and app.raceBlocker and app.raceBlocker() or nil
+  local raceWhy, raceAction = nil, nil
+  if kind == 'race' and app.raceBlocker then raceWhy, raceAction = app.raceBlocker() end
   local memoryKey = app.memoryGroupOf and (app.memoryGroupOf(kind) .. '|' .. (app.wet and app.wet.state or 'sec'))
   local memory = app.memory and memoryKey and app.memory[memoryKey]
-  if start == nil then
+  -- qualification : la référence d'une séance d'essai sert aussi (comme pour la course)
+  if kind ~= 'race' and not (memory and memory.text) and app.memory then
+    local fallback = 'essai|' .. (app.wet and app.wet.state or 'sec')
+    if app.memory[fallback] and app.memory[fallback].text then memoryKey, memory = fallback, app.memory[fallback] end
+  end
+  local locked = memory and memory.text and memory.locked
+  local unlock = locked and { memoryLock = { key = memoryKey, locked = false } } or {}
+  local function withUnlock(intent)
+    for k, value in pairs(unlock) do intent[k] = value end
+    return intent
+  end
+  if kind == 'race' and raceWhy then
+    -- course : elle part de la qualification validée (pas de départ à choisir)
+    title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. '.', palette.pending
+    if raceAction == 'qualif' then
+      text = text .. ' Le setup de course se fait après une version de qualification validée (au moins une v1).'
+      actions[1] = { label = 'Affiner le tour rapide###step_quali', intent = { refineStart = 'quali' }, style = 'primary',
+        tab = 'Tour rapide', tip = 'Lance l\'affinage du setup de tour rapide (onglet QUALIF), même en séance de course.' }
+    else
+      text = text .. ' (onglet COURSE)'
+    end
+  elseif start == nil and kind ~= 'race' then
     -- 1. Départ (demande de Vincent du 26/10/2026) : de quel setup partir ; le choix active SetupLab
     title, text = 'Étape 1/4 · Départ', 'De quel setup SetupLab part-il ? Il le fait évoluer avec vos tours, version après '
       .. 'version (v1, v2…).'
-    if memory and memory.text and memory.locked then
-      -- figée (cadenas) : SetupLab ne l'affine plus tant qu'elle n'est pas déverrouillée
-      text = tostring(memory.file) .. ' est figée (cadenas) : SetupLab ne propose plus rien sur ce circuit. Déverrouillez-la '
-        .. 'pour la faire évoluer.'
+    if locked then
+      -- figée (cadenas) : choisir un départ la déverrouille
+      text = tostring(memory.file) .. ' est figée (cadenas) : SetupLab ne propose plus rien sur ce circuit. Choisir un départ '
+        .. 'la déverrouille.'
       actions[#actions + 1] = { label = 'Déverrouiller et reprendre ma référence###start_reference',
-        intent = { start = { kind = kind, mode = 'reference' }, memoryLock = { key = memoryKey, locked = false } },
+        intent = withUnlock({ start = { kind = kind, mode = 'reference' } }),
         style = 'primary', tip = 'Retire le cadenas, charge votre référence au stand, puis l\'affine.' }
     elseif memory and memory.text then
       actions[#actions + 1] = { label = 'Reprendre ma référence ' .. tostring(memory.file) .. '###start_reference',
         intent = { start = { kind = kind, mode = 'reference' } }, style = 'primary',
         tip = 'Votre setup validé sur ce circuit : chargé au stand, puis affiné.' }
     end
-    actions[#actions + 1] = { label = 'Mon setup actuel###start_mine', intent = { start = { kind = kind, mode = 'mine' } },
+    actions[#actions + 1] = { label = 'Mon setup actuel###start_mine', intent = withUnlock({ start = { kind = kind, mode = 'mine' } }),
       style = #actions == 0 and 'primary' or nil,
       tip = 'Le setup qui est dans la voiture : le vôtre (chargé depuis le menu de setup d\'AC) ou celui par défaut.' }
     actions[#actions + 1] = { label = 'Setup par défaut de la voiture###start_default',
-      intent = { start = { kind = kind, mode = 'default' } },
+      intent = withUnlock({ start = { kind = kind, mode = 'default' } }),
       tip = 'Le setup d\'origine de la voiture : écrit dans un fichier SetupLab, chargé au stand, puis affiné.' }
-  elseif not start.ready then
+  elseif kind ~= 'race' and not start.ready then
     title, text, color = 'Étape 1/4 · Charger le départ', 'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet '
       .. tabName .. ') pour mettre ' .. tostring(start.file) .. ' dans la voiture.', palette.pending
-  elseif not app.auto and not (r and r.active and r.kind == kind) then
+  elseif locked then
+    title, text, color = 'Setup figé', tostring(memory.file) .. ' est figé (cadenas) : SetupLab ne propose plus rien pour '
+      .. 'cette séance. Déverrouillez-le pour reprendre l\'affinage.', palette.muted
+    actions[1] = { label = 'Déverrouiller###step_unlock', intent = { memoryLock = { key = memoryKey, locked = false } },
+      style = 'primary' }
+  elseif not app.auto and not (r and r.active) then
     title, text, color = 'SetupLab en veille', 'Cochez « SetupLab actif » pour reprendre l\'affinage.', palette.muted
-  elseif raceWhy then
-    title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. ' (onglet COURSE).', palette.pending
+  elseif rejectedInCar and not (app.saved and app.saved[kind]) then
+    local backups = app.backups or {}
+    local backup = backups[#backups] and backups[#backups].name
+    title, text, color = 'v' .. rejectedInCar.version .. ' non gardée · encore dans la voiture', 'Au stand, menu de setup '
+      .. 'd\'AC : chargez votre setup d\'avant' .. (backup and (' (' .. backup .. ')') or '') .. ', ou changez de départ '
+      .. 'ci-dessous. SetupLab repart du setup qui sera dans la voiture.', palette.pending
   elseif trial then
     local v = 'v' .. trial.version
     local f = realLaps(app, trial.family, trial.bucket)
@@ -2110,6 +2152,10 @@ local function stepCard(host, app, intents, palette)
     else
       title, text = 'Étape 3/4 · Essayer ' .. v, 'Roulez au moins un tour propre avec elle.'
     end
+  elseif keptInCar then
+    title, text = 'v' .. keptInCar.version .. ' validée · à charger au stand', 'L\'essai complet est encore dans la voiture : '
+      .. 'au stand, bouton vert « Charger » (onglet ' .. tabName .. ') pour mettre v' .. keptInCar.version .. ' (réglages '
+      .. 'gardés), puis roulez.'
   elseif pending and pending.ready == false then
     title, text, color = 'Étape 2/4 · Rouler', 'v' .. pending.version .. ' en préparation : SetupLab continue d\'analyser vos '
       .. 'tours ; elle sera prête à votre retour au stand.', palette.pending
@@ -2135,11 +2181,12 @@ local function stepCard(host, app, intents, palette)
       if i > 1 then nextInline(host, a.label) end
       if actionButton(host, app.ui, palette, a.label, a.style, #actions == 1) then
         for k, value in pairs(a.intent) do intents[k] = value end
+        if a.tab then app.ui.tab = a.tab end
       end
       if a.tip then tip(host, a.tip) end
     end
     -- départ choisi : rappel discret, et le changer
-    if start then
+    if start and kind ~= 'race' then
       withFont(host, 'Small', function()
         colored(host, 'Départ : ' .. tostring(START_NAMES[start.mode] or start.mode)
           .. (start.file and (' (' .. start.file .. ')') or ''), palette.muted)
@@ -2149,6 +2196,7 @@ local function stepCard(host, app, intents, palette)
       tip(host, 'Repartir d\'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.')
     end
   end)
+  local _ = tabId
 end
 
 -- Thème (palette de SuperHUD) : couleurs des boutons, champs, en-têtes de section et onglets (onglet actif en bleu).

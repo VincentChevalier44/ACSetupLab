@@ -66,7 +66,7 @@ local function readTyre(car, section, thermal)
     treadDepth = n('TREAD_DEPTH'), treadCover = n('TREAD_COVER'),
   }
   -- Données non fiables (D11) : un composé physiquement absurde est écarté.
-  if t.radius == nil or t.dyRef == nil or t.radius < 0.15 or t.radius > 1.2 or t.dyRef < 0.3 or t.dyRef > 4 then
+  if t.radius == nil or t.dyRef == nil or t.radius < 0.10 or t.radius > 1.2 or t.dyRef < 0.3 or t.dyRef > 4 then
     return nil
   end
   if t.fz0 and t.fz0 <= 0 then t.fz0 = nil end
@@ -373,6 +373,8 @@ function M.build(car, state, tick)
   p.rpmMin = iniNum(car, 'engine.ini', 'ENGINE_DATA', 'MINIMUM') or 1000
   p.turbos = readTurbos(car)
   p.traction = (Util.iniGet(car.ini['drivetrain.ini'], 'TRACTION', 'TYPE') or 'RWD'):upper()
+  -- AWD2 (transmission intégrale à différentiel central, voitures récentes) : modélisée comme AWD
+  if p.traction == 'AWD2' then p.traction = 'AWD' end
   if p.traction ~= 'RWD' and p.traction ~= 'FWD' and p.traction ~= 'AWD' then
     missing[#missing + 1] = 'transmission ' .. p.traction .. ' non modélisée'
   end
@@ -1142,7 +1144,10 @@ function M.configure(base, setup, conditions, tick, reuse)
   eff.a = eff.wheelbase * (1 - base.cgFront)   -- CG -> essieu avant
   eff.b = eff.wheelbase * base.cgFront         -- CG -> essieu arrière
   eff.wheelRadius = (eff.traction == 'FWD' and compound.front.radius or compound.rear.radius)
-  local grip = Util.finiteOr(conditions.roadGrip, 1) * Util.finiteOr(conditions.surfaceGrip, 1) * factors.mu
+  -- grip de la piste hors de 0,5…1,1 : valeur aberrante, 1 pris à la place (relecture du 29/10/2026)
+  local roadGrip = Util.finiteOr(conditions.roadGrip, 1)
+  if roadGrip < 0.5 or roadGrip > 1.1 then roadGrip = 1 end
+  local grip = roadGrip * Util.finiteOr(conditions.surfaceGrip, 1) * factors.mu
     * (1 + Util.finiteOr(conditions.driverMargin, 0))
   -- pression à chaud de chaque essieu : mesurée (calibration), sinon déduite de la pression à froid
   local hotF = hotOf(conditions, compound.front, setup.pressureF, conditions.hotPressureF, conditions.tyreTempF,

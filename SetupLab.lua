@@ -66,6 +66,8 @@ local app = {
   loaded = {},               -- genre -> valeurs du dernier setup chargé par SetupLab (retouches du pilote)
   pins = { quali = {}, race = {} }, -- genre -> cran retouché à la main après un chargement -> { value, from }
   start = {},                -- genre -> point de départ de l'affinage choisi : { mode, signature?, file?, ready }
+  refines = {},              -- genre -> dernier affinage de la séance (repris tel quel : versions et essais gardés)
+  manualKind = nil,          -- genre lancé à la main depuis un onglet (SetupLab actif ne le remplace pas)
   identityMisses = 0,        -- relectures d'affilée sans voiture ni circuit identifiés
   proposalOrigins = {},      -- genre -> signature du setup d'origine du setup proposé (validation, §14.1)
   quali = nil,               -- calcul de qualification : état, progression, résultat (§10.6)
@@ -137,9 +139,14 @@ local function memoryGroup(kind)
   return 'essai'
 end
 
--- Genre affiné quand SetupLab est actif : course en séance de course, tour rapide sinon (décision de Vincent).
-local function autoKind()
+-- Genre affiné quand SetupLab est actif : course en séance de course, tour rapide sinon (décision de Vincent) ; un
+-- affinage lancé à la main depuis un onglet garde son genre jusqu'à la séance suivante (relecture du 29/10/2026 : en
+-- séance de course sans qualification validée, l'affinage du tour rapide était remplacé à l'image suivante).
+local function sessionKind()
   return (app.context and app.context.sessionType == K.sessionTypeRace) and 'race' or 'quali'
+end
+local function autoKind()
+  return app.manualKind or sessionKind()
 end
 
 -- Nom de fichier choisi pour un genre (sans accent ni espace) ; '' si aucun.
@@ -295,7 +302,11 @@ local function conditionsOf(d)
   -- échelle des taux non confirmée en jeu (le SDK annonce 0…1) : le taux de consommation ne réduit
   -- jamais la consommation du modèle (§0.6, prudence : jamais de panne sèche)
   local fuelRate = rate(v.fuelConsumptionRate, assists.fuelRate)
-  return { airTemp = v.ambientTemperature, roadTemp = v.roadTemperature, roadGrip = v.roadGrip,
+  -- grip de la piste (relecture du 29/10/2026) : 0 donnait un tour de 6 h sans avertissement, 98 un tour trop rapide
+  local grip, gripIgnored = v.roadGrip, nil
+  if Util.isFinite(grip) and grip > 1.5 and grip <= 110 then grip = grip / 100 end
+  if Util.isFinite(grip) and (grip < 0.5 or grip > 1.1) then grip, gripIgnored = nil, v.roadGrip end
+  return { airTemp = v.ambientTemperature, roadTemp = v.roadTemperature, roadGrip = grip, roadGripIgnored = gripIgnored,
     surfaceGrip = d.trackModel and d.trackModel.surfaceGrip or 1,
     fuelRate = fuelRate and math.max(1, fuelRate) or nil, wearRate = rate(v.tyreConsumptionRate, assists.tyresWear) }
 end
@@ -509,6 +520,16 @@ end
 -- Réglages de suspension libérés par la rugosité mesurée (H17) ; butées et course avant butée restent
 -- conservées (H16 à confirmer).
 local SUSPENSION_KINDS = { 'spring', 'heave', 'damperSlow', 'damperFast' }
+
+-- Pneus de la voiture avec sensibilité à la charge (LS_EXPY) : sinon la suspension n'est pas libérée par la rugosité.
+local function tyresLoadSensitive(d)
+  for _, c in ipairs(d.carBase and d.carBase.compounds or {}) do
+    if not (c.front and c.front.lsExpY and c.rear and c.rear.lsExpY) then return false end
+  end
+  return true
+end
+local NO_LOAD_SENSITIVITY = 'conservé : pneus sans sensibilité à la charge (ancien format de tyres.ini), effet de la '
+  .. 'rugosité non modélisable'
 -- Raison de ne pas reprendre une entrée stockée par une autre version du modèle ou pour d'autres fichiers
 -- de la voiture (D9), ou nil.
 local function staleReason(entry, d)
@@ -553,6 +574,14 @@ local function restoreRoughness(d, rough)
   d.conditions.roughness = rough.G0
   app.roughness = { G0 = rough.G0, front = rough.front, rear = rough.rear, speed = rough.speed, consistent = true,
     stored = true }
+  if not tyresLoadSensitive(d) then
+    for _, var in ipairs(d.space.vars) do
+      for _, kind in ipairs(SUSPENSION_KINDS) do
+        if var.kind == kind and var.class == SetupSpace.EXCLUDED then var.reason = NO_LOAD_SENSITIVITY end
+      end
+    end
+    return nil
+  end
   for _, kind in ipairs(SUSPENSION_KINDS) do
     SetupSpace.release(d.space, kind, SetupSpace.REDUCED, 'rugosité mesurée lors d\'une séance précédente')
   end
@@ -771,6 +800,7 @@ local function refreshContext()
     app.proposalOrigins, app.pendingComputes, app.saved, app.refine = {}, {}, {}, nil
     app.memory, app.memoryFiles = {}, {}
     app.loaded, app.pins, app.start = {}, { quali = {}, race = {} }, {}
+    app.refines, app.manualKind = {}, nil
     app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
@@ -795,7 +825,7 @@ local function refreshContext()
         .. ' ; les setups enregistrés restent chargeables)') or '') .. '.'
       log('INFO', 'session', app.ui.message)
       -- un chargement armé ne survit pas à un changement de séance ; nouveau point de départ à choisir
-      app.loadArm, app.start = nil, {}
+      app.loadArm, app.start, app.manualKind = nil, {}, nil
       startDiscovery()
     else
       app.pendingSessionKey = c.conditionsKey
@@ -948,7 +978,13 @@ local function measureRoughness(d, lap)
     end
     d.conditions.roughness = r.G0
     for _, kind in ipairs(SUSPENSION_KINDS) do
-      SetupSpace.release(d.space, kind, SetupSpace.REDUCED, 'rugosité mesurée sur un tour')
+      if tyresLoadSensitive(d) then
+        SetupSpace.release(d.space, kind, SetupSpace.REDUCED, 'rugosité mesurée sur un tour')
+      else
+        for _, var in ipairs(d.space.vars) do
+          if var.kind == kind and var.class == SetupSpace.EXCLUDED then var.reason = NO_LOAD_SENSITIVITY end
+        end
+      end
     end
     d.optimizable = SetupSpace.optimizable(d.space)
     Store.put(app.store, storeKey('rough', d), { G0 = r.G0, front = r.front, rear = r.rear, speed = r.speed,
@@ -2527,7 +2563,8 @@ local function refineFinish(r, q)
   if origin and r.rejected[origin] then
     -- calcul parti d'une version non gardée encore dans la voiture : rien de proposé
     note.note = 'parti d\'une version non gardée : rien de proposé'
-    r.waiting = 'Version non gardée encore dans la voiture : charger la référence (ou un autre setup) au stand.'
+    r.waiting = 'Le setup dans la voiture n\'est pas celui retenu : charger au stand le setup validé (bouton vert « Charger »), '
+      .. 'ou changer de départ.'
   elseif #result.changes == 0 or gain < K.refineMinGain then
     note.note = #result.changes == 0 and 'setup actuel conservé : le meilleur trouvé'
       or ('setup actuel conservé : gain prévu sous ' .. Util.fmt(K.refineMinGain, 2) .. ' s')
@@ -2591,7 +2628,12 @@ end
 -- voiture (valeur par défaut de chaque cran, lue par CSP), écrit dans un fichier SetupLab puis chargé au stand ;
 -- « reference » : la référence validée du circuit, chargée au stand. Le choix remet à zéro vos retouches gardées.
 local function startReady(kind)
+  if kind == 'race' then return true end
   local s = app.start[kind]
+  if s and not s.ready and s.signature and app.discovery and app.discoveryState == 'done'
+      and app.discovery.signature == s.signature then
+    s.ready = true
+  end
   return s ~= nil and s.ready == true
 end
 app.startReady = startReady
@@ -2698,6 +2740,11 @@ local function lastVersionOnDisk(kind)
       if v and v > top then top = v end
     end
   end
+  -- version gardée en mémoire dont le fichier a disparu (journal du 29/10/2026 : v12 en mémoire, fichier absent, nouvel
+  -- essai numéroté v12) : son numéro n'est pas repris
+  for _, m in pairs(app.memory) do
+    if (m.group == 'course') == (kind == 'race') and Util.isFinite(m.version) and m.version > top then top = m.version end
+  end
   return top
 end
 
@@ -2717,11 +2764,32 @@ local function defaultSetup(d)
   return text, values
 end
 
+local function refineStop()
+  local r = app.refine
+  if not (r and r.active) then return end
+  r.active, r.phase, r.due, r.needsDiscovery = false, 'arrêté', false, false
+  app.ui.message = 'Affinage arrêté' .. (r.version > (r.base or 0) and (' : dernière version v' .. r.version .. '.') or '.')
+  log('INFO', 'refine', app.ui.message)
+end
+
 local function refineStart(kind)
+  local prev = app.refines[kind]
+  if prev and not prev.active and prev.sessionKey == app.conditionsKey and prev.startRef == app.start[kind] then
+    if app.refine and app.refine.active and app.refine ~= prev then refineStop() end
+    app.refine = prev
+    prev.active, prev.phase, prev.due, prev.nextAt = true, 'tours', true, nil
+    app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' repris' .. (prev.version > (prev.base or 0)
+      and (' : v' .. prev.version .. ' et les versions précédentes sont gardées.') or '.')
+    log('INFO', 'refine', app.ui.message)
+    return
+  end
+  -- un seul affinage actif : celui d'un autre genre s'arrête (il se reprendra tel quel)
+  if app.refine and app.refine.active then refineStop() end
   local base = lastVersionOnDisk(kind)
   app.refine = { kind = kind, active = true, phase = 'tours', version = base, base = base, laps = 0, history = {},
-    rejected = {} }
+    rejected = {}, sessionKey = app.conditionsKey, startRef = app.start[kind] }
   local r = app.refine
+  app.refines[kind] = r
   -- tours propres déjà roulés avec le setup en cours (avant d'activer l'affinage) : ils comptent pour le minimum
   local d = app.discovery
   local f = d and d.family and app.recorder.laps.family[Recorder.bestKey(d.family, app.wet.state)]
@@ -2742,13 +2810,6 @@ local function refineStart(kind)
   end
 end
 
-local function refineStop()
-  local r = app.refine
-  if not (r and r.active) then return end
-  r.active, r.phase, r.due, r.needsDiscovery = false, 'arrêté', false, false
-  app.ui.message = 'Affinage arrêté' .. (r.version > (r.base or 0) and (' : dernière version v' .. r.version .. '.') or '.')
-  log('INFO', 'refine', app.ui.message)
-end
 
 -- ---------------------------------------------------------------------------
 -- Valider, écarter, figer ; mémoire du circuit ; SetupLab actif (décisions de Vincent du 21/10/2026 :
@@ -2841,6 +2902,7 @@ local function refineValidate(r, e)
     return nil
   end
   e.status = 'validée'
+  r.waiting = nil
   if m and not same then e.replaced = m end
   local entry = { group = e.group, bucket = e.bucket, file = e.file, hash = e.hash, version = e.version, gain = e.gain,
     time = e.timeProposed, locked = same and m.locked or false, path = e.path, text = e.text, signature = e.signature,
@@ -2863,6 +2925,7 @@ local function refineReject(r, e)
     return
   end
   e.status = 'écartée'
+  r.waiting = nil
   r.rejected[e.signature] = true
   -- son fichier, écrit à sa validation, part à la Corbeille voiture arrêtée (réponse de Vincent du 22/10/2026) ;
   -- un fichier enregistré à la main reste
@@ -2997,6 +3060,10 @@ local function refineLock(version)
     app.ui.message = 'v' .. version .. ' n\'est pas gardée : rien à figer.'
     return
   end
+  if keptCount(e) == 0 then
+    app.ui.message = 'v' .. e.version .. ' : aucun réglage gardé ; « Recommencer » pour ne pas la garder.'
+    return
+  end
   local m = refineValidate(r, e)
   if m then lockEntry(m, r.kind) end
 end
@@ -3033,8 +3100,19 @@ local function startChoose(kind, mode)
     return
   end
   local label = COMPUTE[kind].label
-  -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus
+  -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus ; un chargement armé non
+  -- plus ; les fichiers d'essai de l'affinage d'avant (versions jamais validées) partent à la Corbeille
   app.pins[kind], app.loaded[kind] = {}, nil
+  app.loadArm, app.loadNote = nil, nil
+  local old = app.refines[kind]
+  for _, e in ipairs(old and old.history or {}) do
+    if e.version and e.status == 'essai' and e.trial and app.written[e.trial.file] == e.trial.hash then
+      queueFileOp({ op = 'corbeille', name = e.trial.file, hash = e.trial.hash,
+        why = 'essai de v' .. e.version .. ' abandonné (nouveau départ)' })
+    end
+  end
+  app.refines[kind] = nil
+  if kind ~= sessionKind() then app.manualKind = kind end
   if mode == 'default' then
     local text, values = defaultSetup(d)
     if text == nil then
@@ -3070,6 +3148,7 @@ local function startChoose(kind, mode)
       .. '« Charger » pour le mettre dans la voiture ; l\'affinage ' .. label .. ' partira de lui.'
   elseif mode == 'reference' then
     local m = app.memory[memoryGroup(kind) .. '|' .. app.wet.state]
+    if not (m and m.text) and kind ~= 'race' then m = app.memory['essai|' .. app.wet.state] end
     if not (m and m.text and m.signature) then
       app.ui.message = 'Départ impossible : aucune référence validée sur ce circuit.'
       return
@@ -3080,6 +3159,7 @@ local function startChoose(kind, mode)
       or '. Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l\'affinage partira d\'elle.')
   else
     app.start[kind] = { mode = 'mine', ready = true }
+    app.saved[kind] = nil
     app.ui.message = 'Départ : votre setup actuel (celui qui est dans la voiture). L\'affinage ' .. label .. ' part de lui.'
   end
   log('INFO', 'start', app.ui.message)
@@ -3187,6 +3267,7 @@ local function handleIntents(intents)
   end
   if intents.refineStop then
     refineStop()
+    app.manualKind = nil
     -- SetupLab actif : arrêter l'affinage le met en veille (sinon il repartirait tout seul)
     if app.auto then
       app.auto = false
@@ -3202,8 +3283,10 @@ local function handleIntents(intents)
   end
   -- affinage lancé à la main depuis un onglet : il part du setup qui est dans la voiture, sauf départ déjà choisi
   if intents.refineStart then
-    if app.start[intents.refineStart] == nil then app.start[intents.refineStart] = { mode = 'mine', ready = true } end
-    refineStart(intents.refineStart)
+    local kind = intents.refineStart
+    if kind ~= 'race' and app.start[kind] == nil then app.start[kind] = { mode = 'mine', ready = true } end
+    app.manualKind = kind ~= sessionKind() and kind or nil
+    refineStart(kind)
   end
   if intents.refineJudge then refineJudge(intents.refineJudge.version, intents.refineJudge.verdict) end
   if intents.effect then effectToggle(intents.effect.version, intents.effect.key, intents.effect.keep) end

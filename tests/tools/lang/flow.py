@@ -124,4 +124,35 @@ EN = {
     ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)': ' (adjustable: SETTINGS tab, "When SetupLab proposes a setup")',
     "2. Rouler : après le nombre de tours propres choisi (onglet RÉGLAGES, 0 pour tout de suite ; ou premier setup tout de suite, d'après la voiture et la piste), SetupLab propose une version. En piste, il annonce qu'il a le minimum d'informations et continue d'analyser vos tours ; elle est prête à votre retour au stand.":
         '2. Drive: after the chosen number of clean laps (SETTINGS tab, 0 for right away; or first setup right away, from the car and the track), SetupLab proposes a version. On track, it announces that it has the minimum information and keeps analysing your laps; it is ready when you return to the pits.',
+    "Calcule tout de suite et annonce chaque setup amélioré (rien n'est enregistré avant « Valider »), puis recalcule %s, jusqu'à l'arrêt. Le chargement se fait au stand, en deux clics.":
+        'Computes right away and announces each improved setup (nothing is saved before "Validate"), then computes again %s, until you stop it. Loading happens in the pits, in two clicks.',
+    "Choisissez d'abord le point de départ (carte du haut).": 'Choose the starting point first (card at the top).',
+    'Affinage %s repris : v%s et les versions précédentes sont gardées.': '%s refinement resumed: v%s and the previous versions are kept.',
+    'Affinage %s repris.': '%s refinement resumed.',
+    'Le setup de course se fait après une version de qualification validée (au moins une v1).':
+        'The race setup comes after a validated qualifying version (at least a v1).',
+    'À faire : %s.': 'To do: %s.',
+    'À faire : %s. Le setup de course se fait après une version de qualification validée (au moins une v1).':
+        'To do: %s. The race setup comes after a validated qualifying version (at least a v1).',
+    'À faire : %s. (onglet COURSE)': 'To do: %s. (RACE tab)',
+    'Affiner le tour rapide': 'Refine the qualifying setup',
+    "Lance l'affinage du setup de tour rapide (onglet QUALIF), même en séance de course.":
+        'Starts refining the qualifying setup (QUALIFYING tab), even in a race session.',
+    '%s est figée (cadenas) : SetupLab ne propose plus rien sur ce circuit. Choisir un départ la déverrouille.':
+        '%s is locked (padlock): SetupLab no longer proposes anything on this track. Choosing a starting point unlocks it.',
+    'Setup figé': 'Setup locked',
+    "%s est figé (cadenas) : SetupLab ne propose plus rien pour cette séance. Déverrouillez-le pour reprendre l'affinage.":
+        '%s is locked (padlock): SetupLab no longer proposes anything for this session. Unlock it to resume the refinement.',
+    'Déverrouiller': 'Unlock',
+    'v%s non gardée · encore dans la voiture': 'v%s not kept · still in the car',
+    "Au stand, menu de setup d'AC : chargez votre setup d'avant%s, ou changez de départ ci-dessous. SetupLab repart du setup qui sera dans la voiture.":
+        "In the pits, AC's setup menu: load your previous setup%s, or change the starting point below. SetupLab continues from the setup that will be in the car.",
+    'v%s validée · à charger au stand': 'v%s validated · to load in the pits',
+    "L'essai complet est encore dans la voiture : au stand, bouton vert « Charger » (onglet %s) pour mettre v%s (réglages gardés), puis roulez.":
+        'The full trial is still in the car: in the pits, green "Load" button (%s tab) to put v%s (kept settings) in the car, then drive.',
+    "Le setup dans la voiture n'est pas celui retenu : charger au stand le setup validé (bouton vert « Charger »), ou changer de départ.":
+        'The setup in the car is not the one kept: load the validated setup in the pits (green "Load" button), or change the starting point.',
+    'Grip de la piste lu dans CSP hors plage (%s) : 100 % pris à la place.': 'Track grip read from CSP out of range (%s): 100 % used instead.',
+    'conservé : pneus sans sensibilité à la charge (ancien format de tyres.ini), effet de la rugosité non modélisable':
+        'kept: tyres without load sensitivity (old tyres.ini format), effect of the roughness cannot be modelled',
 }

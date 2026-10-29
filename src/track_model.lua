@@ -382,7 +382,9 @@ function M.drsZones(ini, t)
   return zones
 end
 
--- Grip de la chaussée (surfaces.ini) : surface valide de type route/asphalte la plus adhérente.
+-- Grip de la chaussée (surfaces.ini) : surface valide de type route/asphalte la plus adhérente ; voie des stands et
+-- surfaces sous 0,85 (herbe, gravier, vibreurs) écartées (relecture du 29/10/2026 : sur les quatre circuits Kunos, aucun
+-- nom ne correspondait et la voie des stands pouvait servir de référence).
 function M.surfaceGrip(ini)
   if ini == nil then return 1, 'défaut' end
   local best, bestAny = nil, nil
@@ -390,8 +392,9 @@ function M.surfaceGrip(ini)
     local friction = Util.iniNumber(ini, section, 'FRICTION', nil)
     local valid = Util.iniNumber(ini, section, 'IS_VALID_TRACK', 1) == 1
     local key = (Util.iniGet(ini, section, 'KEY') or ''):upper()
-    if friction and valid and friction > 0 and friction <= 2 then
-      if key:find('ROAD') or key:find('ASPHALT') or key:find('TRACK') then
+    local pit = key:find('PIT') ~= nil
+    if friction and valid and not pit and friction >= 0.85 and friction <= 1.6 then
+      if key:find('ROAD') or key:find('ASP') or key:find('TARMAC') or key:find('TRACK') then
         if best == nil or friction > best then best = friction end
       end
       if bestAny == nil or friction > bestAny then bestAny = friction end

@@ -623,4 +623,92 @@ tests['NV16 premier setup tout de suite, ou après les tours choisis (0 à 10)']
   T.eq(app.perf.errors, 0)
 end
 
+-- Relecture du 29/10/2026 : en séance de course sans qualification validée, « Affiner le tour rapide » (carte d'étape)
+-- lance l'affinage du tour rapide, que SetupLab actif ne remplace plus ; une v1 validée débloque la course.
+tests['NV17 séance de course sans qualification : affiner le tour rapide, puis la course se débloque'] = function()
+  local h, app = ready({ session = 3, skin = true })
+  frames(h, 1)
+  T.ok(shownText(h, 'Course · avant le calcul'), 'course : la garde d\'abord, pas de départ à choisir')
+  h.click = 'step_quali'
+  frames(h, 1)
+  T.eq(app.ui.tab, 'Tour rapide', 'vers l\'onglet QUALIF')
+  frames(h, 120)
+  T.ok(app.refine and app.refine.kind == 'quali' and app.refine.active, 'tour rapide affiné, pas remplacé par la course')
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  T.eq(r.kind, 'quali', 'départ choisi : toujours le tour rapide')
+  T.ok(waitFor(h, function() return r.version > r.base and r.phase == 'tours' end), 'v1')
+  app.handleIntents({ refineJudge = { version = r.version, verdict = 'valider' } })
+  local _, action = app.raceBlocker()
+  T.ok(action ~= 'qualif', 'course débloquée : ' .. tostring(action))
+  T.eq(app.perf.errors, 0)
+end
+
+-- Affinage de la course lancé à la main en séance d'essai, puis retour au tour rapide : chacun reprend ses versions.
+tests['NV18 affinage course lancé à la main ; tour rapide repris avec ses versions'] = function()
+  local h, app = ready()
+  app.handleIntents({ start = 'mine' })
+  local q = app.refine
+  T.ok(waitFor(h, function() return q.version > q.base and q.phase == 'tours' end), 'v1 tour rapide')
+  local count = #q.history
+  app.handleIntents({ refineStart = 'race' })
+  frames(h, 120)
+  T.ok(app.refine.kind == 'race' and app.refine.active, 'course gardée (pas remplacée par le tour rapide)')
+  app.handleIntents({ refineStart = 'quali' })
+  frames(h, 2)
+  T.eq(app.refine, q, 'tour rapide repris')
+  T.eq(#q.history, count, 'versions gardées')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Veille puis actif : l'essai en cours reste ; changer de départ : son fichier part à la Corbeille.
+tests['NV19 essai gardé en veille ; nouveau départ : fichier d\'essai à la Corbeille'] = function()
+  local h, app = ready()
+  local folder = folderOf(h)
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version > r.base and r.phase == 'tours' end), 'v1')
+  local e = r.history[#r.history]
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'essayer' } })
+  T.eq(e.status, 'essai', tostring(app.ui.message))
+  local trial = e.trial.file
+  app.handleIntents({ autoToggle = true })
+  frames(h, 2)
+  app.handleIntents({ autoToggle = true })
+  frames(h, 2)
+  T.eq(app.refine, r, 'même affinage repris')
+  T.eq(e.status, 'essai', 'essai toujours en cours')
+  app.handleIntents({ startReset = 'quali' })
+  app.handleIntents({ start = 'mine' })
+  local queued = h.written[folder .. '/' .. trial] == nil
+  for _, op in ipairs(app.fileOps or {}) do queued = queued or op.name == trial end
+  T.ok(queued, 'fichier d\'essai abandonné : à la Corbeille')
+  T.ok(app.refine ~= r, 'nouvel affinage')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Figer : la carte d'étape le dit et propose « Déverrouiller » ; figer sans réglage gardé est refusé ; version non
+-- gardée encore dans la voiture, sans référence : la carte dit quoi faire.
+tests['NV20 setup figé dans la carte ; figer à 0 refusé ; version non gardée dans la voiture'] = function()
+  local h, app = ready({ skin = true })
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version > r.base and r.phase == 'tours' end), 'v1')
+  local e = r.history[#r.history]
+  app.handleIntents({ effect = { version = e.version, key = '*', keep = false } })
+  app.handleIntents({ refineLock = e.version })
+  T.eq(e.status, nil, 'figer sans réglage gardé : refusé')
+  T.contains(app.ui.message, 'aucun réglage gardé')
+  app.handleIntents({ effect = { version = e.version, key = '*', keep = true } })
+  app.handleIntents({ refineLock = e.version })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  frames(h, 2)
+  T.ok(shownText(h, 'Setup figé'), 'carte : setup figé')
+  h.click = 'step_unlock'
+  frames(h, 1)
+  T.no(app.memory[app.memoryGroupOf('quali') .. '|sec'].locked, 'déverrouillé depuis la carte')
+  T.ok(waitFor(h, function() return app.refine.active end, 600), 'affinage repris')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

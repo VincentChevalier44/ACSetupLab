@@ -199,10 +199,12 @@ function M.versionInName(name, genre, wet)
   return v and tonumber(v) or nil
 end
 
--- Identifiant de contenu AC (dossier voiture/circuit) : refuse tout séparateur de chemin.
+-- Identifiant de contenu AC (dossier voiture/circuit, nom de fichier de données) : refuse tout séparateur de chemin,
+-- « .. », les caractères de contrôle, ceux interdits par Windows et les séparateurs du stockage (| # = :) ; espaces,
+-- accents et parenthèses des dossiers de mods acceptés (relecture du 29/10/2026).
 function M.isSafeId(s)
-  return type(s) == 'string' and #s > 0 and #s <= M.LIMITS.idChars and s:find('^[%w_%-%.]+$') ~= nil
-    and s:find('..', 1, true) == nil
+  return type(s) == 'string' and #s > 0 and #s <= M.LIMITS.idChars and s:find('[%c/\\:|#=*?"<>]') == nil
+    and s:find('..', 1, true) == nil and s:find('^[%s%.]') == nil and s:find('[%s%.]$') == nil
 end
 
 -- Formatage tolérant des nombres pour l'interface et le rapport.

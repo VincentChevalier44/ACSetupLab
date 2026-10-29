@@ -251,20 +251,21 @@ tests['D09 circuit : échantillonnage de la ligne IA (Spa, Monza, Red Bull Ring)
   end
   local coarse = Datasource.sampleTrack(host('lamborghini_huracan_gt3_evo2', 'monza'), 5, SYNC)
   T.eq(coarse.n, math.floor(coarse.lengthSim / 5 + 0.5))
-  -- Constat n° 11 : circuit ouvert (A-B) échantillonné jusqu'à p = 1, polyligne non fermée.
+  -- Constat n° 11 : circuit ouvert (A-B) échantillonné jusqu'à l'arrivée, polyligne non fermée ; dernier point juste
+  -- avant p = 1 (relecture du 29/10/2026 : p = 1 pourrait revenir au départ), à quelques millimètres de l'arrivée.
   local hOpen = host('lamborghini_huracan_gt3_evo2', 'ks_red_bull_ring-layout_gp')
   hOpen.sim.isTrackOpen = true
   local open = Datasource.sampleTrack(hOpen, 5, SYNC)
   local x1, _, z1 = Fake.sampleTrack(hOpen.track, 1)
-  T.near(open.x[open.n], x1, 1e-6, 'dernier point = arrivée (p = 1)')
-  T.near(open.z[open.n], z1, 1e-6)
+  T.near(open.x[open.n], x1, 0.05, 'dernier point = arrivée (p = 1 − 1e-6)')
+  T.near(open.z[open.n], z1, 0.05)
   T.near(open.lengthModel / open.lengthSim, 1, K.trackLengthTolSim, 'longueur d\'un tracé ouvert')
 end
 
 tests['D10 circuit : cas dégradés'] = function()
   T.eq(Datasource.sampleTrack(host('formula_k', 'spa', { noSpline = true }), 2, SYNC).reason, 'aucune ligne IA (fast_lane)')
-  T.ok(Datasource.sampleTrack(host('formula_k', 'spa', { trackLength = 300 }), 2, SYNC).reason:find('hors plage'))
-  T.ok(Datasource.sampleTrack(host('formula_k', 'spa', { trackLength = 30000 }), 2, SYNC).reason:find('hors plage'))
+  T.ok(Datasource.sampleTrack(host('formula_k', 'spa', { trackLength = 150 }), 2, SYNC).reason:find('hors plage'))
+  T.ok(Datasource.sampleTrack(host('formula_k', 'spa', { trackLength = 80000 }), 2, SYNC).reason:find('hors plage'))
   local h = host('formula_k', 'monza', { throwing = { 'ac.trackProgressToWorldCoordinate' } })
   local t = Datasource.sampleTrack(h, 2, SYNC)
   T.no(t.ok)

@@ -373,14 +373,16 @@ tests['T09 performance et découpage (D6)'] = function()
   T.ok(t.n > 3000)
 end
 
-tests['T10 §16.7 : circuit de moins de 500 m ou de plus de 25 km refusé, raison donnée'] = function()
-  local short, why = TrackModel.build(rawFrom(circle(70, 2, 1)), nil, 2)   -- 440 m
+-- Bornes élargies le 29/10/2026 (relecture des données) : karting dès 200 m, grands circuits jusqu'à 75 km.
+tests['T10 §16.7 : circuit de moins de 200 m ou de plus de 75 km refusé, raison donnée'] = function()
+  local short, why = TrackModel.build(rawFrom(circle(25, 2, 1)), nil, 2)   -- 157 m
   T.eq(short, nil)
   T.contains(why, 'longueur hors plage')
-  local long, why2 = TrackModel.build(rawFrom(circle(4200, 25, 1)), nil, 5)   -- 26,4 km
+  local long, why2 = TrackModel.build(rawFrom(circle(12800, 25, 1)), nil, 5)   -- 80,4 km
   T.eq(long, nil)
   T.contains(why2, 'longueur hors plage')
-  T.ok(TrackModel.build(rawFrom(circle(100, 2, 1)), nil, 2), '628 m : accepté')
+  T.ok(TrackModel.build(rawFrom(circle(70, 2, 1)), nil, 2), '440 m (karting) : accepté')
+  T.ok(TrackModel.build(rawFrom(circle(4200, 25, 1)), nil, 5), '26,4 km : accepté')
 end
 
 return tests
