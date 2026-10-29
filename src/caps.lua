@@ -64,8 +64,10 @@ function M.resolve(host, path)
   return value
 end
 
--- Horloge précise en secondes via QueryPerformanceCounter (lecture seule, sans os.*, §16.2).
-function M.makeClock(ffi)
+-- Horloge précise en secondes : QueryPerformanceCounter par FFI (lecture seule) ; sinon l'horloge officielle de CSP
+-- (os.preciseClock, passée par la colle ; accord de Vincent du 29/10/2026 : CSP 0.3.1-preview2 bloque l'appel à
+-- kernel32). Renvoie l'horloge, la raison si aucune, et la source.
+local function qpcClock(ffi)
   if ffi == nil then return nil, 'FFI indisponible' end
   pcall(ffi.cdef, 'int QueryPerformanceCounter(int64_t*); int QueryPerformanceFrequency(int64_t*);')
   local okC, counter = pcall(function() return ffi.C.QueryPerformanceCounter end)
@@ -86,6 +88,20 @@ function M.makeClock(ffi)
     return nil, 'lectures incohérentes'
   end
   return clock, nil
+end
+
+function M.makeClock(ffi, preciseClock)
+  local clock, why = qpcClock(ffi)
+  if clock then return clock, nil, 'QueryPerformanceCounter via FFI' end
+  if M.isCallable(preciseClock, ffi) then
+    local okA, a = pcall(preciseClock)
+    local okZ, z = pcall(preciseClock)
+    if okA and okZ and Util.isFinite(a) and Util.isFinite(z) and z >= a then
+      return function() return preciseClock() end, nil, 'horloge de CSP (os.preciseClock)'
+    end
+    why = why .. ' ; os.preciseClock incohérente'
+  end
+  return nil, why, nil
 end
 
 -- Décalage de l'heure locale de Windows sur l'heure universelle (s, heure d'été comprise), pour les noms
@@ -467,7 +483,8 @@ function M.evaluate(static, d)
   end
 
   add('clock', 'Horloge précise (tranches de calcul)', d.clockOk and M.AVAILABLE or M.PENDING,
-    d.clockOk and 'QueryPerformanceCounter via FFI' or ('repli : quota fixe de travail par frame (' .. tostring(d.clockReason) .. ')'))
+    d.clockOk and tostring(d.clockSource or 'QueryPerformanceCounter via FFI')
+      or ('repli : quota fixe de travail par frame (' .. tostring(d.clockReason) .. ')'))
   return caps
 end
 

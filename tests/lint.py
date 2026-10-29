@@ -186,6 +186,11 @@ class Checker:
             self.check_string(node)
             return
         if kind == 'Index':
+            # seule exception à l'interdiction d'os (accord de Vincent du 29/10/2026) : os.preciseClock, lu dans la colle
+            if (self.role == 'glue' and type(node.value).__name__ == 'Name' and node.value.id == 'os'
+                    and not str(node.notation).endswith('SQUARE') and type(node.idx).__name__ == 'Name'
+                    and node.idx.id == 'preciseClock' and not write):
+                return
             self.visit(node.value)
             if str(node.notation).endswith('SQUARE'):
                 self.visit(node.idx)

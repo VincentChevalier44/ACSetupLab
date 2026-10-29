@@ -2724,7 +2724,8 @@ function M.debug(host, app)
   local ui = host.ui
   local s = app.scheduler.stats
   local p = app.perf
-  ui.text('Horloge : ' .. (app.clock and 'QueryPerformanceCounter' or ('repli quota (' .. tostring(app.clockReason) .. ')'))
+  ui.text('Horloge : ' .. (app.clock and tostring(app.clockSource or 'QueryPerformanceCounter')
+    or ('repli quota (' .. tostring(app.clockReason) .. ')'))
     .. ' ; boucle : ' .. tostring(app.updateSource or 'pas encore appelée'))
   local offset = app.utcOffset and app.utcOffset() or nil
   ui.text('Heure des noms de fichiers : ' .. (offset and ('locale (UTC' .. (offset >= 0 and '+' or '-')

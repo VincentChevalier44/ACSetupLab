@@ -26,18 +26,22 @@ local previous = rawget(_G, 'SETUPLAB')
 if type(previous) == 'table' and type(previous.release) == 'function' then pcall(previous.release) end
 
 local okFfi, ffi = pcall(require, 'ffi')
+-- horloge officielle de CSP, seule fonction os.* utilisée (accord de Vincent du 29/10/2026, A2 amendé) ; absente
+-- (CSP 0.2.11) ou os indisponible : nil
+local okClock, preciseClock = pcall(function() return os.preciseClock end)
 
 local host = {
   ac = ac, physics = physics, io = io, ui = ui,
   vec2 = vec2, vec3 = vec3, rgbm = rgbm,
   ffi = okFfi and ffi or nil,
+  preciseClock = okClock and preciseClock or nil,
 }
 
 local app = {
   settings = Config.defaults(),
   log = Util.logNew(K.logCapacity, K.logMinInterval, K.logMaxChars),
   scheduler = Util.schedulerNew(K.unitDecay),
-  clock = nil, clockReason = nil,
+  clock = nil, clockReason = nil, clockSource = nil,
   utcOffset = nil, utcOffsetReason = nil, -- décalage heure locale - UTC (noms des fichiers enregistrés)
   static = nil,
   context = nil, contextKey = nil, nextContextAt = 0,
@@ -407,7 +411,8 @@ local function ersStatus(d)
 end
 
 local function discover(ctx)
-  local d = { static = app.static, clockOk = app.clock ~= nil, clockReason = app.clockReason, writeTest = app.writeTest,
+  local d = { static = app.static, clockOk = app.clock ~= nil, clockReason = app.clockReason, clockSource = app.clockSource,
+    writeTest = app.writeTest,
     loadTest = app.loadTest, loadVerified = app.loadVerified }
   d.session = Datasource.readSession(host)
   ctx.tick()
@@ -3404,7 +3409,7 @@ end
 
 SETUPLAB = { app = app, release = release, version = Config.version }
 
-app.clock, app.clockReason = Caps.makeClock(host.ffi)
+app.clock, app.clockReason, app.clockSource = Caps.makeClock(host.ffi, host.preciseClock)
 app.static = Caps.probeStatic(host)
 if app.settings.debugLog then app.log.maxLevel = Util.LEVELS.DEBUG end
 log('INFO', 'start', Config.appName .. ' ' .. Config.version .. ' démarré ; CSP ' .. tostring(app.static.version)

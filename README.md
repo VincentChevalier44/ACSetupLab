@@ -65,7 +65,7 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 - It only writes **on your click**: "Car's default setup" (step 1), "Try", "Save", "Validate", "Lock", plus a backup copy of the current setup just before a load, when useful.
 - It never touches your own files. It only tidies files it wrote, intact (recognised by name and content fingerprint), with the car stopped: to the **Windows Recycle Bin** for sorted trial files, versions you do not keep and redundant backup copies; it **renames** a kept qualifying version to add your best lap. With CSP 0.2.11, the Recycle Bin is not yet available to apps: these files are deleted permanently.
 - The car setup only changes on your explicit request: in the pits, car stopped, setup menu open, in two clicks, after a backup copy; only a file written by SetupLab can be loaded.
-- No network access, no `os.*`, `loadstring` or `dofile`.
+- No network access, no `loadstring` or `dofile`, and no `os.*` except CSP's precise clock (`os.preciseClock`), used to time its computation slices.
 - It is inactive online and in replays.
 - It trusts no data it reads (car files, game state, storage): everything is bounded and validated.
 

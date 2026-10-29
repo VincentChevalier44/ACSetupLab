@@ -30,6 +30,9 @@ def lint_self_tests():
     cases = [
         ('src/util.lua', 'local M = {}\nM.x = ac.getCar(0)\nreturn M\n', 'global read: ac'),
         ('src/datasource.lua', 'local t = os.time()\nreturn t\n', 'forbidden global: os'),
+        # os.preciseClock : permis dans la colle seulement (accord de Vincent du 29/10/2026) ; os.time reste interdit
+        ('src/caps.lua', 'local c = os.preciseClock\nreturn c\n', 'forbidden global: os'),
+        ('SetupLab.lua', 'local t = os.time()\nreturn t\n', 'forbidden global: os'),
         ('src/caps.lua', 'local f = loadstring("x")\nreturn f\n', 'forbidden global: loadstring'),
         ('src/util.lua', 'x = 1\n', 'global write: x'),
         ('src/util.lua', 'local y = 1\n', 'unused local: y'),

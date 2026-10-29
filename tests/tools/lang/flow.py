@@ -171,4 +171,6 @@ EN = {
     'Tour non compté : %s ; %s.': 'Lap not counted: %s; %s.',
     '%s — dernier tour non compté : %s': '%s — last lap not counted: %s',
     'non valide': 'not valid',
+    'horloge de CSP (os.preciseClock)': "CSP's clock (os.preciseClock)",
+    'QueryPerformanceCounter introuvable ; os.preciseClock incohérente': 'QueryPerformanceCounter not found; os.preciseClock inconsistent',
 }

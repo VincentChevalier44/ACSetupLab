@@ -19,7 +19,8 @@ DIST = APP / 'dist'
 # Liste blanche : fichiers et dossiers distribués (tout le reste est exclu).
 FILES = ['SetupLab.lua', 'manifest.ini', 'icon.png', 'README.md', 'CHANGELOG.md']
 DIRS = {'src': ('.lua',), 'docs': ('.md', '.html')}
-FORBIDDEN = re.compile(r'\b(os\.\w+|loadstring|dofile|web\.\w+)\s*\(')
+# os.preciseClock (horloge officielle de CSP) : seule exception, accord de Vincent du 29/10/2026
+FORBIDDEN = re.compile(r'\b(os\.(?!preciseClock\b)\w+|loadstring|dofile|web\.\w+)\s*\(')
 
 
 def version_of_config():

@@ -258,4 +258,20 @@ tests['K07 rapport J0 : contenu, déterminisme, troncature'] = function()
   T.contains(minimal, 'SetupLab')
 end
 
+-- CSP 0.3.1-preview2 bloque QueryPerformanceCounter (rapport J0 du 29/10/2026) : l'horloge officielle de CSP prend le
+-- relais (accord de Vincent) ; sans elle, repli sur le quota.
+tests['C20 horloge : sans QueryPerformanceCounter, os.preciseClock de CSP'] = function()
+  local blocked = { cdef = function() end, C = setmetatable({}, { __index = function() error('symbole bloqué') end }),
+    new = function() return {} end }
+  local t = 10
+  local clock, reason, source = Caps.makeClock(blocked, function() t = t + 0.001; return t end)
+  T.ok(clock, tostring(reason))
+  T.contains(source, 'os.preciseClock')
+  local a, b = clock(), clock()
+  T.ok(b > a)
+  local none, why = Caps.makeClock(blocked, nil)
+  T.eq(none, nil)
+  T.contains(why, 'QueryPerformanceCounter introuvable')
+end
+
 return tests
