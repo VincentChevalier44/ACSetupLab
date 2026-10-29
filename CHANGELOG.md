@@ -17,7 +17,8 @@
 - **English and French**: English by default, French with one click. Everything is translated: menus, buttons, messages, on-screen announcements, hover help, overlay and debug window. Help on hover for every app setting. Setting explanations are written in both languages.
 - **File names follow the language**: `SetupLab_Quali_v1.ini`, `_Race`, `_Wet`, `_trial`, `SetupLab_Before_load_…` in English; the French names are unchanged. Version numbers continue across both languages; existing files are still recognised.
 - **Documentation**: user guide in English (`docs/notice.html`) and French (`docs/notice.fr.html`), both in the archive; README and changelog in English.
-- **Tests**: over 300, including the full flow replayed in English with every tooltip open (no French text may remain), the cost of the English interface, the effect buttons, the race panel, the language badge and the English file names.
+- **Tried in game** with the Ferrari 488 GT3 (Kunos) at Spa.
+- **Tests**: over 320, including the full flow replayed in English with every tooltip open (no French text may remain), the cost of the English interface, the effect buttons, the race panel, the language badge and the English file names.
 
 ## 1.0.0-beta.1.4 — 2026-10-22 — beta 1.4: analysis until you return to the pits
 

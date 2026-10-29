@@ -42,8 +42,12 @@ The app is in **English by default**, with a full **French** translation (one cl
 Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free version installed by Content Manager) or newer, previews included; offline mode.
 
 1. Download the latest `SetupLab-….zip` from the [Releases](https://github.com/VincentChevalier44/ACSetupLab/releases).
-2. Extract it into `assettocorsa/apps/lua/`: the archive already contains the `SetupLab/` folder. In the end, `assettocorsa/apps/lua/SetupLab/` holds `SetupLab.lua` and `manifest.ini` (no `SetupLab` folder inside another `SetupLab`). To update, replace the files: your settings and track memory are kept by CSP, outside this folder.
+2. **Close Assetto Corsa**, then extract the archive into `assettocorsa/apps/lua/`: it already contains the `SetupLab/` folder. In the end, `assettocorsa/apps/lua/SetupLab/` holds `SetupLab.lua` and `manifest.ini` (no `SetupLab` folder inside another `SetupLab`).
 3. In game, open **SetupLab** from the app bar or the setup screen. Two more windows exist: **SetupLab Overlay** (on track) and **SetupLab Debug** (diagnostics).
+
+### Updating
+
+No need to uninstall. Close Assetto Corsa completely (CSP reloads apps while the game runs), extract the new archive into `assettocorsa/apps/lua/` and replace the files. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside its folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French. Older betas shipped internal notes in `SetupLab/docs/` (`API_NOTES.md`, `RELECTURE_*.md`, `SetupLab_PDR_v0.2.md`): they are never read and can be deleted, or delete the `SetupLab` folder before extracting for a clean install.
 
 ## Quick start
 
@@ -67,7 +71,7 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (over 300 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game on the DTM 2026 (WHK), but most of it has not yet been seen in game on other cars. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (over 320 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game with the **Ferrari 488 GT3** (Kunos) at Spa, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
