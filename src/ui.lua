@@ -2170,6 +2170,10 @@ local function stepCard(host, app, intents, palette)
       .. 'l\'affinage repart d\'elle (étape 2).'
   else
     title, text = 'Étape 2/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
+    local last = app.recorder and app.recorder.laps and app.recorder.laps.last
+    if last and last.valid == false and r and r.phase == 'tours' then
+      text = text .. ' — dernier tour non compté : ' .. L.t(tostring(last.reason or 'non valide'))
+    end
     if r and r.waiting and app.refineMinReached and not app.refineMinReached(r) then
       text = text .. ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)'
     end
@@ -2658,7 +2662,9 @@ function M.overlay(host, app)
   if last and Util.isFinite(last.time) and last.time > 0 then
     local text = 'Dernier tour ' .. M.lapTime(last.time)
     if not last.valid then
-      text = text .. ' (non valide)'
+      text = text .. ' : non compté (' .. L.t(tostring(last.reason or 'non valide')) .. ')'
+    elseif not (tMine and e and last.family == e.family) and r and r.active then
+      text = text .. ' : tour propre compté'
     elseif tMine and e and last.family == e.family then
       local delta = last.time - tMine
       text = text .. (math.abs(delta) < 0.0005 and kind ~= 'race' and ' (votre meilleur)' or (' (' .. signedGain(delta) .. ')'))
@@ -2707,7 +2713,9 @@ function M.overlay(host, app)
     end
   end
   -- minimum avant une proposition, course en attente, version en essai : ce qu'il reste à faire
-  if r and r.active and r.waiting and not pending then small(host, r.waiting, palette.muted) end
+  if r and r.active and r.waiting and not pending then
+    small(host, r.waiting, palette[r.phase == 'calcul' and 'accent' or 'muted'])
+  end
   if e and not e.fromMemory then small(host, 'Par réglage : gain prévu par le modèle ; en haut : vos tours.', palette.muted) end
 end
 

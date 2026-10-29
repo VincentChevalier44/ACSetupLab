@@ -1093,7 +1093,17 @@ end
 local function onLap(lap)
   log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (lap.valid and 'valide' or
     ('rejeté (' .. tostring(lap.reason) .. ')')))
-  if not lap.valid then return end
+  if not lap.valid then
+    -- affinage en attente de son minimum : le tour rejeté est dit à l'écran, avec sa raison (constat du 29/10/2026)
+    local r = app.refine
+    if r and r.active and r.phase == 'tours' and app.refineMinReached and not app.refineMinReached(r) then
+      L.set(app.settings.language)
+      Util.call(Util.get(host.ac, 'setMessage'), L.t('SetupLab : tour non compté'),
+        L.t(tostring(lap.reason or 'non valide')) .. ' — ' .. L.t(app.refineMinText(r)), nil, K.alertSeconds)
+      app.ui.message = 'Tour non compté : ' .. tostring(lap.reason or 'non valide') .. ' ; ' .. app.refineMinText(r) .. '.'
+    end
+    return
+  end
   -- meilleur tour réel dans le nom des fichiers de qualification (renommés voiture arrêtée)
   if app.queueBestRename then app.queueBestRename(lap) end
   -- affinage : tours propres avec le même setup, comptés depuis la fin du dernier calcul ; version roulée
@@ -1104,6 +1114,12 @@ local function onLap(lap)
       r.minLaps = (r.minLaps or 0) + 1
     else
       r.minFamily, r.minLaps, r.minTime = lap.family, 1, lap.time or 0
+    end
+    if r.phase == 'tours' and app.refineMinReached then
+      r.waiting = app.refineMinReached(r) and 'tour propre compté : calcul du setup en cours'
+        or app.refineMinText(r)
+      -- le message de la fenêtre suit (sinon « 0/1 tour propre » restait affiché après le tour)
+      app.ui.message = 'Tour propre compté (' .. Util.fmt(lap.time, 3) .. ' s) : ' .. r.waiting .. '.'
     end
     if r.phase == 'tours' then
       local lapKey = Recorder.bestKey(lap.signature, lap.bucket)
@@ -2525,7 +2541,8 @@ end
 
 -- Lance un calcul (ou le met en attente de la découverte) ; refus : dit, nouvel essai au prochain tour.
 local function refineCompute(r)
-  r.phase, r.due, r.waiting, r.laps, r.lapSignature = 'calcul', false, nil, 0, nil
+  r.phase, r.due, r.laps, r.lapSignature = 'calcul', false, 0, nil
+  r.waiting = 'calcul du setup en cours ; je continue d\'analyser vos tours'
   r.before = app[r.kind]
   startCompute(r.kind)
   local q = app[r.kind]
@@ -2568,6 +2585,17 @@ local function refineFinish(r, q)
   elseif #result.changes == 0 or gain < K.refineMinGain then
     note.note = #result.changes == 0 and 'setup actuel conservé : le meilleur trouvé'
       or ('setup actuel conservé : gain prévu sous ' .. Util.fmt(K.refineMinGain, 2) .. ' s')
+    r.waiting = 'votre setup actuel est déjà le meilleur trouvé (gain possible sous ' .. Util.fmt(K.refineMinGain, 2)
+      .. ' s) : rien à changer pour l\'instant ; je continue d\'analyser vos tours'
+    if not r.noGainNoticed then
+      r.noGainNoticed = true
+      local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' analysé'
+      local text = 'Votre setup actuel est déjà le meilleur trouvé : rien à changer pour l\'instant. Je continue d\'analyser '
+        .. 'vos tours.'
+      L.set(app.settings.language)
+      Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
+      log('INFO', 'refine', title .. ' — ' .. text)
+    end
   else
     local p, why = proposalOf(r.kind)
     local known = p and refineVersionOf(r, p.signature)
@@ -2576,6 +2604,7 @@ local function refineFinish(r, q)
       r.waiting = note.note
     elseif r.rejected[p.signature] then
       note.note = 'identique à une version non gardée : pas reproposée'
+      r.waiting = note.note .. ' ; nouveau calcul au prochain tour propre'
     elseif known and not (pending and known == pending.version) then
       local e = refineEntry(r, known)
       note.note = 'identique à v' .. known .. (e and e.status and (' (' .. (e.status == 'écartée' and 'non gardée' or e.status)

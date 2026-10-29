@@ -155,4 +155,20 @@ EN = {
     'Grip de la piste lu dans CSP hors plage (%s) : 100 % pris à la place.': 'Track grip read from CSP out of range (%s): 100 % used instead.',
     'conservé : pneus sans sensibilité à la charge (ancien format de tyres.ini), effet de la rugosité non modélisable':
         'kept: tyres without load sensitivity (old tyres.ini format), effect of the roughness cannot be modelled',
+    'tour propre compté : calcul du setup en cours': 'clean lap counted: computing the setup',
+    "calcul du setup en cours ; je continue d'analyser vos tours": 'computing the setup; I keep analysing your laps',
+    "votre setup actuel est déjà le meilleur trouvé (gain possible sous %s s) : rien à changer pour l'instant ; je continue d'analyser vos tours":
+        'your current setup is already the best found (possible gain under %s s): nothing to change for now; I keep analysing your laps',
+    'SetupLab : setup %s analysé': 'SetupLab: %s setup analysed',
+    "Votre setup actuel est déjà le meilleur trouvé : rien à changer pour l'instant. Je continue d'analyser vos tours.":
+        'Your current setup is already the best found: nothing to change for now. I keep analysing your laps.',
+    'identique à une version non gardée : pas reproposée ; nouveau calcul au prochain tour propre':
+        'same as a version not kept: not proposed again; new computation on the next clean lap',
+    'Dernier tour %s : non compté (%s)': 'Last lap %s: not counted (%s)',
+    'Dernier tour %s : tour propre compté': 'Last lap %s: clean lap counted',
+    'Tour propre compté (%s s) : %s.': 'Clean lap counted (%s s): %s.',
+    'SetupLab : tour non compté': 'SetupLab: lap not counted',
+    'Tour non compté : %s ; %s.': 'Lap not counted: %s; %s.',
+    '%s — dernier tour non compté : %s': '%s — last lap not counted: %s',
+    'non valide': 'not valid',
 }

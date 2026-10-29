@@ -757,4 +757,45 @@ tests['AU13 en piste : « en préparation » une fois, analyse continue ; au sta
   T.eq(app.perf.errors, 0)
 end
 
+
+-- Constat de Vincent du 29/10/2026 (KillerOne, Spa, un tour minimum) : « il ne détecte pas quand je fais un tour ».
+-- Après le tour propre, l'overlay le dit tout de suite et annonce le calcul ; un calcul sans gain suffisant le dit aussi
+-- (overlay et une annonce à l'écran), au lieu de rester muet.
+tests['AU14 un tour minimum : tour compté et calcul dits tout de suite ; setup déjà au mieux : dit'] = function()
+  local h, app = ready('whk_dtm_2026', 1)
+  app.settings.refineMinLaps, app.settings.refineInstantFirst = 1, false
+  local K = Config.K
+  local minGain = K.refineMinGain
+  K.refineMinGain = 1000 -- aucun gain suffisant : le setup actuel est gardé
+  app.handleIntents({ start = 'mine' })
+  frames(h, 2)
+  local r = app.refine
+  T.contains(r.waiting, '0/1')
+  local profile = drivenProfile(h, app)
+  local start = app.recorder.finished
+  T.ok(waitFor(h, function() return app.recorder.finished > start end, 120000, profile), 'tour fini')
+  T.ok(app.recorder.laps.last.valid, tostring(app.recorder.laps.last.reason))
+  local function overlay(text)
+    h.texts = {}
+    script.SETUPLAB__OVERLAY(1 / 60)
+    return shown(h, text)
+  end
+  frames(h, 1, profile)
+  T.ok(overlay('tour propre compté'), 'tour compté, dit dans l\'overlay')
+  T.ok(overlay('calcul du setup en cours'), 'calcul en cours, dit dans l\'overlay')
+  T.no(overlay('0/1 tour propre'), 'overlay : plus de « 0/1 » une fois le tour compté')
+  frames(h, 1, profile)
+  T.no(shown(h, '0/1 tour propre'), 'fenêtre : plus de « 0/1 » une fois le tour compté')
+  T.ok(waitFor(h, function() return r.phase == 'tours' and r.noGainNoticed end, 60000, profile), 'calcul terminé')
+  K.refineMinGain = minGain
+  T.contains(r.waiting, 'déjà le meilleur trouvé')
+  local found = false
+  for _, m in ipairs(h.messages or {}) do found = found or tostring(m.title):find('analysé', 1, true) ~= nil end
+  T.ok(found, 'annoncé à l\'écran')
+  T.ok(overlay('déjà le meilleur trouvé'), 'dit dans l\'overlay')
+  frames(h, 1, profile)
+  T.ok(shown(h, 'déjà le meilleur trouvé'), 'dit dans la carte d\'étape')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

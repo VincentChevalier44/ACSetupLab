@@ -198,7 +198,8 @@ tests['AF02 carburant qui baisse, setup changé pendant la découverte : dit, re
     if not bumped and r.phase == 'calcul' and app.discoveryState == 'done' and app.pendingComputes.quali then
       fuel.value, bumped = fuel.value - fuel.step, true
     end
-    return r.waiting ~= nil
+    -- 1.5.1 : le calcul en cours est dit aussi ; on attend la raison du nouvel essai
+    return r.waiting ~= nil and r.waiting:find('nouvel essai', 1, true) ~= nil
   end
   local found = false
   for _ = 1, 60000 do
@@ -299,7 +300,8 @@ tests['AF05 en continu : un calcul par tour propre, jamais sur les mêmes donné
   T.ok(#(h.messages or {}) <= r.version, 'une annonce par version au plus')
   -- calcul refusé : nouvel essai seulement après le délai
   app.discoveryState, app.discoveryError = 'failed', 'panne simulée'
-  T.ok(waitFor(h, function() return r.waiting ~= nil end, profile, 30000), 'refus dit')
+  T.ok(waitFor(h, function() return r.waiting ~= nil and r.waiting:find('nouvel essai', 1, true) ~= nil end, profile, 30000),
+    'refus dit')
   T.contains(r.waiting, 'panne simulée')
   T.contains(r.waiting, 'nouvel essai dans ' .. Config.K.refineRetryDelay .. ' s')
   local count = #r.history
