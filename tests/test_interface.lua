@@ -93,7 +93,7 @@ tests['I02 réglages modifiés, enregistrés, relus au chargement suivant (§13)
   -- valeur hors bornes : ramenée dans les bornes
   h.sliders = { [label] = 100000 }
   frame(h)
-  T.eq(app.settings.refineMinLaps, 20)
+  T.eq(app.settings.refineMinLaps, 10)
   h.sliders = { [label] = 7 }
   frame(h)
   for _ = 1, 90 do frame(h) end
@@ -113,11 +113,11 @@ tests['I02 réglages modifiés, enregistrés, relus au chargement suivant (§13)
   T.eq(third.perf.errors, 0)
   -- réglages non modifiables dans l'interface : jamais relus (un stockage ne désactive pas l'app et ne
   -- change pas la tranche de calcul)
-  h.stored[Store.KEY] = 'setuplab-store 1|settings#enabled=false|settings#sliceBudgetMs=0.25|settings#refineMinLaps=12'
+  h.stored[Store.KEY] = 'setuplab-store 1|settings#enabled=false|settings#sliceBudgetMs=0.25|settings#refineMinLaps=9'
   local fourth = load(h)
   T.eq(fourth.settings.enabled, true)
   T.eq(fourth.settings.sliceBudgetMs, Config.defaults().sliceBudgetMs)
-  T.eq(fourth.settings.refineMinLaps, 12)
+  T.eq(fourth.settings.refineMinLaps, 9)
 end
 
 tests['I03 explication par réglage (§12.2), équilibre par virage (§12.1)'] = function()
@@ -343,16 +343,16 @@ tests['I09 mode inerte (en ligne, replay) : aucune intention exécutée, rien d\
   for _, def in ipairs(Config.settings) do
     if def.key == 'refineMinLaps' then label = def.label end
   end
-  h.sliders = { [label] = 13 }
+  h.sliders = { [label] = 6 }
   frame(h)
-  T.no(app.settings.refineMinLaps == 13, 'réglage non modifié en ligne')
+  T.no(app.settings.refineMinLaps == 6, 'réglage non modifié en ligne')
   -- réglage modifié juste avant le passage en ligne (écriture en attente) : rien n'est écrit en ligne
   h.sim.isOnlineRace = false
   T.ok(untilDone(h, app, function(a) return a.inert == nil end))
   app.nextContextAt = app.now + 30
-  h.sliders = { [label] = 11 }
+  h.sliders = { [label] = 5 }
   frame(h)
-  T.eq(app.settings.refineMinLaps, 11)
+  T.eq(app.settings.refineMinLaps, 5)
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end))
   app.nextContextAt = 0

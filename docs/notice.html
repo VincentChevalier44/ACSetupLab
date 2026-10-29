@@ -311,9 +311,10 @@
 
 <section id="minimum">
   <h2>7. Minimum before a proposal</h2>
-  <p>Two settings in the <strong>SETTINGS</strong> tab decide when SetupLab may propose a setup or a change:</p>
+  <p>At the top of the <strong>SETTINGS</strong> tab, "When SetupLab proposes a setup" decides when SetupLab may propose a setup or a change:</p>
   <ul>
-    <li><strong>minimum clean laps</strong> with the setup currently in the car (2 by default);</li>
+    <li><strong>First setup right away, from the car and the track</strong> (unticked by default): ticked, SetupLab computes a first setup as soon as it is active, without waiting for a lap; the next versions wait for the minimum below;</li>
+    <li><strong>clean laps before a proposal</strong> with the setup currently in the car, slider from 0 (right away) to 10 (2 by default);</li>
     <li><strong>minimum driving minutes</strong> (0 by default: none), on track, car moving.</li>
   </ul>
   <p>Both must be reached. They are counted again after each load. Progress is shown in the step card and in the overlay ("minimum before a proposal: 1/2 clean laps").</p>

@@ -20,7 +20,7 @@ M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus
 -- par circuit (plus de réglage global) ; minimum avant une proposition ; langue.
 M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
   'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps',
-  'refineMinLaps', 'refineMinMinutes', 'language' }
+  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'language' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
 -- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
@@ -110,10 +110,14 @@ M.settings = {
     label = 'Affinage : tours propres avant un nouveau calcul (0 = en continu)' },
   -- minimum avant une proposition (décision de Vincent du 26/10/2026 : « combien de minimum de temps ou de tour il
   -- faut avant que SetupLab propose un setup ») : les deux, avec le setup en cours dans la voiture
-  { key = 'refineMinLaps', kind = 'integer', default = 2, min = 0, max = 20,
-    label = 'Affinage : tours propres minimum avant une proposition' },
+  -- premier setup tout de suite (demande de Vincent du 29/10/2026), d'après la voiture et la piste, sans attendre le
+  -- minimum ; les versions suivantes l'attendent
+  { key = 'refineInstantFirst', kind = 'boolean', default = false,
+    label = 'Premier setup tout de suite, d\'après la voiture et la piste' },
+  { key = 'refineMinLaps', kind = 'integer', default = 2, min = 0, max = 10,
+    label = 'Tours propres avant une proposition (0 = tout de suite)' },
   { key = 'refineMinMinutes', kind = 'number', default = 0, min = 0, max = 60,
-    label = 'Affinage : minutes de roulage minimum avant une proposition (0 = sans)' },
+    label = 'Minutes de roulage avant une proposition (0 = sans)' },
   -- langue (décision de Vincent du 26/10/2026 : anglais par défaut, français au choix)
   { key = 'language', kind = 'enum', values = { 'en', 'fr' }, default = 'en', label = 'Langue' },
   { key = 'debugLog', kind = 'boolean', default = false, label = 'Journal détaillé (DEBUG)' },
@@ -144,8 +148,11 @@ M.help = {
     .. 'puissance, traînée, appui, freinage). À laisser coché.',
   wetAidLevels = 'Sous la pluie, nombre de crans d\'antipatinage et d\'ABS ajoutés aux aides du setup. 0 : aides inchangées.',
   refineLaps = 'Pendant l\'affinage, nombre de tours propres entre deux calculs. 0 : un nouveau calcul à chaque tour propre.',
-  refineMinLaps = 'Nombre minimum de tours propres avec le setup actuellement dans la voiture avant que SetupLab propose un '
-    .. 'setup ou une modification. Compté de nouveau après chaque chargement.',
+  refineInstantFirst = 'Coché : dès que SetupLab est actif (point de départ choisi), il calcule un premier setup d\'après les '
+    .. 'caractéristiques de la voiture et de la piste, sans attendre de tour. Les versions suivantes attendent le minimum '
+    .. 'ci-dessous. Décoché : le premier setup attend aussi ce minimum.',
+  refineMinLaps = 'Nombre de tours propres avec le setup actuellement dans la voiture avant que SetupLab propose un setup ou '
+    .. 'une modification : 0 pour proposer tout de suite, 1, 2, 3… Compté de nouveau après chaque chargement.',
   refineMinMinutes = 'Durée minimum de roulage, en minutes, avec le setup actuellement dans la voiture avant une proposition '
     .. '(en piste, voiture en mouvement). 0 : pas de durée minimum. Les tours et la durée doivent être atteints tous les deux.',
   language = 'Langue de toute l\'application : menus, messages, aides et overlay.',

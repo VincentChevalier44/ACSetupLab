@@ -113,4 +113,15 @@ EN = {
     'Déverrouiller et reprendre ma référence': 'Unlock and resume my reference',
     "Retire le cadenas, charge votre référence au stand, puis l'affine.":
         'Removes the padlock, loads your reference in the pits, then refines it.',
+    "Premier setup tout de suite, d'après la voiture et la piste": 'First setup right away, from the car and the track',
+    'Tours propres avant une proposition (0 = tout de suite)': 'Clean laps before a proposal (0 = right away)',
+    'Minutes de roulage avant une proposition (0 = sans)': 'Driving minutes before a proposal (0 = none)',
+    "Coché : dès que SetupLab est actif (point de départ choisi), il calcule un premier setup d'après les caractéristiques de la voiture et de la piste, sans attendre de tour. Les versions suivantes attendent le minimum ci-dessous. Décoché : le premier setup attend aussi ce minimum.":
+        "Ticked: as soon as SetupLab is active (starting point chosen), it computes a first setup from the car's and the track's characteristics, without waiting for a lap. The next versions wait for the minimum below. Unticked: the first setup waits for that minimum too.",
+    'Nombre de tours propres avec le setup actuellement dans la voiture avant que SetupLab propose un setup ou une modification : 0 pour proposer tout de suite, 1, 2, 3… Compté de nouveau après chaque chargement.':
+        'Number of clean laps with the setup currently in the car before SetupLab proposes a setup or a change: 0 to propose right away, 1, 2, 3… Counted again after each load.',
+    'Quand SetupLab propose un setup': 'When SetupLab proposes a setup',
+    ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)': ' (adjustable: SETTINGS tab, "When SetupLab proposes a setup")',
+    "2. Rouler : après le nombre de tours propres choisi (onglet RÉGLAGES, 0 pour tout de suite ; ou premier setup tout de suite, d'après la voiture et la piste), SetupLab propose une version. En piste, il annonce qu'il a le minimum d'informations et continue d'analyser vos tours ; elle est prête à votre retour au stand.":
+        '2. Drive: after the chosen number of clean laps (SETTINGS tab, 0 for right away; or first setup right away, from the car and the track), SetupLab proposes a version. On track, it announces that it has the minimum information and keeps analysing your laps; it is ready when you return to the pits.',
 }

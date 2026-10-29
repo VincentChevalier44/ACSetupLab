@@ -596,4 +596,31 @@ tests['NV15 départ de la référence (figée ou non) ; setup par défaut réuti
   T.eq(app.perf.errors, 0)
 end
 
+-- Premier setup tout de suite (demande de Vincent du 29/10/2026) : case cochée, v1 calculée d'après la voiture et la
+-- piste sans attendre de tour ; décochée, la proposition attend le nombre de tours choisi. Réglages en tête de l'onglet.
+tests['NV16 premier setup tout de suite, ou après les tours choisis (0 à 10)'] = function()
+  local h, app = ready({ skin = true })
+  h.tab = 'Réglages'
+  frames(h, 1)
+  h.tab = nil
+  T.ok(shownText(h, 'Premier setup tout de suite'), 'case en tête de l\'onglet RÉGLAGES')
+  T.eq(app.settings.refineInstantFirst, false, 'décochée par défaut')
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 2 } })
+  app.handleIntents({ start = 'mine' })
+  local r = app.refine
+  frames(h, 600)
+  T.eq(r.version, r.base, 'décochée : rien avant les 2 tours')
+  T.contains(r.waiting, '0/2')
+  frames(h, 1)
+  T.ok(shownText(h, 'Quand SetupLab propose un setup »'), 'où le régler, dit dans la carte d\'étape')
+  -- cochée : premier setup tout de suite
+  app.handleIntents({ setting = { key = 'refineInstantFirst', value = true } })
+  app.handleIntents({ startReset = 'quali' })
+  app.handleIntents({ start = 'mine' })
+  r = app.refine
+  T.ok(waitFor(h, function() return r.version > r.base and r.phase == 'tours' end), 'cochée : v1 sans attendre de tour')
+  T.eq(app.refineMinReached(r), false, 'la suivante attend les 2 tours')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

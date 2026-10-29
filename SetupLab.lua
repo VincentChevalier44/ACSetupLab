@@ -2310,6 +2310,14 @@ end
 -- avant que SetupLab propose un setup ou une modification ») : tours propres et minutes de roulage avec le setup en
 -- cours dans la voiture, les deux atteints ; remis à zéro à chaque chargement.
 local function refineMinReached(r)
+  -- premier setup tout de suite (case cochée) : aucune version encore proposée par cet affinage
+  if app.settings.refineInstantFirst then
+    local first = true
+    for _, e in ipairs(r.history or {}) do
+      if e.version then first = false end
+    end
+    if first then return true end
+  end
   local laps, minutes = app.settings.refineMinLaps or 0, app.settings.refineMinMinutes or 0
   return (r.minLaps or 0) >= laps and (r.minTime or 0) >= minutes * 60
 end

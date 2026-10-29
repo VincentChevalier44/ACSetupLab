@@ -10,14 +10,14 @@ local tests = {}
 
 tests['Y01 format : aller-retour, champs invalides ou piégés rejetés, versions'] = function()
   local entries = {
-    settings = { refineMinLaps = 15, calibrationAuto = false, perfStab = 0.4 },
+    settings = { refineMinLaps = 8, calibrationAuto = false, perfStab = 0.4 },
     ['cal:urd_px1_aura:monza:1'] = { mu = 0.97, power = 1.02, drag = 1.01, lift = 0.95, brake = 1, roadTemp = 31, stamp = 1700000000 },
     ['last:urd_px1_aura:monza:quali'] = { file = 'SetupLab_Quali_20261020-1530.ini', gain = -0.8, stamp = 1700000000 },
   }
   local text = Store.serialize(entries)
   local back, reason = Store.parse(text)
   T.eq(reason, nil)
-  T.eq(back.settings.refineMinLaps, 15)
+  T.eq(back.settings.refineMinLaps, 8)
   T.eq(back.settings.calibrationAuto, false)
   T.near(back['cal:urd_px1_aura:monza:1'].mu, 0.97, 1e-15)
   T.eq(back['last:urd_px1_aura:monza:quali'].file, 'SetupLab_Quali_20261020-1530.ini')
@@ -74,8 +74,8 @@ tests['Y02 put / get : validation à l\'écriture, horodatage d\'usage, purge de
   Store.put(store, 'rough:x:y', { G0 = 1e-5 }, 1e30)
   T.eq(store.entries['rough:x:y'].stamp, nil, 'horodatage hors bornes non retenu')
   store.entries['rough:x:y'] = nil
-  T.ok(Store.put(store, 'settings', { refineMinLaps = 12, perfStab = 7 }, 100))
-  T.eq(store.entries.settings.refineMinLaps, 12)
+  T.ok(Store.put(store, 'settings', { refineMinLaps = 7, perfStab = 7 }, 100))
+  T.eq(store.entries.settings.refineMinLaps, 7)
   T.eq(store.entries.settings.perfStab, nil, 'réglage hors bornes refusé')
   -- purge : taille maximale réduite, les entrées datées les plus anciennes partent, les réglages restent
   local saved = K.storeMaxBytes

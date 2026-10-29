@@ -1884,24 +1884,36 @@ local function languageButtons(host, app, intents, palette, short)
   end
 end
 
-local function settingsEditor(host, app, intents, palette)
+-- Un réglage de l'app : case ou curseur, avec son aide au survol.
+local function settingWidget(host, app, intents, key)
   local ui = host.ui
+  local def = Config.byKey[key]
+  if def == nil then return end
+  local value = app.settings[key]
+  if def.kind == 'boolean' then
+    if ui.checkbox(def.label, value) then intents.setting = { key = key, value = not value } end
+  elseif ui.slider then
+    local ok, nextValue, changed = Util.call(ui.slider, def.label, value, def.min, def.max,
+      def.kind == 'integer' and '%.0f' or '%.2f', def.kind == 'integer' and true or 1)
+    if ok and changed and nextValue ~= value then intents.setting = { key = key, value = nextValue } end
+  end
+  tip(host, Config.help[key])
+end
+
+-- Quand SetupLab propose un setup (demande de Vincent du 29/10/2026) : en tête de l'onglet, pas dans la liste.
+local PROPOSAL_KEYS = { 'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes' }
+local PROPOSAL = {}
+for _, key in ipairs(PROPOSAL_KEYS) do PROPOSAL[key] = true end
+
+local function settingsEditor(host, app, intents, palette)
   colored(host, 'Langue', palette.text)
   languageButtons(host, app, intents, palette, false)
+  section(host, 'Quand SetupLab propose un setup', 'proposal_settings', true, function()
+    for _, key in ipairs(PROPOSAL_KEYS) do settingWidget(host, app, intents, key) end
+  end)
   section(host, 'Réglages de l\'app (conservés d\'une séance à l\'autre)', 'app_settings', true, function()
     for _, key in ipairs(M.EDITABLE) do
-      local def = Config.byKey[key]
-      if def and key ~= 'language' then
-        local value = app.settings[key]
-        if def.kind == 'boolean' then
-          if ui.checkbox(def.label, value) then intents.setting = { key = key, value = not value } end
-        elseif ui.slider then
-          local ok, nextValue, changed = Util.call(ui.slider, def.label, value, def.min, def.max,
-            def.kind == 'integer' and '%.0f' or '%.2f', def.kind == 'integer' and true or 1)
-          if ok and changed and nextValue ~= value then intents.setting = { key = key, value = nextValue } end
-        end
-        tip(host, Config.help[key])
-      end
+      if key ~= 'language' and not PROPOSAL[key] then settingWidget(host, app, intents, key) end
     end
   end)
 end
@@ -2112,6 +2124,9 @@ local function stepCard(host, app, intents, palette)
       .. 'l\'affinage repart d\'elle (étape 2).'
   else
     title, text = 'Étape 2/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
+    if r and r.waiting and app.refineMinReached and not app.refineMinReached(r) then
+      text = text .. ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)'
+    end
   end
   card(host, app.ui, color, function()
     withFont(host, 'Title', function() colored(host, title, color) end)
@@ -2203,7 +2218,8 @@ local HELP = {
   { 'Les 4 étapes', {
     '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par '
       .. 'défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab.',
-    '2. Rouler : après le minimum de tours propres (onglet Réglages), SetupLab propose une version. En piste, il annonce '
+    '2. Rouler : après le nombre de tours propres choisi (onglet RÉGLAGES, 0 pour tout de suite ; ou premier setup tout de '
+      .. 'suite, d\'après la voiture et la piste), SetupLab propose une version. En piste, il annonce '
       .. 'qu\'il a le minimum d\'informations et continue d\'analyser vos tours ; elle est prête à votre retour au stand.',
     '3. Essayer : « Essayer vN » écrit la version dans un fichier d\'essai ; « Charger » la met dans la voiture. Roulez avec.',
     '4. Valider : « Valider vN » la garde telle quelle ; « Modifier… » pour refuser un réglage précis (par exemple l\'aileron '
