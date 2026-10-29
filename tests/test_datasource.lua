@@ -413,6 +413,14 @@ tests['D15 DRS et ERS : définition AC, états en direct, ailes'] = function()
   T.eq(#st.wings, 3, 'ailes en direct (cdata indexé à partir de 0)')
   T.near(st.wings[2].cl, 0.46, 1e-6)
   T.near(st.wings[3].groundHeight, 0.9, 1e-6)
+  T.eq(st.wingHeightUnit, nil, 'hauteurs en mètres')
+  -- CSP 0.3.1-preview2 : hauteurs au sol en millimètres, ramenées en mètres
+  local w = h.physicsState.wings.v
+  for i = 0, 2 do w[i].groundHeight = w[i].groundHeight * 1000 end
+  local mm = Datasource.readCarState(h, 0)
+  T.eq(mm.wingHeightUnit, 'mm')
+  T.near(mm.wings[3].groundHeight, 0.9, 1e-4)
+  T.near(mm.wings[2].groundHeight, 0.06, 1e-4)
 end
 
 tests['D14 sonde raycast'] = function()

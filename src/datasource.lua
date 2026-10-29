@@ -491,12 +491,23 @@ function M.readCarState(host, carIndex)
     end
     -- Ailes en direct (ac.StateWingPhysics) : base de la mesure de l'effet du DRS (§8.9).
     local wings = get(physics, 'wings')
+    local highest = 0
     for i = 0, min(length(wings), K.maxWings) - 1 do
       local wing = get(wings, i)
       state.wings[i + 1] = {
         cd = num(wing, 'cd'), cl = num(wing, 'cl'), aoa = num(wing, 'aoa'), angle = num(wing, 'angle'),
         groundHeight = num(wing, 'groundHeight'),
       }
+      local h = state.wings[i + 1].groundHeight
+      if h and h > highest then highest = h end
+    end
+    -- hauteur au sol en millimètres (CSP 0.3.1-preview2, rapport J0 du 29/10/2026 : 64,11 pour 64 mm) : aucune aile
+    -- n'est à plus de 3 m du sol, les hauteurs sont alors ramenées en mètres
+    if highest > 3 then
+      state.wingHeightUnit = 'mm'
+      for _, w in ipairs(state.wings) do
+        if w.groundHeight then w.groundHeight = w.groundHeight / 1000 end
+      end
     end
   end
   state.ok = true
