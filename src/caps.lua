@@ -559,7 +559,8 @@ function M.buildReport(info, d, logEntries, tick)
   if p then
     out('Tranches : ' .. v2s(p.slices) .. ' ; max ' .. v2s(p.maxSliceMs, 3) .. ' ms ; au-delà de '
       .. v2s(K.sliceAlertMs) .. ' ms : ' .. v2s(p.slowSlices) .. ' ; unité la plus longue ' .. v2s(p.maxUnitMs, 3)
-      .. ' ms ; coût moyen par frame ' .. v2s(p.avgMs, 3) .. ' ms ; horloge ' .. (p.clock and 'QPC' or 'quota'))
+      .. ' ms ; coût moyen par frame ' .. v2s(p.avgMs, 3) .. ' ms ; horloge '
+      .. (p.clock and tostring(p.clockSource or 'QPC') or 'quota'))
   end
 
   out('')

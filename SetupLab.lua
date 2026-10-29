@@ -504,7 +504,7 @@ local function scheduleReport(d)
     appVersion = Config.version, milestone = Config.milestone, date = date, updateSource = app.updateSource,
     perf = {
       slices = stats.slices, maxSliceMs = stats.maxSliceMs, maxUnitMs = stats.maxUnitMs,
-      slowSlices = app.perf.slowSlices, avgMs = app.perf.avgMs, clock = app.clock ~= nil,
+      slowSlices = app.perf.slowSlices, avgMs = app.perf.avgMs, clock = app.clock ~= nil, clockSource = app.clockSource,
     },
   }
   local entries = Util.logEntries(app.log)
