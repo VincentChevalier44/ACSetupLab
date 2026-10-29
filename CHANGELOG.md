@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta.1.5.1 — 2026-10-29 — beta 1.5.1: clear feedback after each lap, CSP 0.3.1 compatibility
+
+Why this update: in game, after a clean lap, SetupLab looked as if it had not seen the lap. It had counted it and was computing, but said nothing while computing, and nothing at all when the current setup was already the best it could find. Custom Shaders Patch 0.3.1-preview2 also changed two things SetupLab relied on.
+
+- **Clear feedback after each lap**: the overlay, the step card and the window now say "clean lap counted", then "computing the setup; I keep analysing your laps" (in blue) until the version is announced. When your setup is already the best found (possible gain under 0.05 s), it is said, with one on-screen announcement. A lap that is not counted while SetupLab waits for its minimum is announced on screen with its reason (off track, lap invalidated by AC, brake bias changed while driving, pit lane...).
+- **CSP 0.3.1-preview2: precise clock**: this CSP blocks the Windows clock SetupLab used to time its computation, which fell back to a fixed amount of work per frame (slower computations, possible small stutters, frame cost shown as 0 ms). SetupLab now uses CSP's own precise clock (`os.preciseClock`) instead; the DIAGNOSTICS tab and the J0 report say which clock is in use.
+- **CSP 0.3.1-preview2: wing heights in millimetres**: CSP now reports wing ground heights in millimetres, so the ride-height reference was refused and ride height was never optimised. They are now read correctly, and ride height is optimised again (reduced search).
+- With CSP 0.3.1-preview2, local time is not available to apps: saved file names use UTC time (`..._13h31m42sUTC.ini`).
+- Tried in game with the WHK Killer One 2026 at Spa (CSP 0.3.1-preview2). Over 320 offline tests.
+
 ## 1.0.0-beta.1.5 — 2026-10-26 — beta 1.5: guided flow, settings one by one, race after qualifying, new interface, English
 
 - **Guided flow in 4 steps**: Start, Drive, Try, Validate, with the same names everywhere, and one main button at a time.

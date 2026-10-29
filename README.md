@@ -1,6 +1,6 @@
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5** (`1.0.0-beta.1.5`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.1** (`1.0.0-beta.1.5.1`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
 SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits, keep or refuse each of its effects, and validate it.
 
