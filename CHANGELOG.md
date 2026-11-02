@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (beta 1.5.2, in progress)
+## 1.0.0-beta.1.5.2 — 2026-11-02 — beta 1.5.2: race setup from your qualifying setup, pit strategy, window back
+
+Why this update: some players closed the SetupLab window with its X and could not get it back, even after reinstalling. After loading a qualifying setup, the race setup waited for a new qualifying version or more laps instead of starting from the setup in the car, and the pit stop menu kept its own tyre pressures. **To update, delete the old `SetupLab` folder first**, then extract the new archive (see the README).
 
 - **Race setup from any of your numbered SetupLab qualifying setups**: v1, v2, v3..., trials and best-lap names included, from an earlier session too (AC restarted). The one in the car is recognised by its values, even after AC re-saved it from its menu; otherwise the RACE tab lists them and asks to load one from AC's setup menu.
 - **First race version straight away**: with SetupLab active in a race session, the first race version is computed as soon as a SetupLab qualifying setup is in the car, without extra laps (your laps with it were driven in qualifying); the next race versions wait for the minimum of clean laps. A setup loaded from AC's menu after the discovery is recognised at once (the car's setup is re-read in the pits).
@@ -8,10 +10,12 @@
 - **Pit strategy**: when SetupLab loads a race setup (two clicks in the pits), the selected quick pit preset gets its tyre pressures and tyres, so a tyre change is planned at the stop; it is also done when that race setup was already in the car. Fuel and repairs are left as you set them. A compound missing from the pit menu is not set, and anything the game refuses is reported (RACE tab and J0 report, with the values read back from the menu). A setup loaded from AC's menu does not change the pit menu.
 - **Main window back on the setup screen**: its close button is removed, and its internal name changes so CSP shows it again for players who had closed it (it was saved as closed outside the app folder, so reinstalling did not help). Its position and size reset once.
 - Overlay: says where the "SetupLab active" checkbox is (SetupLab window, setup screen).
+- New app icon.
 - **Your tweaks are measured from the last setup SetupLab loaded**: loading the race setup after a qualifying setup no longer turns every difference between the two into a "tweak" kept by the next qualifying versions.
 - **Step card in its own tab**: the step card (Start, Drive, Try, Validate) only shows in the tab it is about (QUALIFYING or RACE), no longer in the other tabs; in a race session the window opens on the RACE tab.
 - **Buttons easier to see**: buttons without a colour (Lock, Start over, Validate vN, Validate without trying, Modify...) now have a lighter fill and a thin blue outline, so they no longer look like plain text inside the cards.
 - **Journal in CSP's log**: each line of SetupLab's journal is also written to CSP's log (`Documents\Assetto Corsa\logs\custom_shaders_patch.log`, lines `[Lua: App: SetupLab]`), on one line and at the same rate, so a session can still be checked after AC is closed (CSP replaces that file when AC starts again). The lines are in French, like the J0 report.
+- Tried in game with the WHK Killer One 2026 at Imola and Monza (CSP 0.3.2-preview2): qualifying versions, race setup from the qualifying setup in the car, pit strategy. 349 offline tests.
 
 ## 1.0.0-beta.1.5.1 — 2026-10-29 — beta 1.5.1: clear feedback after each lap, CSP 0.3.1 compatibility
 
