@@ -193,14 +193,14 @@ local BUTTONS = { 'Calculer le setup tour rapide', 'Annuler le calcul', 'Calcule
   'Enregistrer le setup tour rapide', 'Enregistrer le setup course', 'Mesurer le gain réel', 'Mesurer le gain réel (course)',
   'Relancer la découverte', 'Copier le rapport J0', 'Calibrer maintenant', 'Copier le tour enregistré',
   'Afficher les réglages', 'Afficher le détail des capacités', 'Calibration automatique',
-  'Charger le setup tour rapide dans la voiture', 'Confirmer le chargement (tour rapide)',
-  'Charger le setup course dans la voiture', 'Confirmer le chargement (course)',
+  'Charger le setup tour rapide dans la voiture',
+  'Charger le setup course dans la voiture',
   -- 1.4.0 : SetupLab actif, valider, écarter, figer, mémoire du circuit
   'SetupLab actif', 'Valider v1', 'Recommencer (ne pas garder v1)', 'Figer v1 (cadenas)', 'Valider v2',
   'Recommencer (ne pas garder v2)', 'Libérer vos retouches (tour rapide)',
   'Affinage automatique (tour rapide)', 'Affinage automatique (course)', 'start_mine', 'start_default', 'start_reference',
   'start_change', 'Charger###memload_qualif_sec',
-  'Figer (cadenas)###memlock_qualif_sec', 'Déverrouiller###memlock_qualif_sec', 'Confirmer le chargement (tour rapide)' }
+  'Figer (cadenas)###memlock_qualif_sec', 'Déverrouiller###memlock_qualif_sec' }
 local TABS = { 'Tour rapide', 'Course', 'Mesure', 'Réglages', 'Capacités' }
 tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] = function()
   local rng = Util.rngNew(8080)
@@ -251,7 +251,6 @@ tests['F05 app entière : hôte dégradé, stockage corrompu, clics au hasard'] 
       if frame == 5390 then app.clock = nil end
       if frame == 5400 then h.tab, h.click = nil, 'Enregistrer le setup tour rapide' end
       if frame == 5402 then h.tab, h.click = nil, 'Charger le setup tour rapide dans la voiture' end
-      if frame == 5402 + Config.K.loadConfirmMinFrames + 5 then h.tab, h.click = nil, 'Confirmer le chargement (tour rapide)' end
       if not quiet and Util.rngNext(rng) < 0.02 then h.tab = Util.rngNext(rng) < 0.3 and nil or pick(TABS) end
       if Util.rngNext(rng) < 0.005 then
         local def = pick(labels)

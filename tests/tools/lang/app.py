@@ -138,19 +138,14 @@ EN = {
     'Fichier de la mémoire retrouvé sous son nouveau nom : %s': 'Memory file found under its new name: %s',
     'dossier des setups inconnu': 'setups folder unknown',
     'fichier modifié depuis sa validation': 'file changed since it was validated',
-    'Confirmer le chargement dans les %s s : il remplace le setup en cours dans la voiture (modifications non enregistrées comprises) ; une copie du setup actuel est enregistrée juste avant.':
-        'Confirm the load within %s s: it replaces the setup in the car (unsaved changes included); a copy of the current setup is saved just before.',
-    "Chargement non armé : cliquer d'abord « Charger le setup %s dans la voiture ».":
-        'Load not armed: first click "Load the %s setup into the car".',
+    'Chargement déjà demandé : %s.': 'Load already requested: %s.',
     'setup précédent déjà enregistré : %s': 'previous setup already saved: %s',
+    'setup précédent mis par SetupLab : %s': 'previous setup put in by SetupLab: %s',
     'Chargement annulé : copie de sauvegarde du setup en cours impossible (%s':
         'Load cancelled: cannot save a backup copy of the current setup (%s',
     'setup précédent sauvegardé : %s': 'previous setup backed up: %s',
     'ac.loadSetup accepté : %s ; %s': 'ac.loadSetup accepted: %s; %s',
     'Retouche gardée (%s) : %s %s -> %s': 'Your change kept (%s): %s %s -> %s',
-    'délai de confirmation écoulé': 'confirmation time ran out',
-    'autre setup enregistré': 'another setup saved',
-    'Chargement désarmé : %s': 'Load disarmed: %s',
     'non concluant : le setup en cours était déjà celui du fichier': 'inconclusive: the setup in the car was already the one in the file',
     "Setup %s en place, mais le chargement n'est pas constaté : la voiture avait déjà ce setup (%s).":
         '%s setup in place, but the load could not be confirmed: the car already had this setup (%s).',
@@ -203,6 +198,7 @@ EN = {
     'course : %s': 'race: %s',
     'Affinage %s lancé': '%s refinement started',
     'Affinage %s lancé : %s.': '%s refinement started: %s.',
+    'Affinage %s lancé, en attente : %s.': '%s refinement started, waiting: %s.',
     'tous les %s tours propres': 'every %s clean laps',
     'à chaque tour propre': 'on every clean lap',
     "Affinage %s lancé : premier calcul, puis un nouveau %s ; chaque setup proposé est annoncé à l'écran, rien n'est enregistré avant « Valider ».":

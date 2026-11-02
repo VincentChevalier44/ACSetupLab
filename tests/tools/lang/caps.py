@@ -7,7 +7,6 @@ EN = {
     'Chargement annulé : copie de sauvegarde du setup en cours impossible (%s).':
         'Load cancelled: cannot save a backup copy of the current setup (%s).',
     'Chargement demandé : vérification du setup en cours…': 'Load requested: checking the setup in the car…',
-    'Chargement désarmé : %s.': 'Load disarmed: %s.',
     'Écart : le jeu a accepté le chargement, mais le setup en cours diffère du setup %s (%s) : vérifier dans le menu de setup (%s).':
         'Mismatch: the game accepted the load, but the setup in the car differs from the %s setup (%s): check in the setup menu (%s).',
     "J'ai le minimum d'informations ; je continue d'analyser vos tours. Le setup sera prêt à votre retour au stand.":

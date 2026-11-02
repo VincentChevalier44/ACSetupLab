@@ -107,11 +107,7 @@ local function loadByButton(h, app)
   frames(h, 1)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
-  local started = app.clock()
-  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frames(h, 1)
+  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
 end

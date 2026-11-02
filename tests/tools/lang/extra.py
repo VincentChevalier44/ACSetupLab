@@ -8,7 +8,6 @@ EN = {
     'fichier introuvable': 'file not found',
     'Chargement impossible : %s.': 'Cannot load: %s.',
     'Chargement impossible : %s (%s).': 'Cannot load: %s (%s).',
-    "Confirmation trop rapide : lire l'avertissement, puis confirmer.": 'Confirmation too fast: read the warning, then confirm.',
     'signature %s': 'signature %s',
     'Copie impossible : %s': 'Cannot copy: %s',
     'proposition impossible : %s': 'cannot propose: %s',

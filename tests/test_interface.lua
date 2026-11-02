@@ -496,13 +496,13 @@ tests['I13 tableau de bord : 360, 520, 730 et 900 px, tous les onglets, aucun id
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
   h.click = 'Charger le setup tour rapide dans la voiture'
   frame(h)
-  T.ok(app.loadArm and app.loadArm.kind == 'quali', tostring(app.ui.message))
+  T.ok(app.loadCheck and app.loadCheck.kind == 'quali', 'chargé en un clic : ' .. tostring(app.ui.message))
   h.hover, h.openSections = true, true -- infobulles et sections fermées comprises
   for _, width in ipairs({ 360, 520, 730, 900 }) do
     h.width, h.nodes = width, {}
     frame(h)
     T.eq(app.perf.errors, 0, width .. ' px : ' .. tostring(app.ui.message))
-    T.ok(shown(h, 'Remplace le setup en cours'), width .. ' px : avertissement du chargement armé')
+    T.ok(shown(h, 'remplace le setup en cours'), width .. ' px : avertissement du chargement (infobulle)')
     T.ok(shown(h, 'Affinage course — v1'), width .. ' px : carte d\'affinage')
     T.ok(shown(h, 'Tour moyen du relais'), width .. ' px : résultat course')
     T.ok(shown(h, 'Tour prévu : actuel'), width .. ' px : résultat tour rapide')

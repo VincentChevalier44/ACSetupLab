@@ -5,8 +5,8 @@
 -- V2, V3, pas les intermédiaires » ; meilleur tour réel dans le nom) : seul ce module peut aussi mettre à la
 -- Corbeille ou renommer un fichier, et seulement un fichier écrit par SetupLab, intact (empreinte).
 -- D8 amendé le 20/10/2026 (décision de Vincent) : seul ce module peut charger dans la voiture un
--- setup que SetupLab a écrit (ac.loadSetup), au stand, menu de setup ouvert, après confirmation et copie
--- de sauvegarde du setup en cours (contrôles de la colle). Aucun fichier n'est modifié ;
+-- setup que SetupLab a écrit (ac.loadSetup), au stand, menu de setup ouvert, sur un clic (deux clics avant la 1.5.3),
+-- après une copie de sauvegarde du setup en cours quand elle sert (contrôles de la colle). Aucun fichier n'est modifié ;
 -- ac.setSetupSpinnerValue et ac.saveCurrentSetup restent interdits. Depuis la 1.4.0 (noms choisis par
 -- Vincent, mémoire du circuit), « écrit par SetupLab » se prouve par le nom et l'empreinte du contenu
 -- relevés à l'écriture (séance) ou gardés en mémoire, plus par le préfixe du nom.

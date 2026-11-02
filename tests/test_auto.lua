@@ -143,11 +143,7 @@ local function loadAtPit(h, app, click)
   frames(h, 1)
   h.click = click
   frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
-  local started = app.clock()
-  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frames(h, 1)
+  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason) .. ' / ' .. tostring(app.ui.message))
 end
@@ -584,7 +580,7 @@ end
 -- Chargement visible (constat de Vincent du 22/10/2026 : « on ne voit pas le bouton de chargement ») : état
 -- du stand à côté du bouton, refus dit dessous (pas seulement en haut de la fenêtre), confirmation avec le
 -- temps restant, annulation.
-tests['AU10 chargement : état du stand et refus sous le bouton, confirmation avec le temps restant, annulation'] = function()
+tests['AU10 chargement : état du stand et refus sous le bouton ; menu ouvert : chargé en un clic'] = function()
   local h, app = ready()
   h.click = 'Affinage automatique (tour rapide)'
   frames(h, 1)
@@ -603,24 +599,14 @@ tests['AU10 chargement : état du stand et refus sous le bouton, confirmation av
   T.ok(shown(h, 'menu de setup ouvert (non)'))
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.eq(app.loadArm, nil)
+  T.eq(#h.loadCalls, 0, 'menu fermé : rien chargé')
   frames(h, 1)
   T.ok(shown(h, 'Chargement impossible : setup non modifiable'), 'refus dit sous le bouton')
-  -- menu ouvert : armé, confirmation avec le temps restant ; annuler
+  -- menu ouvert : prêt, puis chargé au premier clic (1.5.3 : plus de confirmation)
   h.setupEditable = nil
   frames(h, 2)
   T.ok(shown(h, 'Prêt à charger :'))
-  h.click = 'Charger le setup tour rapide dans la voiture'
-  frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
-  frames(h, 1)
-  T.ok(shown(h, 'Il reste '), 'temps restant')
-  h.click = 'Annuler le chargement (tour rapide)'
-  frames(h, 1)
-  T.eq(app.loadArm, nil, 'annulé')
-  T.contains(app.ui.message, 'Chargement annulé')
-  T.eq(#h.loadCalls, 0)
-  -- puis chargé pour de bon
+  T.no(shown(h, 'Il reste '), 'plus de délai de confirmation')
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.eq(#h.loadCalls, 1)
   T.eq(app.perf.errors, 0)

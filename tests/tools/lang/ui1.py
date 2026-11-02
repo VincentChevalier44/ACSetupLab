@@ -102,7 +102,6 @@ EN = {
     'Relancer la découverte (course)': 'Run discovery again (race)',
     'Enregistrer le setup course': 'Save the race setup',
     'Mesurer le gain réel (course)': 'Measure the real gain (race)',
-    'Chargement armé…': 'Load armed…',
     'Charger le setup %s dans la voiture': 'Load the %s setup into the car',
     'Prêt à charger :': 'Ready to load:',
     'Pour charger :': 'To load:',
@@ -115,13 +114,8 @@ EN = {
     'voiture arrêtée (oui)': 'car stopped (yes)', 'voiture arrêtée (non)': 'car stopped (no)',
     'menu de setup ouvert (oui)': 'setup menu open (yes)', 'menu de setup ouvert (non)': 'setup menu open (no)',
     'À charger : %s': 'To load: %s',
-    'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.':
-        'In the pits, car stopped, setup menu open: two clicks, after a backup copy of the current setup.',
-    'Remplace le setup en cours dans la voiture, modifications non enregistrées comprises ; une copie du setup actuel est enregistrée juste avant.':
-        'Replaces the setup in the car, unsaved changes included; a copy of the current setup is saved just before.',
-    'Confirmer le chargement (%s)': 'Confirm the load (%s)',
-    'Il reste %s s pour confirmer.': '%s s left to confirm.',
-    'Annuler le chargement (%s)': 'Cancel the load (%s)',
+    'Un clic remplace le setup en cours dans la voiture, modifications non enregistrées comprises ; une copie du setup actuel est enregistrée juste avant quand elle sert.':
+        'One click replaces the setup in the car, unsaved changes included; a copy of the current setup is saved just before when it is useful.',
     'Chargé et vérifié dans la voiture : %s': 'Loaded and checked in the car: %s',
     'Dernier chargement : %s': 'Last load: %s',
     'Mesure du gain réel en cours…': 'Measuring the real gain…',
@@ -232,8 +226,8 @@ EN = {
     'Un calcul complet depuis le setup en cours (%s).': 'A full computation from the current setup (%s).',
     'tous les %s tour(s) propre(s) avec le même setup': 'every %s clean lap(s) with the same setup',
     'en continu (chaque tour roulé affine la calibration)': 'continuously (each lap driven refines the calibration)',
-    "Calcule tout de suite, enregistre chaque setup amélioré tout seul, puis recalcule %s, jusqu'à l'arrêt. Le chargement se fait au stand, en deux clics.":
-        'Computes right away and announces each improved setup, then computes again %s, until you stop it. Loading happens in the pits, in two clicks.',
+    "Calcule tout de suite, enregistre chaque setup amélioré tout seul, puis recalcule %s, jusqu'à l'arrêt. Le chargement se fait au stand, en un clic.":
+        'Computes right away and announces each improved setup, then computes again %s, until you stop it. Loading happens in the pits, in one click.',
     'Affinage automatique (%s)': 'Automatic refinement (%s)',
     'Calcul en échec : %s': 'Computation failed: %s',
     'Calcul annulé.': 'Computation cancelled.',

@@ -109,9 +109,6 @@ local function load(h, app, kind)
   frames(h, 1)
   app.handleIntents({ loadArm = kind or 'quali' })
   render(h)
-  local started = app.clock()
-  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
-  app.handleIntents({ loadConfirm = kind or 'quali' })
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement')
   render(h)
 end

@@ -51,7 +51,6 @@ local app = {
   discovery = nil, discoveryState = 'idle', discoveryError = nil,
   report = nil, reportTruncated = false,
   writeTest = nil,           -- dernier test d'écriture (copie du setup courant, D17)
-  loadArm = nil,             -- chargement dans la voiture armé (premier clic) : genre, fichier, échéance
   loadCheck = nil,           -- chargement demandé : vérification du setup en cours (signature en direct)
   loadTest = nil,            -- issue du dernier appel à ac.loadSetup : vérifié, écart, refus, non concluant
   loadVerified = nil,        -- dernier chargement vérifié (capacité setup_load)
@@ -814,7 +813,7 @@ local function refreshContext()
     app.memory, app.memoryFiles = {}, {}
     app.loaded, app.pins, app.start, app.lastLoadKind = {}, { quali = {}, race = {} }, {}, nil
     app.refines, app.manualKind = {}, nil
-    app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
+    app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil
     app.pitStrategy, app.qualiScan, app.inCar = nil, nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
@@ -839,7 +838,7 @@ local function refreshContext()
         .. ' ; les setups enregistrés restent chargeables)') or '') .. '.'
       log('INFO', 'session', app.ui.message)
       -- un chargement armé ne survit pas à un changement de séance ; nouveau point de départ à choisir
-      app.loadArm, app.start, app.manualKind = nil, {}, nil
+      app.start, app.manualKind = {}, nil
       startDiscovery()
     else
       app.pendingSessionKey = c.conditionsKey
@@ -1732,9 +1731,9 @@ end
 
 -- Chargement d'un setup enregistré dans la voiture (D8 amendé le 20/10/2026, décision de Vincent) :
 -- seulement le dernier fichier qualification ou course écrit par SetupLab, au stand, voiture arrêtée,
--- menu de setup ouvert, en deux clics, après une copie de sauvegarde du setup en cours ; le setup
--- chargé est ensuite constaté section par section. Gardes revérifiées à l'armement, à chaque image
--- affichée tant que le chargement est armé, et à la confirmation. Renvoie la raison d'un refus, ou nil.
+-- menu de setup ouvert, en un clic depuis la 1.5.3 (décision de Vincent du 02/11/2026), après une copie de
+-- sauvegarde du setup en cours quand elle sert ; le setup chargé est ensuite constaté section par section.
+-- Gardes vérifiées au clic (requestLoad). Renvoie la raison d'un refus, ou nil.
 local function loadBlocker(kind)
   if not app.settings.enabled then return 'application désactivée' end
   local okS, sim = Util.call(Util.get(host.ac, 'getSim'))
@@ -2141,7 +2140,7 @@ end
 
 -- À chaque image : un rangement au plus, voiture arrêtée, sans chargement armé ni en cours.
 local function fileOpsTick()
-  if #app.fileOps == 0 or app.inert or app.loadArm or app.loadCheck or app.perf.skipNext then return end
+  if #app.fileOps == 0 or app.inert or app.loadCheck or app.perf.skipNext then return end
   local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
   local speed = okC and Util.get(car, 'speedMs') or nil
   if not (Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh) then return end
@@ -2215,7 +2214,7 @@ app.refreshMemory = refreshMemory
 
 -- Setup à charger d'un genre : un setup enregistré (version de l'affinage, setup de la mémoire). Tout change
 -- ensemble (fichier, setup proposé, origine, état de piste) : le chargement et la validation (§14.1) restent
--- d'accord ; une autre cible annule la validation en cours et désarme le chargement.
+-- d'accord ; une autre cible annule la validation en cours.
 local function setLoadTarget(kind, rec)
   if app.proposals[kind] ~= rec.signature then
     Util.schedulerCancel(app.scheduler, 'validation_' .. kind)
@@ -2225,58 +2224,54 @@ local function setLoadTarget(kind, rec)
   app.saved[kind] = { path = rec.path, name = rec.file, text = rec.text, signature = rec.signature, hash = rec.hash,
     bucket = rec.bucket, origin = rec.origin, carId = rec.carId or (d and d.car and d.car.id) }
   app.proposals[kind], app.proposalOrigins[kind], app.proposalBuckets[kind] = rec.signature, rec.origin, rec.bucket
-  if app.loadArm and app.loadArm.kind == kind then app.loadArm = nil end
 end
 
-local function armLoad(kind, where)
-  local why = loadBlocker(kind) or Exporter.loadBlocker(host, app.saved[kind].path, app.saved[kind].text, app.written)
+-- Le setup de la voiture est-il, sans retouche, le dernier que SetupLab y a mis ? Son nom, ou nil : une copie de
+-- sauvegarde n'apporterait rien (1.5.3 : un essai remplacé ou abandonné ne laisse pas de copie « Avant chargement »).
+local function liveLastLoaded()
+  local kind = app.lastLoadKind
+  local loaded = kind and app.loaded[kind]
+  if not (loaded and loaded.values) then return nil end
+  local ok, text = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+  if not (ok and type(text) == 'string') then return nil end
+  if sameSetup(setupValues(text), loaded.values) then return loaded.name end
+  return nil
+end
+
+-- Chargement en un clic (décision de Vincent du 02/11/2026, 1.5.3 : « est-ce qu'on a vraiment besoin de confirmation
+-- de chargement ? ») : la fenêtre n'existe que sur l'écran de setup, au stand ; gardes, copie de sauvegarde du setup en
+-- cours quand elle sert, ac.loadSetup, puis constat du setup chargé (loadTick). Un clic de plus pendant ce constat ne
+-- recharge rien (il remplace le délai minimal des deux clics d'avant). where : endroit qui suit le chargement.
+local function requestLoad(kind, where)
+  local saved = app.saved[kind]
+  -- loadBlocker : rien à charger, ou constat du chargement précédent en cours (le double clic ne recharge rien)
+  local why = loadBlocker(kind) or Exporter.loadBlocker(host, saved.path, saved.text, app.written)
   if why then
-    app.loadArm = nil
     app.ui.message = 'Chargement impossible : ' .. why .. '.'
     -- dit aussi sous le bouton (constat de Vincent du 22/10/2026 : le message du haut n'est pas vu)
     app.loadNote = { kind = kind, text = app.ui.message }
     return
   end
+  -- double clic : le même fichier redemandé aussitôt ne recharge rien (le constat peut finir en une image)
+  local last = app.lastLoadRequest
+  if last and last.path == saved.path and (app.frameNo or 0) - last.frame < K.loadRepeatFrames then
+    app.ui.message = 'Chargement déjà demandé : ' .. tostring(saved.name) .. '.'
+    return
+  end
+  app.lastLoadRequest = { path = saved.path, frame = app.frameNo or 0 }
   app.loadNote = nil
-  local now = app.clock and app.clock() or nil
-  app.loadArm = { kind = kind, path = app.saved[kind].path, signature = app.saved[kind].signature,
-    minClock = now and (now + K.loadConfirmMinSeconds), untilClock = now and (now + K.loadConfirmSeconds),
-    untilNow = app.now + K.loadConfirmSeconds, frames = 0 }
-  -- confirmation et suivi là où le chargement a été demandé (résultat, affinage, ou mémoire du circuit)
   app.loadWhere = where or 'result'
-  app.ui.message = 'Confirmer le chargement dans les ' .. K.loadConfirmSeconds .. ' s : il remplace le setup en cours dans '
-    .. 'la voiture (modifications non enregistrées comprises) ; une copie du setup actuel est enregistrée juste avant.'
-end
-
-local function confirmLoad(kind)
-  local arm = app.loadArm
-  local saved = app.saved[kind]
-  if not (arm and arm.kind == kind and saved and saved.path == arm.path and app.proposals[kind] == arm.signature) then
-    app.loadArm = nil
-    app.ui.message = 'Chargement non armé : cliquer d\'abord « Charger le setup ' .. COMPUTE[kind].label .. ' dans la voiture ».'
-    return
-  end
-  -- délai minimal : un double-clic ne vaut pas confirmation (le chargement reste armé)
-  if (arm.minClock and app.clock and app.clock() < arm.minClock) or (arm.minClock == nil and arm.frames < K.loadConfirmMinFrames) then
-    app.ui.message = 'Confirmation trop rapide : lire l\'avertissement, puis confirmer.'
-    return
-  end
-  app.loadArm = nil
-  local why = loadBlocker(kind) or Exporter.loadBlocker(host, saved.path, saved.text, app.written)
-  if why then
-    app.ui.message = 'Chargement impossible : ' .. why .. '.'
-    app.loadNote = { kind = kind, text = app.ui.message }
-    return
-  end
   local target = setupValues(saved.text)
   -- état d'avant l'appel : un setup déjà identique au fichier ne prouve rien (constat non concluant)
   local already = liveHasValues(target)
   -- copie de sauvegarde du setup en cours (nouveau fichier, relu) : le chargement reste réversible ; inutile
-  -- quand la voiture roule avec un fichier gardé de SetupLab, intact (réponse de Vincent du 22/10/2026)
+  -- quand la voiture roule avec un fichier gardé de SetupLab, intact (réponse de Vincent du 22/10/2026), ou avec le
+  -- dernier setup que SetupLab y a mis, sans retouche
   local kept = liveKeptFile()
+  local last = kept == nil and liveLastLoaded() or nil
   local backupNote
-  if kept then
-    backupNote = 'setup précédent déjà enregistré : ' .. kept
+  if kept or last then
+    backupNote = kept and ('setup précédent déjà enregistré : ' .. kept) or ('setup précédent mis par SetupLab : ' .. last)
     app.backupsSkipped = (app.backupsSkipped or 0) + 1
   else
     local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, fileWords().backup, fileStamp())
@@ -2307,7 +2302,7 @@ local function confirmLoad(kind)
   log('INFO', 'load', 'ac.loadSetup accepté : ' .. saved.path .. ' ; ' .. backupNote)
 end
 
--- À chaque image affichée : échéance et gardes du chargement armé ; constat du setup chargé.
+-- À chaque image affichée : constat du setup chargé.
 -- Vos retouches (décision de Vincent du 22/10/2026 : « s'il a calculé un setup, que je l'ai chargé et que je
 -- reviens dans les stands et que je modifie un petit peu le setup, il faut qu'il le prenne en compte ») : à
 -- chaque découverte, un cran différent du dernier setup chargé par SetupLab est une retouche du pilote ; il est
@@ -2415,22 +2410,6 @@ local function applyPit(check)
 end
 
 local function loadTick()
-  local arm = app.loadArm
-  if arm then
-    arm.frames = arm.frames + 1
-    local saved = app.saved[arm.kind]
-    local expired = (arm.untilClock and app.clock and app.clock() > arm.untilClock)
-      or (arm.untilClock == nil and (arm.frames > K.loadConfirmFrames or app.now > arm.untilNow))
-    local why = expired and 'délai de confirmation écoulé' or loadBlocker(arm.kind)
-    if why == nil and not (saved and saved.path == arm.path and app.proposals[arm.kind] == arm.signature) then
-      why = 'autre setup enregistré'
-    end
-    if why then
-      app.loadArm = nil
-      app.ui.message = 'Chargement désarmé : ' .. why .. '.'
-      app.loadNote = { kind = arm.kind, text = app.ui.message }
-    end
-  end
   local check = app.loadCheck
   if check == nil then return end
   local label = COMPUTE[check.kind].label
@@ -2525,7 +2504,7 @@ end
 -- qu'il enregistre automatiquement au fur et à mesure des tours… il me propose un setup que moi je valide et
 -- que j'utilise ou pas ; et ensuite on continue ». Rien n'est écrit sans un clic : chaque setup proposé est
 -- une version en attente (vN), annoncée une fois à l'écran (ac.setMessage) ; « Valider » l'enregistre (nom
--- choisi « _vN », sinon daté) et en fait le setup à charger au stand, en deux clics ; « Écarter » : jamais
+-- choisi « _vN », sinon daté) et en fait le setup à charger au stand, en un clic ; « Écarter » : jamais
 -- reproposée. Nouveau calcul dès qu'il y a des données nouvelles (un tour propre, ou N tours propres selon le
 -- réglage « Affinage : tours propres avant un nouveau calcul » ; un chargement dans la voiture ; un nouvel essai
 -- après un refus), jamais deux fois sur les mêmes données ; jamais d'arrêt tout seul. Piloté par la boucle de
@@ -3103,7 +3082,9 @@ local function refineStart(kind)
   if not startReady(kind) or not refineMinReached(r) or why then
     r.due, r.nextAt = true, nil
     r.waiting = (not startReady(kind) and startWaiting(kind)) or (why and ('course : ' .. why)) or refineMinText(r)
-    app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé : ' .. r.waiting .. '.'
+    -- la raison seule dans le message (« course : » devant une raison à deux propositions ne se traduit pas)
+    local reason = (not startReady(kind) and startWaiting(kind)) or why or refineMinText(r)
+    app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé, en attente : ' .. reason .. '.'
     return
   end
   refineCompute(r)
@@ -3258,7 +3239,6 @@ local function refineReject(r, e)
     setLoadTarget(r.kind, back)
   elseif app.saved[r.kind] and app.saved[r.kind].signature == e.signature then
     app.saved[r.kind] = nil
-    if app.loadArm and app.loadArm.kind == r.kind then app.loadArm = nil end
   end
   app.ui.message = 'v' .. e.version .. ' non gardée : ni réutilisée ni reproposée'
     .. (recycle and (' (son fichier ' .. e.file .. ' part à la Corbeille dès que la voiture est arrêtée).')
@@ -3394,7 +3374,7 @@ local function memoryLoad(key)
   end
   local kind = memoryKind(m.group)
   setLoadTarget(kind, m)
-  armLoad(kind, 'memory')
+  requestLoad(kind, 'memory')
 end
 
 local function startChoose(kind, mode)
@@ -3407,7 +3387,7 @@ local function startChoose(kind, mode)
   -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus ; un chargement armé non
   -- plus ; les fichiers d'essai de l'affinage d'avant (versions jamais validées) partent à la Corbeille
   app.pins[kind], app.loaded[kind] = {}, nil
-  app.loadArm, app.loadNote = nil, nil
+  app.loadNote = nil
   local old = app.refines[kind]
   for _, e in ipairs(old and old.history or {}) do
     if e.version and e.status == 'essai' and e.trial and app.written[e.trial.file] == e.trial.hash then
@@ -3585,8 +3565,8 @@ local function handleIntents(intents)
     app.names[intents.name.kind] = Util.truncate(tostring(intents.name.text), K.nameMaxChars * 4)
   end
   if intents.autoToggle then autoToggle() end
-  if app.inert and (intents.calibrate or intents.validate or intents.setting or intents.copyLap or intents.loadArm
-      or intents.loadConfirm or intents.refineStart or intents.refineJudge or intents.refineLock or intents.memoryLoad
+  if app.inert and (intents.calibrate or intents.validate or intents.setting or intents.copyLap or intents.load
+      or intents.loadArm or intents.refineStart or intents.refineJudge or intents.refineLock or intents.memoryLoad
       or intents.memoryLock) then
     app.ui.message = 'Indisponible : ' .. app.inert
     return
@@ -3647,12 +3627,8 @@ local function handleIntents(intents)
     app.ui.message = 'Retouches libérées : le prochain calcul peut de nouveau changer tous les réglages.'
     log('INFO', 'pins', app.ui.message)
   end
-  if intents.loadDisarm and app.loadArm then
-    app.loadArm = nil
-    app.ui.message = 'Chargement annulé : le setup en cours n\'a pas changé.'
-  end
-  if intents.loadArm then armLoad(intents.loadArm) end
-  if intents.loadConfirm then confirmLoad(intents.loadConfirm) end
+  -- un clic (1.5.3) ; loadArm : ancien nom de l'intention, gardé ; loadConfirm (second clic d'avant) ne fait plus rien
+  if intents.load or intents.loadArm then requestLoad(intents.load or intents.loadArm) end
   if intents.setting then
     local key, value = intents.setting.key, intents.setting.value
     for _, def in ipairs(Config.settings) do

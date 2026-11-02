@@ -168,10 +168,8 @@ M.K = {
   workQuotaFallback = 200,    -- unités de travail par tranche sans horloge précise
   sliceMinMs = 0.25,          -- tranche minimale quand la frame a déjà travaillé (fin de tour) : une unité au moins
   -- chargement d'un setup SetupLab dans la voiture (D8 amendé le 20/10/2026, décision de Vincent)
-  loadConfirmSeconds = 6,     -- délai pour confirmer le chargement après le premier clic…
-  loadConfirmFrames = 360,    -- … ou, sans horloge précise, nombre d'images affichées
-  loadConfirmMinSeconds = 0.5, -- délai minimal avant la confirmation (un double-clic ne confirme pas)…
-  loadConfirmMinFrames = 30,  -- … ou, sans horloge précise, images affichées
+  loadRepeatFrames = 30,      -- chargement en un clic (1.5.3) : le même fichier redemandé dans ces images (double clic)
+                              -- ne recharge rien
   loadVerifyFrames = 120,     -- images pour constater le setup chargé (signature en direct)
   loadMaxSpeedKmh = 1,        -- voiture considérée arrêtée au stand
   loopSwitchCalls = 30,       -- appels d'affilée de l'autre source avant bascule de la boucle

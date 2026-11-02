@@ -372,7 +372,7 @@ tests['Z10 nouvelle séance : setup enregistré toujours chargeable'] = function
   T.ok(shown(h, 'Charger le setup tour rapide dans la voiture'), 'précondition : bouton présent')
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
+  T.eq(#h.loadCalls, 1, 'chargé en un clic : ' .. tostring(app.ui.message))
   h.sim.currentSessionIndex, h.sim.raceSessionType = 1, 2
   refresh(h, 2)
   T.eq(app.discoveryState, 'running')
@@ -383,10 +383,11 @@ tests['Z10 nouvelle séance : setup enregistré toujours chargeable'] = function
     .. tostring(shown(h, 'Charger le setup tour rapide dans la voiture')) .. ' ; fichier '
     .. tostring(app.lastSaved and app.lastSaved.quali and app.lastSaved.quali.file))
   T.ok(shown(h, 'Charger le setup tour rapide dans la voiture'), 'bouton Charger perdu après la nouvelle séance')
-  -- et le chargement s'arme (le setup enregistré ne dépend pas du résultat effacé)
+  -- et il se charge (le setup enregistré ne dépend pas du résultat effacé)
+  frames(h, Config.K.loadRepeatFrames + 1)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.ok(app.loadArm, 'chargement armé après la nouvelle séance : ' .. tostring(app.ui.message))
+  T.eq(#h.loadCalls, 2, 'chargé après la nouvelle séance : ' .. tostring(app.ui.message))
 end
 
 return tests

@@ -13,8 +13,8 @@ EN = {
     'Réglages modifiés à la main depuis le dernier chargement par SetupLab : gardés à votre valeur. Les libérer : le prochain calcul peut de nouveau tous les changer.':
         'Settings changed by hand since the last load by SetupLab: kept at your value. Release them: the next computation can change all of them again.',
     'Mémoire du circuit': 'Track memory',
-    "Setup validé pour cette voiture sur ce circuit (disposition comprise), par séance et état de piste. Figé : l'affinage automatique ne le change plus. Chargement au stand, menu de setup ouvert, en deux clics.":
-        'Validated setup for this car on this track (layout included), per session and track state. Locked: automatic refinement no longer changes it. Load in the pits, setup menu open, in two clicks.',
+    "Setup validé pour cette voiture sur ce circuit (disposition comprise), par séance et état de piste. Figé : l'affinage automatique ne le change plus. Chargement au stand, menu de setup ouvert, en un clic.":
+        'Validated setup for this car on this track (layout included), per session and track state. Locked: automatic refinement no longer changes it. Load in the pits, setup menu open, in one click.',
     ' (v%s)': ' (v%s)',
     ' — figé': ' — locked',
     ' — validé': ' — validated',
@@ -196,8 +196,8 @@ EN = {
     'Le principe': 'How it works',
     "SetupLab calcule un setup pour la voiture et le circuit, puis l'affine avec vos tours : il apprend votre façon de piloter et propose des versions successives (v1, v2…).":
         'SetupLab computes a setup for the car and track, then refines it with your laps: it learns how you drive and proposes successive versions (v1, v2…).',
-    "Rien n'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre confirmation, au stand.":
-        'Nothing is saved without your consent, and the car setup only changes when you confirm it, in the pits.',
+    "Rien n'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre clic, au stand.":
+        'Nothing is saved without your consent, and the car setup only changes when you click, in the pits.',
     'Les 4 étapes': 'The 4 steps',
     "1. Rouler : cochez « SetupLab actif » et roulez. Après le minimum de tours propres (onglet Réglages), SetupLab propose une version. En piste, il annonce qu'il a le minimum d'informations et continue d'analyser vos tours.":
         '1. Drive: tick "SetupLab active" and drive. After the minimum clean laps (SETTINGS tab), SetupLab proposes a version. On track, it announces that it has the minimum information and keeps analysing your laps.',

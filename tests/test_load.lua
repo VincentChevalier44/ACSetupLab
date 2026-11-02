@@ -75,39 +75,27 @@ local function ready(opts)
   return h, app
 end
 
-local function arm(h)
+-- Un clic sur « Charger » : le chargement part tout de suite (1.5.3, décision de Vincent du 02/11/2026 : plus de
+-- confirmation en deux clics).
+local function clickLoad(h)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frame(h)
 end
 
--- confirmation après le délai minimal (lecture de l'avertissement)
-local function confirm(h)
-  for _ = 1, math.ceil(Config.K.loadConfirmMinSeconds * 60) + 2 do frame(h) end
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frame(h)
-end
-
-tests['J01 chargement nominal : deux clics, copie de sauvegarde, setup constaté'] = function()
+tests['J01 chargement nominal : un clic, copie de sauvegarde, setup constaté ; double clic sans effet'] = function()
   local h, app = ready()
   local proposedText = h.written[app.quali.saved.path]
   -- modification non enregistrée dans le menu de setup : elle doit figurer dans la copie de sauvegarde
   local touched = h.spinners[1]
   touched.value = touched.value + (touched.step or 1)
   local original = h.ac.stringifyCurrentSetup(true, false)
-  arm(h)
-  T.ok(app.loadArm and app.loadArm.kind == 'quali', 'armé au premier clic')
-  T.eq(#h.loadCalls, 0, 'aucun chargement au premier clic')
-  T.eq(backups(h), 0, 'aucune copie au premier clic')
+  -- l'avertissement est dans l'infobulle du bouton
+  h.hover = true
   frame(h)
-  T.ok(shown(h, 'Remplace le setup en cours'), 'avertissement affiché')
-  -- double-clic : la confirmation immédiate est refusée, le chargement reste armé
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frame(h)
-  T.contains(app.ui.message, 'trop rapide')
-  T.ok(app.loadArm, 'toujours armé')
-  T.eq(#h.loadCalls, 0)
-  confirm(h)
-  T.eq(#h.loadCalls, 1)
+  T.ok(shown(h, 'remplace le setup en cours dans la voiture'), 'avertissement au survol du bouton')
+  h.hover = nil
+  clickLoad(h)
+  T.eq(#h.loadCalls, 1, 'chargé au premier clic')
   T.eq(h.loadCalls[1], app.quali.saved.path, 'fichier enregistré par SetupLab')
   T.eq(backups(h), 1, 'copie de sauvegarde écrite avant le chargement')
   for path, text in pairs(h.written) do
@@ -120,6 +108,11 @@ tests['J01 chargement nominal : deux clics, copie de sauvegarde, setup constaté
   T.contains(app.ui.message, 'chargé et vérifié')
   T.contains(app.ui.message, Config.exportBackupPrefix)
   T.contains(app.ui.message, 'relancera la découverte')
+  -- double clic (le constat peut finir en une image) : le même fichier n'est ni rechargé ni recopié
+  clickLoad(h)
+  T.eq(#h.loadCalls, 1, 'double clic : un seul chargement')
+  T.eq(backups(h), 1, 'double clic : une seule copie')
+  T.contains(app.ui.message, 'déjà demandé')
   -- aucun fichier modifié : le fichier chargé est intact, toutes les écritures sont de nouveaux fichiers
   T.eq(h.written[app.quali.saved.path], proposedText)
   local files = 0
@@ -135,7 +128,7 @@ tests['J01 chargement nominal : deux clics, copie de sauvegarde, setup constaté
   T.eq(app.perf.errors, 0)
 end
 
-tests['J02 gardes : stand, arrêt, menu de setup, setup imposé, voiture, en ligne, échéance, genre'] = function()
+tests['J02 gardes : stand, arrêt, menu de setup, setup imposé, voiture, en ligne, replay, désactivée'] = function()
   local h, app = ready()
   local cases = {
     { 'voiture hors du stand', function() h.car.isInPit = false end, function() h.car.isInPit = true end },
@@ -144,83 +137,42 @@ tests['J02 gardes : stand, arrêt, menu de setup, setup imposé, voiture, en lig
     { 'setup imposé', function() h.sim.fixedSetup = true end, function() h.sim.fixedSetup = false end },
   }
   for _, case in ipairs(cases) do
-    -- refus à l'armement
+    -- refus au clic : rien n'est chargé, la raison est dite
     case[2]()
-    arm(h)
-    T.eq(app.loadArm, nil, case[1] .. ' : non armé')
+    clickLoad(h)
+    T.eq(#h.loadCalls, 0, case[1] .. ' : rien chargé')
     T.contains(app.ui.message, case[1])
     case[3]()
-    -- garde perdue après l'armement : désarmé, la confirmation ne charge rien
-    arm(h)
-    T.ok(app.loadArm, case[1] .. ' : armé')
-    case[2]()
-    frame(h)
-    T.eq(app.loadArm, nil, case[1] .. ' : désarmé dès que la garde change')
-    case[3]()
-    app.handleIntents({ loadConfirm = 'quali' })
-    T.contains(app.ui.message, 'non armé')
   end
   -- autre voiture que celle du calcul
   local carId = h.carId
-  arm(h)
   h.carId = 'autre_voiture'
-  frame(h)
-  T.eq(app.loadArm, nil, 'autre voiture : désarmé')
+  app.handleIntents({ load = 'quali' })
+  T.eq(#h.loadCalls, 0, 'autre voiture : rien chargé')
   h.carId = carId
-  -- échéance de la confirmation (horloge avancée)
-  arm(h)
-  h.clockNow = h.clockNow + Config.K.loadConfirmSeconds + 1
-  frame(h)
-  T.eq(app.loadArm, nil, 'confirmation expirée')
-  T.contains(app.ui.message, 'délai de confirmation écoulé')
-  -- sans horloge précise, fenêtre masquée (seule la boucle UPDATE tourne) : échéance sur le temps de jeu
-  local clock = app.clock
-  app.clock = nil
-  arm(h)
-  T.ok(app.loadArm and app.loadArm.untilClock == nil)
-  for _ = 1, (Config.K.loadConfirmSeconds + 1) * 60 do
-    h.sim.time = h.sim.time + 1000 / 60
-    script.SETUPLAB__UPDATE(1 / 60)
-  end
-  frame(h)
-  T.eq(app.loadArm, nil, 'sans horloge : armement expiré')
-  app.clock = clock
-  -- replay déclenché dans l'image même de la confirmation (contexte relu à 1 Hz seulement)
-  arm(h)
+  -- replay déclenché dans l'image même du clic (contexte relu à 1 Hz seulement)
   for _ = 1, 40 do frame(h) end
   app.nextContextAt = app.now + 30
   h.sim.isReplayActive = true
-  app.handleIntents({ loadConfirm = 'quali' })
+  app.handleIntents({ load = 'quali' })
   T.eq(#h.loadCalls, 0, 'aucun chargement en replay')
   h.sim.isReplayActive = false
   app.nextContextAt = 0
   frame(h)
   -- application désactivée ; setup imposé illisible
   app.settings.enabled = false
-  arm(h)
+  app.handleIntents({ load = 'quali' })
   T.contains(app.ui.message, 'application désactivée')
   app.settings.enabled = true
   h.sim.fixedSetup = nil
-  arm(h)
-  T.eq(app.loadArm, nil)
+  clickLoad(h)
   T.contains(app.ui.message, 'illisible')
   h.sim.fixedSetup = false
-  arm(h)
-  T.ok(app.loadArm)
-  h.sim.fixedSetup = nil
-  frame(h)
-  T.eq(app.loadArm, nil, 'désarmé quand le setup imposé devient illisible')
-  T.contains(app.ui.message, 'illisible')
-  h.sim.fixedSetup = false
-  -- confirmation d'un autre genre : rien
-  arm(h)
-  app.handleIntents({ loadConfirm = 'race' })
-  T.contains(app.ui.message, 'non armé')
   -- en ligne : inerte, intentions refusées
-  arm(h)
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end))
-  T.eq(app.loadArm, nil, 'en ligne : désarmé')
+  app.handleIntents({ load = 'quali' })
+  T.contains(app.ui.message, 'Indisponible')
   app.handleIntents({ loadArm = 'quali' })
   T.contains(app.ui.message, 'Indisponible')
   h.sim.isOnlineRace = false
@@ -233,32 +185,24 @@ tests['J03 fichier modifié, absent ou étranger ; copie de sauvegarde impossibl
   local h, app = ready()
   local path = app.quali.saved.path
   local text = h.written[path]
-  -- modifié depuis son écriture : refus dès l'armement, aucune copie écrite
+  -- modifié depuis son écriture : refus au clic, aucune copie écrite
   h.written[path] = text .. '\n; modifié'
-  arm(h)
-  T.eq(app.loadArm, nil)
-  T.contains(app.ui.message, 'modifié depuis son écriture')
-  -- modifié entre l'armement et la confirmation
-  h.written[path] = text
-  arm(h)
-  T.ok(app.loadArm)
-  h.written[path] = text .. ' '
-  confirm(h)
+  clickLoad(h)
   T.contains(app.ui.message, 'modifié depuis son écriture')
   T.eq(app.loadTest, nil, 'refus avant l\'appel : pas une issue de ac.loadSetup')
   -- absent
   h.written[path] = nil
-  arm(h)
+  clickLoad(h)
   T.contains(app.ui.message, 'introuvable')
   h.written[path] = text
   T.eq(backups(h), 0, 'aucune copie pour un fichier refusé')
   -- copie de sauvegarde impossible : pas de chargement
-  arm(h)
   h.opts.saveFails = true
-  confirm(h)
+  clickLoad(h)
   h.opts.saveFails = nil
   T.contains(app.ui.message, 'copie de sauvegarde du setup en cours impossible')
   T.eq(app.writeTest.ok, false, 'échec de la copie consigné (capacité d\'écriture)')
+  T.eq(#h.loadCalls, 0, 'aucun chargement sans copie de sauvegarde')
   -- fichiers étrangers, chemins détournés : refus par l'exporteur (seul module autorisé à charger) ; « écrit
   -- par SetupLab » : nom et empreinte du contenu relevés à l'écriture (1.4.0 : noms choisis par Vincent)
   local Exporter = require('src/exporter')
@@ -308,13 +252,12 @@ end
 
 tests['J04 chargement accepté par le jeu mais setup différent : écart signalé'] = function()
   local h, app = ready({ loadNoApply = true })
-  arm(h)
-  confirm(h)
+  clickLoad(h)
   T.eq(#h.loadCalls, 1)
   -- vérification en cours : aucun autre chargement
   T.ok(app.loadCheck)
-  arm(h)
-  T.eq(app.loadArm, nil)
+  clickLoad(h)
+  T.eq(#h.loadCalls, 1)
   T.contains(app.ui.message, 'vérification du chargement précédent en cours')
   for _ = 1, Config.K.loadVerifyFrames + 2 do frame(h) end
   T.eq(app.loadCheck, nil)
@@ -328,16 +271,14 @@ tests['J04 chargement accepté par le jeu mais setup différent : écart signal�
   for _, sp in ipairs(h.spinners) do
     if sp.name == 'FUEL' then sp.value = sp.value + 1 end
   end
-  arm(h)
-  confirm(h)
+  clickLoad(h)
   for _ = 1, Config.K.loadVerifyFrames + 2 do frame(h) end
   h.opts.loadSkip, h.opts.loadNoApply = nil, true
   T.eq(app.loadTest.ok, false, 'écart sur le carburant')
   T.contains(app.loadTest.reason, 'FUEL')
   -- chargement refusé par le jeu : raison affichée, rien n'est constaté
   h.opts.loadRefuse = true
-  arm(h)
-  confirm(h)
+  clickLoad(h)
   h.opts.loadRefuse = nil
   T.eq(#h.loadCalls, 3)
   T.eq(app.loadCheck, nil)
@@ -345,7 +286,7 @@ tests['J04 chargement accepté par le jeu mais setup différent : écart signal�
   T.eq(app.loadTest.ok, false)
 end
 
-tests['J05 deux genres enregistrés : la confirmation est propre au genre ; nouvel enregistrement : désarmé'] = function()
+tests['J05 deux genres enregistrés : chaque bouton charge son genre ; nouvel enregistrement : le nouveau fichier'] = function()
   local h, app = ready()
   app.settings.optBudgetEvalsC = 20
   Fake.raceReady(h, app, 10)
@@ -356,33 +297,35 @@ tests['J05 deux genres enregistrés : la confirmation est propre au genre ; nouv
   frame(h)
   T.ok(app.race.saved and app.race.saved.ok, 'setup course enregistré')
   h.tab = nil
-  -- qualification armée, course confirmée : rien n'est chargé
-  arm(h)
-  T.ok(app.loadArm and app.loadArm.kind == 'quali')
-  app.handleIntents({ loadConfirm = 'race' })
-  T.contains(app.ui.message, 'non armé')
-  T.eq(#h.loadCalls, 0)
-  -- nouvel enregistrement du setup armé : désarmé
-  arm(h)
-  T.ok(app.loadArm)
+  -- nouvel enregistrement du tour rapide : c'est ce nouveau fichier qui est chargé
+  local before = app.saved.quali.path
   h.sim.systemTime = (h.sim.systemTime or 0) + 60
   h.click = 'Enregistrer le setup tour rapide'
   frame(h)
   frame(h)
-  T.eq(app.loadArm, nil, 'autre fichier enregistré : désarmé')
-  app.handleIntents({ loadConfirm = 'quali' })
-  T.eq(#h.loadCalls, 0)
+  T.ok(app.saved.quali.path ~= before, 'nouveau fichier à charger')
+  clickLoad(h)
+  T.eq(#h.loadCalls, 1)
+  T.eq(h.loadCalls[1], app.saved.quali.path, 'tour rapide : son dernier fichier')
+  T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end))
+  -- bouton de la course : le setup course
+  h.tab, h.click = 'Course', 'Charger le setup course dans la voiture'
+  frame(h)
+  h.tab = nil
+  T.eq(#h.loadCalls, 2)
+  T.eq(h.loadCalls[2], app.saved.race.path, 'course : son fichier')
+  T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end))
+  T.eq(app.perf.errors, 0)
 end
 
 tests['J06 setup déjà en place : constat non concluant, capacité non promue'] = function()
   local h, app = ready()
-  arm(h)
-  confirm(h)
+  clickLoad(h)
   T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end))
   T.ok(app.loadTest.ok and app.loadVerified, 'premier chargement vérifié')
-  -- second chargement du même fichier : la voiture a déjà ce setup, rien n'est prouvé
-  arm(h)
-  confirm(h)
+  -- second chargement du même fichier, plus tard (pas un double clic) : la voiture a déjà ce setup, rien n'est prouvé
+  for _ = 1, Config.K.loadRepeatFrames + 1 do frame(h) end
+  clickLoad(h)
   T.eq(#h.loadCalls, 2)
   T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end))
   T.eq(app.loadTest.ok, false)
@@ -405,8 +348,7 @@ end
 -- preset d'arrêt sélectionné prend ses pressions et son composé ; un setup de tour rapide ne la touche pas.
 tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, composé) ; tour rapide : intacte'] = function()
   local h, app = ready()
-  arm(h)
-  confirm(h)
+  clickLoad(h)
   T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end), 'chargement constaté')
   T.eq(h.pitCalls, 0, 'tour rapide : stratégie d\'arrêt intacte')
   T.eq(app.discovery.caps.byId.pit_strategy.status, 'pending')
@@ -420,10 +362,10 @@ tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, c
   -- retouche dans le menu de setup : le chargement suivant n'est pas « déjà en place »
   local touched = h.spinners[1]
   touched.value = touched.value + (touched.step or 1)
-  app.handleIntents({ loadArm = 'race' })
-  T.ok(app.loadArm and app.loadArm.kind == 'race', tostring(app.ui.message))
-  for _ = 1, math.ceil(Config.K.loadConfirmMinSeconds * 60) + 2 do frame(h) end
-  app.handleIntents({ loadConfirm = 'race' })
+  -- rechargé plus tard comme setup de course (pas un double clic du même fichier)
+  for _ = 1, Config.K.loadRepeatFrames + 1 do frame(h) end
+  app.handleIntents({ load = 'race' })
+  T.ok(app.loadCheck and app.loadCheck.kind == 'race', tostring(app.ui.message))
   T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end), 'chargement constaté')
   T.ok(h.pitCalls >= 4, 'pressions réglées : ' .. h.pitCalls)
   for _, name in ipairs({ 'PRESSURE_LF', 'PRESSURE_RF', 'PRESSURE_LR', 'PRESSURE_RR' }) do

@@ -115,11 +115,7 @@ local function loadAtPit(h, app)
   frames(h, 1)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
-  local started = app.clock()
-  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frames(h, 1)
+  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason) .. ' / ' .. tostring(app.ui.message))
 end
@@ -316,13 +312,10 @@ tests['RG04 copies « Avant chargement » : seulement si utiles ; à la validati
   local v2 = r.history[#r.history]
   -- v2 rechargée alors qu'elle est déjà dans la voiture, intacte : copie inutile, rien d'écrit
   local writes = h.writeCalls
+  frames(h, Config.K.loadRepeatFrames + 1)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 1)
-  T.ok(app.loadArm, tostring(app.ui.message))
-  local started = app.clock()
-  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
-  h.click = 'Confirmer le chargement (tour rapide)'
-  frames(h, 1)
+  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.eq(h.writeCalls, writes, 'aucune copie inutile')
   T.eq(app.backupsSkipped, 1)
@@ -352,10 +345,11 @@ tests['RG05 sûreté : fichier modifié, gardé ou étranger jamais touché ; un
     app.backups[#app.backups + 1] = { name = name, hash = Util.hashString('COPIE ' .. name), values = {} }
     app.queueFileOp({ op = 'corbeille', name = name, hash = Util.hashString('COPIE ' .. name), why = 'test' })
   end
-  app.loadArm = { kind = 'quali', path = 'x', signature = 'y', untilNow = app.now + 60, frames = 0 }
+  -- constat d'un chargement en cours (1.5.3 : plus de chargement armé) : rien
+  app.loadCheck = { kind = 'quali', path = 'x', target = { JAMAIS_DANS_LA_VOITURE = 1 }, frames = 999, backup = '' }
   script.SETUPLAB__UPDATE(1 / 60)
-  T.eq(#h.recycled, recycled, 'chargement armé : rien')
-  app.loadArm = nil
+  T.eq(#h.recycled, recycled, 'chargement en cours : rien')
+  app.loadCheck = nil
   script.SETUPLAB__UPDATE(1 / 60)
   T.eq(#h.recycled, recycled + 1, 'une seule par image')
   script.SETUPLAB__UPDATE(1 / 60)

@@ -124,8 +124,8 @@ EN = {
     ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)': ' (adjustable: SETTINGS tab, "When SetupLab proposes a setup")',
     "2. Rouler : après le nombre de tours propres choisi (onglet RÉGLAGES, 0 pour tout de suite ; ou premier setup tout de suite, d'après la voiture et la piste), SetupLab propose une version. En piste, il annonce qu'il a le minimum d'informations et continue d'analyser vos tours ; elle est prête à votre retour au stand.":
         '2. Drive: after the chosen number of clean laps (SETTINGS tab, 0 for right away; or first setup right away, from the car and the track), SetupLab proposes a version. On track, it announces that it has the minimum information and keeps analysing your laps; it is ready when you return to the pits.',
-    "Calcule tout de suite et annonce chaque setup amélioré (rien n'est enregistré avant « Valider »), puis recalcule %s, jusqu'à l'arrêt. Le chargement se fait au stand, en deux clics.":
-        'Computes right away and announces each improved setup (nothing is saved before "Validate"), then computes again %s, until you stop it. Loading happens in the pits, in two clicks.',
+    "Calcule tout de suite et annonce chaque setup amélioré (rien n'est enregistré avant « Valider »), puis recalcule %s, jusqu'à l'arrêt. Le chargement se fait au stand, en un clic.":
+        'Computes right away and announces each improved setup (nothing is saved before "Validate"), then computes again %s, until you stop it. Loading happens in the pits, in one click.',
     "Choisissez d'abord le point de départ (carte du haut).": 'Choose the starting point first (card at the top).',
     'Affinage %s repris : v%s et les versions précédentes sont gardées.': '%s refinement resumed: v%s and the previous versions are kept.',
     'Affinage %s repris.': '%s refinement resumed.',
@@ -180,8 +180,8 @@ EN = {
     'Le setup de course part de votre setup de qualification': 'The race setup starts from your qualifying setup',
     "Le calcul de course part d'un de vos setups de qualification de SetupLab (v1, v2, v3…, d'une séance précédente comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi (carburant, usure, relais).":
         'The race computation starts from one of your SetupLab qualifying setups (v1, v2, v3…, from an earlier session too), fitted to the car: your laps with it give your pace. It prepares the lap count you enter (fuel, wear, stints).',
-    "Quand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup chargé depuis le menu d'AC ne change pas le menu d'arrêt.":
-        "When SetupLab loads the race setup (two clicks in the pits), the selected preset of the quick pit menu gets its pressures and tyres; fuel and repairs stay yours. A setup loaded from AC's menu does not change the pit menu.",
+    "Quand SetupLab charge le setup de course (un clic au stand), le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup chargé depuis le menu d'AC ne change pas le menu d'arrêt.":
+        "When SetupLab loads the race setup (one click in the pits), the selected preset of the quick pit menu gets its pressures and tyres; fuel and repairs stay yours. A setup loaded from AC's menu does not change the pit menu.",
     '1. Setup de qualification : %s': '1. Qualifying setup: %s',
     "1. Setup de qualification : aucun — en faire un dans l'onglet QUALIF": '1. Qualifying setup: none — make one in the QUALIFYING tab',
     "Vos setups de qualification sur ce circuit : %s. Chargez celui de votre choix depuis le menu de setup d'AC : SetupLab le reconnaît et la course part de lui.":

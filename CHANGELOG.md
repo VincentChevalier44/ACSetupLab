@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (beta 1.5.3, in progress)
+
+- **Loading in one click**: "Load" puts the setup in the car at once, in the pits; the "Confirm" step is gone. A backup copy of the current setup is still saved just before, when it is useful (not when the car holds a setup SetupLab put in it, unchanged). A double click does not load twice.
+- New app logo.
+
 ## 1.0.0-beta.1.5.2 — 2026-11-02 — beta 1.5.2: race setup from your qualifying setup, pit strategy, window back
 
 Why this update: some players closed the SetupLab window with its X and could not get it back, even after reinstalling. After loading a qualifying setup, the race setup waited for a new qualifying version or more laps instead of starting from the setup in the car, and the pit stop menu kept its own tyre pressures. **To update, delete the old `SetupLab` folder first**, then extract the new archive (see the README).

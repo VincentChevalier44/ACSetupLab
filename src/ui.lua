@@ -856,13 +856,12 @@ local function saveLine(host, q, palette)
   if s then wrapped(host, s.text, palette[s.ok and 'available' or 'unavailable']) end
 end
 
--- Chargement du setup enregistré dans la voiture (D8 amendé le 20/10/2026) : deux clics, au stand,
--- menu de setup ouvert ; la colle contrôle les gardes et fait la copie de sauvegarde. Constat de Vincent du
--- 22/10/2026 (« on ne voit pas le bouton de chargement ») : bouton en vert, pleine largeur, l'état du stand
--- à côté (au stand, arrêtée, menu de setup ouvert), le dernier refus dessous ; une fois armé, la
--- confirmation à sa place, en vert, avec le temps restant (loadFollow).
-local function loadLabel(app, kind)
-  if app.loadArm and app.loadArm.kind == kind then return 'Chargement armé…' end
+-- Chargement du setup enregistré dans la voiture (D8 amendé le 20/10/2026, en un clic depuis la 1.5.3 : décision de
+-- Vincent du 02/11/2026), au stand, menu de setup ouvert ; la colle contrôle les gardes et fait la copie de
+-- sauvegarde. Constat de Vincent du 22/10/2026 (« on ne voit pas le bouton de chargement ») : bouton en vert, pleine
+-- largeur, l'état du stand à côté (au stand, arrêtée, menu de setup ouvert), le dernier refus dessous ; le suivi du
+-- chargement sous lui (loadFollow).
+local function loadLabel(_, kind)
   return 'Charger le setup ' .. KIND[kind].name .. ' dans la voiture'
 end
 
@@ -884,31 +883,24 @@ local function loadReadiness(host, app, kind, palette)
   if note and note.kind == kind then wrapped(host, note.text, palette.unavailable) end
 end
 
+-- Infobulle des boutons « Charger » (un clic depuis la 1.5.3).
+local LOAD_TIP = 'Un clic remplace le setup en cours dans la voiture, modifications non enregistrées comprises ; une copie du '
+  .. 'setup actuel est enregistrée juste avant quand elle sert.'
+
 local function loadButton(host, app, intents, kind, palette)
   if not (app.saved and app.saved[kind]) then return end
-  if app.loadArm and app.loadArm.kind == kind then return end
   small(host, 'À charger : ' .. tostring(app.saved[kind].name), palette.text)
   loadReadiness(host, app, kind, palette)
-  if actionButton(host, app.ui, palette, loadLabel(app, kind), 'go', true) then intents.loadArm = kind end
-  tip(host, 'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.')
+  if actionButton(host, app.ui, palette, loadLabel(app, kind), 'go', true) then intents.load = kind end
+  tip(host, LOAD_TIP)
 end
 
--- where : endroit qui affiche la confirmation et le suivi (« result » : résultat ou affinage ; « memory » :
--- mémoire du circuit), celui où le chargement a été demandé (un seul bouton de confirmation par onglet).
-local function loadFollow(host, app, intents, kind, palette, where)
+-- where : endroit qui affiche le suivi (« result » : résultat ou affinage ; « memory » : mémoire du circuit), celui
+-- où le chargement a été demandé.
+local function loadFollow(host, app, _, kind, palette, where)
   if not (app.saved and app.saved[kind]) then return end
   if (where or 'result') ~= (app.loadWhere or 'result') then return end
-  local arm = app.loadArm
-  if arm and arm.kind == kind then
-    wrapped(host, 'Remplace le setup en cours dans la voiture, modifications non enregistrées comprises ; une copie du '
-      .. 'setup actuel est enregistrée juste avant.', palette.pending)
-    if actionButton(host, app.ui, palette, 'Confirmer le chargement (' .. KIND[kind].name .. ')', 'go', true) then
-      intents.loadConfirm = kind
-    end
-    local left = (arm.untilClock and app.clock and (arm.untilClock - app.clock())) or ((arm.untilNow or app.now) - app.now)
-    small(host, L.f('Il reste %s s pour confirmer.', Util.fmt(math.max(0, left), 0)), palette.pending)
-    if host.ui.button('Annuler le chargement (' .. KIND[kind].name .. ')') then intents.loadDisarm = true end
-  elseif where == 'memory' then
+  if where == 'memory' then
     local note = app.loadNote
     if note and note.kind == kind then wrapped(host, note.text, palette.unavailable) end
   end
@@ -1314,7 +1306,7 @@ local function computeArea(host, app, intents, kind, palette)
       tip(host, 'Calcule tout de suite et annonce chaque setup amélioré (rien n\'est enregistré avant « Valider »), puis recalcule '
         .. (app.settings.refineLaps > 0 and ('tous les ' .. app.settings.refineLaps .. ' tour(s) propre(s) avec le même setup')
           or 'en continu (chaque tour roulé affine la calibration)') .. ', jusqu\'à l\'arrêt. Le chargement se fait au stand, '
-        .. 'en deux clics.')
+        .. 'en un clic.')
     end
     local estimate = M.estimateSeconds(app, budget, spec.lapsPerEval, kind)
     local text, long = M.durationText(estimate, Config.K[spec.target], M.slowFrames(app))
@@ -1490,7 +1482,7 @@ local function memoryCard(host, app, intents, kind, palette)
     -- état du stand ici seulement si aucun autre bouton « Charger » n'est affiché dans l'onglet
     if loadable and not (app.saved and app.saved[kind]) then loadReadiness(host, app, '', palette) end
     tip(host, 'Setup validé pour cette voiture sur ce circuit (disposition comprise), par séance et état de piste. Figé : '
-      .. 'l\'affinage automatique ne le change plus. Chargement au stand, menu de setup ouvert, en deux clics.')
+      .. 'l\'affinage automatique ne le change plus. Chargement au stand, menu de setup ouvert, en un clic.')
     for _, e in ipairs(list) do
       local m = e.m
       if m.locked then padlock(host, true) end
@@ -1500,7 +1492,7 @@ local function memoryCard(host, app, intents, kind, palette)
       local lock = (m.locked and 'Déverrouiller' or 'Figer (cadenas)') .. '###memlock_' .. e.id
       if m.text then
         if actionButton(host, app.ui, palette, 'Charger###memload_' .. e.id, 'go', false) then intents.memoryLoad = e.key end
-        tip(host, 'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.')
+        tip(host, LOAD_TIP)
         nextInline(host, lock)
       end
       if ui.button(lock) then intents.memoryLock = { key = e.key, locked = not m.locked } end
@@ -1564,7 +1556,7 @@ local function racePanel(host, app, intents, palette)
     colored(host, 'Le setup de course part de votre setup de qualification', palette.text)
     tip(host, 'Le calcul de course part d\'un de vos setups de qualification de SetupLab (v1, v2, v3…, d\'une séance précédente '
       .. 'comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi '
-      .. '(carburant, usure, relais).\nQuand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné '
+      .. '(carburant, usure, relais).\nQuand SetupLab charge le setup de course (un clic au stand), le preset sélectionné '
       .. 'du menu d\'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup '
       .. 'chargé depuis le menu d\'AC ne change pas le menu d\'arrêt.')
     local started = app.raceStarted and app.raceStarted() or false
@@ -1585,7 +1577,7 @@ local function racePanel(host, app, intents, palette)
     end
     if m and action == 'load' then
       if actionButton(host, app.ui, palette, 'Charger le setup de qualification validé', 'go', true) then intents.raceRefLoad = true end
-      tip(host, 'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.')
+      tip(host, LOAD_TIP)
       loadFollow(host, app, intents, 'quali', palette, 'memory')
     end
     local laps = app.raceLaps
@@ -2288,7 +2280,7 @@ local HELP = {
   { 'Le principe', {
     'SetupLab calcule un setup pour la voiture et le circuit, puis l\'affine avec vos tours : il apprend votre façon de '
       .. 'piloter et propose des versions successives (v1, v2…).',
-    'Rien n\'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre confirmation, au stand.',
+    'Rien n\'est enregistré sans votre accord, et le setup de la voiture ne change que sur votre clic, au stand.',
   } },
   { 'Les 4 étapes', {
     '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par '
