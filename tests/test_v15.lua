@@ -794,4 +794,71 @@ tests['NV22 séance de course : v4 chargé depuis le menu d\'AC, v1 de course sa
   T.eq(app.perf.errors, 0)
 end
 
+-- Constat de Vincent du 02/11/2026 : onglet QUALIF, « reprendre » sa v2 validée (affinage du tour rapide actif, qui attend
+-- ses tours pour une v3), puis onglet COURSE, 25 tours, calcul de course : la course doit partir de la v2 dans la
+-- voiture, sans attendre une v3 (réglages par défaut : 2 tours, premier setup immédiat décoché).
+local function nv23(button)
+  local h, app = ready({ session = 1, skin = true })
+  app.settings.refineMinLaps, app.settings.refineInstantFirst = 2, false
+  -- v2 validée en séance d'essai (mémoire « essai » de ce circuit), fichier de SetupLab = setup de la voiture
+  local Store, Util = require('src/store'), require('src/util')
+  local folder = folderOf(h)
+  local d = app.discovery
+  local text = h.ac.stringifyCurrentSetup(true, false)
+  h.written[folder .. '/SetupLab_Qualif_v2.ini'] = text
+  local track, layout = d.trackFiles.fullId:match('^([^/]+)/([^/]+)$')
+  if track == nil then track, layout = d.trackFiles.fullId, '-' end
+  Store.put(app.store, Store.entryKey('mem', d.car.id, track, layout, 'essai', 'sec'),
+    { file = 'SetupLab_Qualif_v2.ini', hash = Util.hashString(text), version = 2, gain = 0, time = 0, locked = false })
+  app.memoryFiles = {}
+  app.refreshMemory()
+  app.qualiScan = nil
+  frames(h, 2)
+  -- onglet QUALIF : reprendre la référence validée (déjà dans la voiture)
+  app.handleIntents({ start = 'reference' })
+  frames(h, 30)
+  local q = app.refine
+  T.ok(q and q.kind == 'quali' and q.active, 'affinage du tour rapide : ' .. tostring(app.ui.message))
+  PY.note('NV23 qualif', tostring(q.waiting))
+  -- onglet COURSE : 25 tours, puis le bouton
+  h.tab = 'Course'
+  app.handleIntents({ raceLaps = 25 })
+  frames(h, 2)
+  local why, action = app.raceBlocker()
+  T.eq(why, nil, 'garde de course levée : ' .. tostring(action))
+  h.click = button
+  frames(h, 1)
+  PY.note('NV23 clic', tostring(app.ui.message))
+  -- la course devient l'affinage en cours, et dit de quel setup elle part
+  local r = app.refine
+  T.ok(r and r.kind == 'race' and r.active, 'la course est l\'affinage en cours : ' .. tostring(r and r.kind))
+  T.ok(app.refines.quali == q and not q.active, 'tour rapide mis de côté, avec ses versions')
+  T.ok(waitFor(h, function() return r.phase == 'calcul' end, 600), 'calcul de course lancé sans tour : ' .. tostring(r.waiting))
+  T.contains(r.waiting, 'à partir de SetupLab_Qualif_v2.ini')
+  local done = waitFor(h, function() return app.race ~= nil and app.race.state == 'done' end, 60000)
+  PY.note('NV23 après', 'race=' .. tostring(app.race and app.race.state) .. ' refine=' .. tostring(r.kind) .. '/'
+    .. tostring(r.phase) .. ' attente=' .. tostring(r.waiting))
+  T.ok(done, 'calcul de course fait sans v3 : ' .. tostring(r.waiting) .. ' ; ' .. tostring(app.ui.message))
+  T.eq(r.minLaps or 0, 0, 'aucun tour roulé')
+  -- carte d'étape : la course, pas l'attente d'une v3
+  frames(h, 2)
+  local v1 = r.history[#r.history]
+  T.ok(v1 and v1.version == 1, 'v1 de course proposée, partie de la v2 de qualification')
+  T.ok(shownText(h, 'Étape 3/4 · Essayer v1'), 'carte d\'étape : la v1 de course à essayer')
+  -- le tour rapide se reprend avec ses versions
+  app.handleIntents({ refineStart = 'quali' })
+  frames(h, 2)
+  T.eq(app.refine, q, 'tour rapide repris')
+  T.eq(app.perf.errors, 0)
+  return h, app
+end
+
+tests['NV23a qualif v2 reprise, onglet COURSE : « Calculer le setup course » part de la v2'] = function()
+  nv23('Calculer le setup course')
+end
+
+tests['NV23b qualif v2 reprise, onglet COURSE : « Affinage automatique (course) » part de la v2'] = function()
+  nv23('Affinage automatique (course)')
+end
+
 return tests

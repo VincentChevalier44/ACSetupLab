@@ -2689,6 +2689,14 @@ end
 local function refineCompute(r)
   r.phase, r.due, r.laps, r.lapSignature = 'calcul', false, 0, nil
   r.waiting = 'calcul du setup en cours ; je continue d\'analyser vos tours'
+  if r.kind == 'race' then
+    -- course : le setup de qualification dont elle part, dit (carte d'étape, overlay)
+    local inCar, m = qualiInCar(), raceReference()
+    local source = (inCar and inCar.file) or (m and m.file)
+    if source then
+      r.waiting = 'calcul du setup de course en cours, à partir de ' .. tostring(source) .. ' ; je continue d\'analyser vos tours'
+    end
+  end
   r.before = app[r.kind]
   startCompute(r.kind)
   local q = app[r.kind]
@@ -3408,6 +3416,12 @@ local function handleIntents(intents)
     startDiscovery()
   end
   if intents.saveCopy then saveCopy() end
+  -- calcul de course demandé pendant l'affinage du tour rapide (constat de Vincent du 02/11/2026 : la carte d'étape
+  -- attendait une v3) : la course devient l'affinage en cours et part tout de suite du setup de qualification de la
+  -- voiture ; le tour rapide garde ses versions (repris plus tard depuis l'onglet QUALIF)
+  if intents.raceStart and app.refine and app.refine.active and app.refine.kind ~= 'race' then
+    intents.raceStart, intents.refineStart = nil, 'race'
+  end
   for _, kind in ipairs({ 'quali', 'race' }) do
     if intents[kind .. 'Start'] then startCompute(kind) end
     if intents[kind .. 'Cancel'] and app.pendingComputes[kind] then

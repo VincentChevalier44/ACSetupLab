@@ -206,4 +206,6 @@ EN = {
     'possible, non testé : charger un setup de course avec SetupLab, au stand':
         'possible, not tested: load a race setup with SetupLab, in the pits',
     "%s ; menu d'arrêt : %s": '%s; pit menu: %s',
+    "calcul du setup de course en cours, à partir de %s ; je continue d'analyser vos tours":
+        'computing the race setup, starting from %s; I keep analysing your laps',
 }
