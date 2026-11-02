@@ -456,7 +456,7 @@ tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
   T.ok(shownText(h, 'SETUPLAB'), 'en-tête du thème')
   h.tab = 'Capacités'
   frames(h, 1)
-  T.ok(shownText(h, 'Thème SuperHUD : actif'), 'thème actif')
+  T.ok(shownText(h, 'Thème de l\'interface : actif'), 'thème actif')
   -- la carte d'étape se montre dans l'onglet de son genre seulement (02/11/2026)
   h.tab = 'Tour rapide'
   frames(h, 1)

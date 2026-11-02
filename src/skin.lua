@@ -17,28 +17,28 @@ end
 
 -- Jetons du kit Racing 26 (clés historiques gardées : blue = cyan d'action, light = texte, grey = libellé…).
 M.COLORS = {
-  bg = hex('#0A0B0E', 0.98), panel = hex('#111318', 0.98), field = hex('#111318'), tile = hex('#15181D'),
-  hover = hex('#1B1F26'), rowHover = hex('#1B1F26'), line = hex('#23272E'), panelLine = hex('#23272E'),
+  bg = hex('#0A0B0E', 0.98), panel = hex('#111318', 0.98), clear = { 0, 0, 0, 0 },
+  rowHover = hex('#1B1F26'), line = hex('#23272E'),
   raised = hex('#22262E'), raisedHover = hex('#2C313B'), outline = hex('#3A404C'),
-  light = hex('#EEF0F3'), soft = hex('#C9CDD3'), grey = hex('#8D94A0'),
+  light = hex('#EEF0F3'), grey = hex('#8D94A0'),
   blue = hex('#18C5FF'), blueHover = hex('#6FDBFF'), blueSoft = hex('#6FDBFF'), dark = hex('#031820'),
-  select = hex('#06222D'), selectLine = hex('#0E4258'),
+  select = hex('#06222D'),
   go = hex('#2EE07F'), goHover = hex('#5CEB9C'), goText = hex('#04170D'),
   danger = hex('#FF5A4E'), dangerHover = hex('#FF7A70'), dangerText = hex('#240604'),
-  amber = hex('#FFC23D'), purple = hex('#B26CFF'),
   switchOff = hex('#2A2E36'), knobOn = hex('#031820'), segmentOff = hex('#2A2E36'),
 }
 
 -- Tailles de texte (px).
-M.SIZE = { main = 13, small = 11, title = 22, button = 14, header = 26, tab = 14, label = 11 }
+M.SIZE = { main = 13, small = 11, title = 22, button = 14, header = 26, tab = 14 }
+M.BUTTON_PAD = 30
 M.CUT, M.SLANT, M.TAB_SLANT = 10, 9, 7
 
 -- Polices : dossier relatif au dossier de l'app (CSP 0.1.80 et plus récent), ou Segoe UI sans les fichiers.
 local FAMILIES = {
-  text = { 'Barlow:%s/barlow;Weight=Normal', 'Segoe UI' },
+  text = { 'Barlow:%s/barlow;Weight=Regular', 'Segoe UI' },
   bold = { 'Barlow:%s/barlow;Weight=SemiBold', 'Segoe UI;Weight=Bold' },
   display = { 'Barlow Condensed:%s/barlowcondensed;Weight=Black;Style=Italic', 'Segoe UI;Weight=Black;Style=Italic' },
-  button = { 'Barlow Condensed:%s/barlowcondensed;Weight=ExtraBold;Style=Italic', 'Segoe UI;Weight=Bold;Style=Italic' },
+  button = { 'Barlow Condensed:%s/barlowcondensed;Weight=UltraBold;Style=Italic', 'Segoe UI;Weight=Bold;Style=Italic' },
   tab = { 'Barlow Condensed:%s/barlowcondensed;Weight=Bold', 'Segoe UI;Weight=Bold' },
   label = { 'Barlow Condensed:%s/barlowcondensed;Weight=SemiBold', 'Segoe UI;Weight=SemiBold' },
   mono = { 'JetBrains Mono:%s/jetbrainsmono;Weight=Medium', 'Consolas' },
@@ -74,7 +74,7 @@ function M.new(real, rgbm, vec2, translate, fontDir)
   for k, v in pairs(M.COLORS) do c[k] = rgbm(v[1], v[2], v[3], v[4]) end
   S.colors = c
   local fonts = M.fonts(fontDir)
-  S.fonts, S.fontDir = fonts, fontDir
+  S.fontDir = fontDir
   local pa, pb, ps = vec2(0, 0), vec2(0, 0), vec2(0, 0)
   local q1, q2, q3, q4 = vec2(0, 0), vec2(0, 0), vec2(0, 0), vec2(0, 0)
   -- police courante : poussée par withFont (ui.pushFont) : Small, Title, sinon texte normal
@@ -102,8 +102,14 @@ function M.new(real, rgbm, vec2, translate, fontDir)
     return a, b
   end
   S.withRole = withRole
-  local function withWeight(bold, fn) return withRole(bold and 'bold' or 'text', fn) end
-  S.withWeight = withWeight
+  -- chemin chaud (chaque texte de chaque image) : appel direct sous la police, sans fermeture créée
+  local function roleCall(role, fn, ...)
+    real.pushDWriteFont(fonts[role] or fonts.text)
+    local ok, a, b = pcall(fn, ...)
+    real.popDWriteFont()
+    if not ok then error(a, 0) end
+    return a, b
+  end
 
   -- Formes : quadrilatère (parallélogramme), sinon rectangle ; panneau à coin coupé (deux rectangles et un triangle).
   local function quad(x1, y1, x2, y2, x3, y3, x4, y4, color)
@@ -143,25 +149,18 @@ function M.new(real, rgbm, vec2, translate, fontDir)
     local s, b, r = current()
     size, bold = size or s, (bold == nil) and b or bold
     role = role or r or (bold and 'bold' or 'text')
-    text = translate(tostring(text))
-    withRole(role, function()
-      if wrap then real.dwriteTextWrapped(text, size, color or c.light) else real.dwriteText(text, size, color or c.light) end
-    end)
+    roleCall(role, wrap and real.dwriteTextWrapped or real.dwriteText, translate(tostring(text)), size, color or c.light)
   end
   function S.text(text) S.textAs(text, nil, false) end
   function S.textColored(text, color) S.textAs(text, color, false) end
   function S.textWrapped(text) S.textAs(text, nil, true) end
   function S.drawText(text, pos, color)
     local size, bold, role = current()
-    withRole(role or (bold and 'bold' or 'text'), function()
-      real.dwriteDrawText(translate(tostring(text)), size, pos, color or c.light)
-    end)
+    roleCall(role or (bold and 'bold' or 'text'), real.dwriteDrawText, translate(tostring(text)), size, pos, color or c.light)
   end
   function S.measureText(text)
     local size, bold, role = current()
-    return withRole(role or (bold and 'bold' or 'text'), function()
-      return real.measureDWriteText(translate(split(tostring(text))), size)
-    end)
+    return roleCall(role or (bold and 'bold' or 'text'), real.measureDWriteText, translate(split(tostring(text))), size)
   end
 
   -- Texte coupé avec « … » pour tenir dans w px.
@@ -178,7 +177,16 @@ function M.new(real, rgbm, vec2, translate, fontDir)
     local out = table.concat(chars, '', 1, lo) .. '…'
     return out, real.measureDWriteText(out, size)
   end
-  S.fit = fit
+  -- texte (déjà traduit) coupé pour tenir dans w px, mesuré dans la police du rôle
+  function S.fitIn(role, text, size, w)
+    return (roleCall(role, fit, text, size, w))
+  end
+  -- largeur d'un bouton du thème (libellé traduit, police des boutons) : pour placer le suivant sur la même ligne
+  function S.buttonWidth(label)
+    local visible = translate((split(label)))
+    local m = roleCall('button', real.measureDWriteText, visible, M.SIZE.button)
+    return (m and m.x or 0) + M.BUTTON_PAD
+  end
 
   -- Bouton Racing 26 : parallélogramme, Barlow Condensed italique très gras. primary : cyan, texte sombre ; go : vert ;
   -- danger : rouge. Neutre : aplat plus clair que les panneaux, cerné d'un filet (cyan au survol) : un bouton ne se
@@ -190,7 +198,7 @@ function M.new(real, rgbm, vec2, translate, fontDir)
     local fs = M.SIZE.button
     return withRole('button', function()
       local m = real.measureDWriteText(visible, fs)
-      local w, h = m.x + 30, 30
+      local w, h = m.x + M.BUTTON_PAD, 30
       if size ~= nil and type(size) ~= 'number' then
         if size.x and size.x < 0 then w = math.max(w, real.availableSpaceX()) elseif size.x and size.x > 0 then w = size.x end
         if size.y and size.y > 0 then h = size.y end

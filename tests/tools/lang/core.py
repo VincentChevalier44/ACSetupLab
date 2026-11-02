@@ -22,7 +22,7 @@ EN = {
     'Budget course (évaluations de relais)': 'Race budget (stint evaluations)',
     'Marge de carburant en course (%)': 'Race fuel margin (%)',
     'Carburant en qualification (tours ; 0 = minimum autorisé)': 'Qualifying fuel (laps; 0 = minimum allowed)',
-    'Performance ↔ Stabilité': 'Performance ↔ Stability',
+    'Performance / Stabilité': 'Performance / Stability',
     'Poids de base : équilibre': 'Base weight: balance',
     'Poids de base : stabilité': 'Base weight: stability',
     'Poids de base : trafic': 'Base weight: traffic',

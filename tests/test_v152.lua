@@ -600,7 +600,7 @@ tests['UI01 bouton neutre du thème : aplat plus clair que les cartes, trait ble
   T.eq(#rects, 2, 'trait, puis aplat')
   T.eq(rects[1].color, c.outline)
   T.eq(rects[2].color, c.raised)
-  T.ok(rects[2].color.r >= c.field.r + 0.05 and rects[2].color.g >= c.field.g + 0.05, 'aplat plus clair que le fond des cartes')
+  T.ok(rects[2].color.r >= c.panel.r + 0.05 and rects[2].color.g >= c.panel.g + 0.05, 'aplat plus clair que le fond des cartes')
   T.eq(rects[2].ax, 11)
   T.eq(rects[2].ay, 21)
   T.eq(rects[2].bx, 109)

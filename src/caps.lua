@@ -336,19 +336,19 @@ function M.evaluate(static, d)
       setup.file and (#setup.file.order .. ' sections') or tostring(setup.textReason))
     local c = setup.comparison
     if c.consistent then
-      add('setup_encoding', 'Cohérence crans ↔ fichier', M.AVAILABLE, c.matched .. '/' .. c.total .. ' identiques'
+      add('setup_encoding', 'Cohérence crans / fichier', M.AVAILABLE, c.matched .. '/' .. c.total .. ' identiques'
         .. (#c.missing > 0 and (' ; absents du fichier : ' .. listText(c.missing)) or ''))
     elseif #c.mismatched > 0 then
       local first = c.mismatched[1]
-      add('setup_encoding', 'Cohérence crans ↔ fichier', M.UNAVAILABLE, #c.mismatched .. ' écart(s), ex. '
+      add('setup_encoding', 'Cohérence crans / fichier', M.UNAVAILABLE, #c.mismatched .. ' écart(s), ex. '
         .. first.name .. ' cran ' .. Util.fmt(first.spinner, 3) .. ' / fichier ' .. Util.fmt(first.file, 3)
         .. ' : ces réglages ne seront pas modifiés par l\'export (A12)')
     elseif #c.missingEditable > 0 then
-      add('setup_encoding', 'Cohérence crans ↔ fichier', M.PENDING, c.matched .. '/' .. c.total .. ' identiques ; '
+      add('setup_encoding', 'Cohérence crans / fichier', M.PENDING, c.matched .. '/' .. c.total .. ' identiques ; '
         .. #c.missingEditable .. ' réglage(s) modifiable(s) absent(s) du fichier : ' .. listText(c.missingEditable)
         .. ' (appariement des noms à établir ; d\'ici là, non modifiés par l\'export, A12)')
     else
-      add('setup_encoding', 'Cohérence crans ↔ fichier', M.PENDING, 'comparaison impossible (crans ou fichier manquants)')
+      add('setup_encoding', 'Cohérence crans / fichier', M.PENDING, 'comparaison impossible (crans ou fichier manquants)')
     end
     if d.space then
       local counts = { ['vérifié'] = 0, ['déduit'] = 0, ['écart'] = 0 }

@@ -87,7 +87,7 @@ M.settings = {
   { key = 'fuelMarginPct', kind = 'number', default = 3, min = 0, max = 20, label = 'Marge de carburant en course (%)' },
   { key = 'fuelQualiLaps', kind = 'number', default = 0, min = 0, max = 5,
     label = 'Carburant en qualification (tours ; 0 = minimum autorisé)' },
-  { key = 'perfStab', kind = 'number', default = 0.6, min = 0, max = 1, label = 'Performance ↔ Stabilité' },
+  { key = 'perfStab', kind = 'number', default = 0.6, min = 0, max = 1, label = 'Performance / Stabilité' },
   { key = 'wBal', kind = 'number', default = 1, min = 0, max = 10, label = 'Poids de base : équilibre' },
   { key = 'wStab', kind = 'number', default = 1, min = 0, max = 10, label = 'Poids de base : stabilité' },
   { key = 'wTraffic', kind = 'number', default = 1, min = 0, max = 10, label = 'Poids de base : trafic' },
@@ -493,7 +493,7 @@ M.K = {
   raycastHeight = 2.0,        -- départ du rayon au-dessus de la voiture (m)
   raycastLength = 10.0,       -- longueur du rayon (m)
 
-  -- Modulation des pénalités par le curseur Performance ↔ Stabilité (§10.2)
+  -- Modulation des pénalités par le curseur Performance / Stabilité (§10.2)
   penaltyScaleAtPerf = 0.4,   -- perfStab = 1 : 40 % des poids de base
   penaltyScaleAtStab = 2.0,   -- perfStab = 0 : 200 % des poids de base
 }

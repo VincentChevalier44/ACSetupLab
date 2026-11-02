@@ -185,7 +185,7 @@ EN = {
     'Étape 1/4 · v%s en préparation': 'Step 1/4 · v%s in preparation',
     "SetupLab continue d'analyser vos tours ; elle sera prête à votre retour au stand.": 'SetupLab keeps analysing your laps; it will be ready when you return to the pits.',
     'Étape 2/4 · Essayer %s': 'Step 2/4 · Try %s',
-    "Gain prévu %s s. « Essayer » écrit le fichier d'essai ; puis « Charger » au stand.": 'Predicted gain %s s. "Try" writes the trial file; then "Load" in the pits.',
+    "Gain prévu %s s. « Essayer » la met dans la voiture, au stand, en un clic.": 'Predicted gain %s s. "Try" puts it in the car, in the pits, in one click.',
     'Étape 4/4 · Charger v%s': 'Step 4/4 · Load v%s',
     "Version validée : au stand, bouton vert « Charger », puis roulez pour la suite de l'affinage.":
         'Version validated: in the pits, green "Load" button, then drive to continue the refinement.',
@@ -241,7 +241,7 @@ EN = {
     # overlay
     'SetupLab · en veille : %s': 'SetupLab · standby: %s',
     'SetupLab · aucun setup de SetupLab en piste': 'SetupLab · no SetupLab setup on track',
-    "Actif : chaque setup proposé s'annonce ici ; le valider puis le charger au stand.": 'Active: each proposed setup is announced here; try it, sort its effects and validate it in the pits.',
+    "Actif : chaque setup proposé s'annonce ici ; l'essayer au stand, trier ses réglages, puis le valider.": 'Active: each proposed setup is announced here; try it in the pits, sort its settings, then validate it.',
     "Pour l'affinage pendant que vous roulez : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l'écran de setup (au stand).":
         'For refinement while you drive: tick "SetupLab active" in the SetupLab window, on the setup screen (in the pits).',
     'SetupLab · %s en piste (%s)': 'SetupLab · %s on track (%s)',
@@ -262,7 +262,7 @@ EN = {
     '+ %s autre%s réglage%s : %s': '+ {1} other setting{3}: {4}',
     'v%s en préparation : %s s prévu (provisoire), %s tour%s analysé%s': 'v{1} in preparation: {2} s predicted (provisional), {3} lap{4} analysed',
     'Prête à votre retour au stand.': 'Ready when you return to the pits.',
-    'v%s prête : %s s prévu, au stand : Valider puis Charger': 'v%s ready: %s s predicted, in the pits: Try it, then Validate',
+    'v%s prête : %s s prévu, au stand : Essayer, puis Valider': 'v%s ready: %s s predicted, in the pits: Try it, then Validate',
     'Par réglage : gain prévu par le modèle ; en haut : vos tours.': 'Per setting: gain predicted by the model; at the top: your laps.',
     # fenêtre de débogage
     'pas encore appelée': 'not called yet',

@@ -162,8 +162,8 @@ EN = {
     "Étape suivante : « Essayer %s » écrit le setup proposé entier dans un fichier d'essai ; le charger au stand et rouler, puis garder ou refuser chaque effet et valider.":
         'Next step: "Try %s" writes the whole proposed setup into a trial file; load it in the pits and drive, then keep or refuse each effect and validate.',
     'Essayer %s': 'Try %s',
-    "Écrit %s.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n'est gardé avant la validation.":
-        'Writes %s.ini (the whole proposed setup), to load in the pits and drive with. Nothing is kept before validation.',
+    "Écrit %s.ini (le setup proposé entier) et le met dans la voiture, au stand ; ce fichier part à la Corbeille une fois chargé. Rien n'est gardé avant la validation.":
+        'Writes %s.ini (the whole proposed setup) and puts it in the car, in the pits; that file goes to the Recycle Bin once loaded. Nothing is kept before validation.',
     'Valider sans essai (%s/%s effets)': 'Validate without trying (%s/%s effects)',
     "Enregistre tout de suite %s.ini avec les effets gardés, sans l'essayer ; il devient le setup de référence de cette séance, gardé en mémoire pour ce circuit.":
         'Saves %s.ini right away with the kept effects, without trying it; it becomes the reference setup for this session, kept in memory for this track.',
@@ -189,7 +189,7 @@ EN = {
     "Valide (effets gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, proposé à chaque visite ; l'affinage automatique s'arrête. Déverrouillable (onglet Mémoire).":
         'Validates (kept effects) and locks: kept in memory for this track, this session and this track state, offered on every visit; automatic refinement stops. Can be unlocked (MEMORY tab).',
     ' (arrêté)': ' (stopped)',
-    "Un calcul %s ; chaque setup proposé est annoncé à l'écran ; rien n'est enregistré avant « Valider » ; le charger ensuite au stand pour l'essayer ; jusqu'à l'arrêt.":
+    "Un calcul %s ; chaque setup proposé est annoncé à l'écran ; rien n'est enregistré avant « Valider » ; l'essayer au stand (un clic), trier ses réglages, puis valider ; jusqu'à l'arrêt.":
         'A computation %s; each proposed setup is announced on screen; try it, sort its effects, then validate; until you stop it.',
     'Nouvelle découverte au stand, puis nouveau calcul.': 'New discovery in the pits, then a new computation.',
     'Calcul en attente de la découverte…': 'Computation waiting for the discovery…',

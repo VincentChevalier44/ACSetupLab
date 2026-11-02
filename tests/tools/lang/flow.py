@@ -8,12 +8,12 @@ EN = {
     'Départ impossible : découverte en cours.': 'Cannot start: discovery in progress.',
     'Setup par défaut impossible : %s.': 'Default setup impossible: %s.',
     'Setup par défaut impossible : écriture refusée (%s).': 'Default setup impossible: write refused (%s).',
-    "Départ : setup par défaut de la voiture, écrit dans %s. Au stand, menu de setup ouvert : « Charger » pour le mettre dans la voiture ; l'affinage %s partira de lui.":
-        "Start: the car's default setup, written to %s. In the pits, setup menu open: \"Load\" to put it in the car; the %s refinement will start from it.",
+    "Départ : setup par défaut de la voiture, écrit dans %s ; il va dans la voiture (au stand, menu de setup ouvert) et l'affinage %s partira de lui.":
+        "Start: the car's default setup, written to %s; it goes into the car (in the pits, setup menu open) and the %s refinement will start from it.",
     'Départ impossible : aucune référence validée sur ce circuit.': 'Cannot start: no validated reference on this track.',
     ', déjà dans la voiture.': ', already in the car.',
-    ". Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l'affinage partira d'elle.":
-        '. In the pits, setup menu open: "Load" to put it in the car; the refinement will start from it.',
+    " ; elle va dans la voiture (au stand, menu de setup ouvert) et l'affinage partira d'elle.":
+        '; it goes into the car (in the pits, setup menu open) and the refinement will start from it.',
     'Départ : votre référence %s': 'Start: your reference %s',
     "Départ : votre setup actuel (celui qui est dans la voiture). L'affinage %s part de lui.":
         'Start: your current setup (the one in the car). The %s refinement starts from it.',

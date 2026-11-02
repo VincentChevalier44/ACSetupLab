@@ -2704,7 +2704,7 @@ local function refineAnnounce(r, e)
   local n = lapsAnalyzed(e)
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' prêt'
   local text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s' .. (n > 0 and (', d\'après ' .. lapsText(n)) or '')
-    .. '. Dans SetupLab : Essayer, puis Charger au stand ; trier ses effets et Valider ; ou Recommencer.'
+    .. '. Dans SetupLab, au stand : Essayer (la met dans la voiture), trier ses réglages et Valider ; ou Recommencer.'
   L.set(app.settings.language)
   Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
@@ -3688,8 +3688,8 @@ local function startChoose(kind, mode)
       signature = signatureOf(d.setup.spinners, values, d.compoundIndex), carId = d.car and d.car.id }
     setLoadTarget(kind, rec)
     app.start[kind] = { mode = 'default', signature = rec.signature, file = w.name, ready = rec.signature == d.signature }
-    app.ui.message = 'Départ : setup par défaut de la voiture, écrit dans ' .. w.name .. '. Au stand, menu de setup ouvert : '
-      .. '« Charger » pour le mettre dans la voiture ; l\'affinage ' .. label .. ' partira de lui.'
+    app.ui.message = 'Départ : setup par défaut de la voiture, écrit dans ' .. w.name .. ' ; il va dans la voiture (au stand, '
+      .. 'menu de setup ouvert) et l\'affinage ' .. label .. ' partira de lui.'
   elseif mode == 'reference' then
     local m = app.memory[memoryGroup(kind) .. '|' .. app.wet.state]
     if not (m and m.text) and kind ~= 'race' then m = app.memory['essai|' .. app.wet.state] end
@@ -3700,7 +3700,7 @@ local function startChoose(kind, mode)
     setLoadTarget(kind, m)
     app.start[kind] = { mode = 'reference', signature = m.signature, file = m.file, ready = m.signature == d.signature }
     app.ui.message = 'Départ : votre référence ' .. m.file .. (app.start[kind].ready and ', déjà dans la voiture.'
-      or '. Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l\'affinage partira d\'elle.')
+      or ' ; elle va dans la voiture (au stand, menu de setup ouvert) et l\'affinage partira d\'elle.')
   else
     app.start[kind] = { mode = 'mine', ready = true }
     app.saved[kind] = nil

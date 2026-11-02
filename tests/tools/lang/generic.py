@@ -4,7 +4,7 @@ EN = {
     '%s (%s)': '%s (%s)',
     '%s, %s': '%s, %s',
     '%s · %s': '%s · %s',
-    '● %s': '● %s',
+    '• %s': '• %s',
     ' : ': ': ',
     '%s évaluations': '%s evaluations',
     '%s relais': '%s stints',
@@ -33,7 +33,9 @@ EN = {
     'illisible': 'unreadable',
     'échecs': 'failures',
     'Qualif': 'Qualifying',
-    'Thème SuperHUD : %s': 'SuperHUD theme: %s',
+    "Thème de l'interface : %s%s": 'Interface theme: %s%s',
+    " ; polices de l'app": '; app fonts',
+    ' ; polices absentes : Segoe UI': '; fonts missing: Segoe UI',
     'actif': 'active',
     'non évalué': 'not evaluated',
     'indisponible : ui.%s absente': 'unavailable: ui.%s missing',
@@ -49,8 +51,8 @@ EN = {
     'Qualif, %s': 'Qualifying, %s',
     'Course, %s': 'Race, %s',
     'Language / Langue : English, Français.': 'Language / Langue: English, Français.',
-    'Dans SetupLab : Essayer, puis Charger au stand ; trier ses effets et Valider ; ou Recommencer.':
-        'In SetupLab: Try, then Load in the pits; sort its effects and Validate; or Start over.',
+    'Dans SetupLab, au stand : Essayer (la met dans la voiture), trier ses réglages et Valider ; ou Recommencer.':
+        'In SetupLab, in the pits: Try (puts it in the car), sort its settings and Validate; or Start over.',
     'modèle %s m ; ligne IA %s m (%s %) ; déclarée %s m (%s %)': 'model %s m; AI line %s m (%s %); declared %s m (%s %)',
     'brut': 'raw',
     'jalon %s': 'milestone %s',
@@ -65,6 +67,6 @@ EN = {
     '%s en préparation': '%s in preparation',
     'hauteur de caisse conservée': 'ride height kept',
     ' : l\'essayer, trier ses effets et la valider, ou recommencer': ': try it, sort its effects and validate it, or start over',
-    'Gain prévu %s s%s. Dans SetupLab : Essayer, puis Charger au stand ; trier ses effets et Valider ; ou Recommencer.':
-        'Predicted gain %s s%s. In SetupLab: Try, then Load in the pits; sort its effects and Validate; or Start over.',
+    'Gain prévu %s s%s. Dans SetupLab, au stand : Essayer (la met dans la voiture), trier ses réglages et Valider ; ou Recommencer.':
+        'Predicted gain %s s%s. In SetupLab, in the pits: Try (puts it in the car), sort its settings and Validate; or Start over.',
 }

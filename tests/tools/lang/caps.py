@@ -79,7 +79,7 @@ EN = {
     '%s réglages, %s visibles, %s verrouillés': '%s settings, %s visible, %s locked',
     'aucun réglage lu : %s': 'no setting read: %s',
     'Contenu du setup courant': 'Current setup content',
-    'Cohérence crans ↔ fichier': 'Steps ↔ file consistency',
+    'Cohérence crans / fichier': 'Steps / file consistency',
     ' ; absents du fichier : %s': '; missing from the file: %s',
     "%s écart(s), ex. %s cran %s / fichier %s : ces réglages ne seront pas modifiés par l'export (A12)":
         '%s mismatch(es), e.g. %s step %s / file %s: these settings will not be changed by the export (A12)',

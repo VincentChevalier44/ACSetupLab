@@ -26,10 +26,8 @@ local STATUS_COLOR = {
   unavailable = { 1.000, 0.353, 0.306, 1 },
   na = { 0.553, 0.580, 0.627, 1 },
   text = { 0.933, 0.941, 0.953, 1 },
-  soft = { 0.788, 0.804, 0.827, 1 },
   muted = { 0.553, 0.580, 0.627, 1 },
   accent = { 0.094, 0.773, 1.000, 1 },
-  accentSoft = { 0.435, 0.859, 1.000, 1 },
   best = { 0.698, 0.424, 1.000, 1 },
   tile = { 0.082, 0.094, 0.114, 1 },
   line = { 0.137, 0.153, 0.180, 1 },
@@ -44,6 +42,9 @@ local STATUS_COLOR = {
   goButton = { 0.118, 0.620, 0.353, 1 }, goButtonHovered = { 0.180, 0.878, 0.498, 1 }, goButtonActive = { 0.086, 0.478, 0.271, 1 },
   dangerButton = { 0.761, 0.267, 0.231, 1 }, dangerButtonHovered = { 1.000, 0.353, 0.306, 1 },
   dangerButtonActive = { 0.561, 0.196, 0.169, 1 },
+  -- texte de ces boutons, sombre sur leur aplat clair (contrôles ImGui, sans le thème)
+  primaryButtonText = { 0.012, 0.094, 0.125, 1 }, goButtonText = { 0.016, 0.090, 0.051, 1 },
+  dangerButtonText = { 0.141, 0.024, 0.016, 1 },
 }
 
 function M.new()
@@ -126,10 +127,19 @@ function M.translating(host)
 end
 
 local translated = setmetatable({}, { __mode = 'k' })
+local skinnable = setmetatable({}, { __mode = 'k' })
 local function hostFor(host, app)
   L.set(app.settings and app.settings.language)
-  -- en français sans thème (hôte sans DWrite), rien à changer : l'hôte d'origine, sans détour
-  if L.lang == 'fr' and not Skin.available(host.ui, host.ffi) then return host end
+  -- en français sans thème (hôte sans DWrite), rien à changer : l'hôte d'origine, sans détour ; la disponibilité du thème
+  -- est évaluée une fois par hôte (pas à chaque image)
+  if L.lang == 'fr' then
+    local can = skinnable[host]
+    if can == nil then
+      can = Skin.available(host.ui, host.ffi) == true
+      skinnable[host] = can
+    end
+    if not can then return host end
+  end
   local h = translated[host]
   if h == nil or h.ui == nil then
     h = M.translating(host)
@@ -338,7 +348,12 @@ local function tiles(host, state, list, palette)
     p.x, p.y = x + 8, y + 4
     withFont(host, 'Small', function() ui.drawText(t.label, p, palette.muted) end)
     p.x, p.y = x + 8, y + 19
-    withFont(host, 'Title', function() ui.drawText(t.value, p, t.color or palette.text) end)
+    local value = t.value
+    if ui.skin then
+      local okF, fitted = Util.call(ui.skin.fitIn, 'display', L.t(tostring(value)), Skin.SIZE.title, math.max(20, width - 16))
+      if okF and fitted then value = fitted end
+    end
+    withFont(host, 'Title', function() ui.drawText(value, p, t.color or palette.text) end)
   end
 end
 
@@ -347,8 +362,14 @@ local function nextInline(host, label)
   local ui = host.ui
   ui.sameLine()
   local okR, room = Util.call(ui.availableSpaceX)
-  local okM, size = Util.call(ui.measureText, label:match('^(.-)###') or label)
-  local need = okM and type(size) ~= 'number' and size and Util.isFinite(size.x) and size.x + K.uiButtonPad or nil
+  local need
+  if ui.skin then
+    local okB, w = Util.call(ui.skin.buttonWidth, label)
+    need = okB and Util.isFinite(w) and w + 8 or nil
+  else
+    local okM, size = Util.call(ui.measureText, label:match('^(.-)###') or label)
+    need = okM and type(size) ~= 'number' and size and Util.isFinite(size.x) and size.x + K.uiButtonPad or nil
+  end
   if okR and need and Util.isFinite(room) and room < need then Util.call(ui.newLine) end
 end
 
@@ -370,6 +391,8 @@ local function actionButton(host, state, palette, label, style, full)
       local color = palette[style .. slot]
       if styles[slot] ~= nil and color ~= nil and Util.call(ui.pushStyleColor, styles[slot], color) then pushed = pushed + 1 end
     end
+    local text = palette[style .. 'ButtonText']
+    if styles.Text ~= nil and text ~= nil and Util.call(ui.pushStyleColor, styles.Text, text) then pushed = pushed + 1 end
   end
   local size = full and vec(host, state, 'bigButton') or nil
   if size then size.x, size.y = -1, K.uiBigButtonHeight end
@@ -1118,8 +1141,8 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
       intents.refineJudge = { version = e.version, verdict = 'essayer' }
     end
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
-    tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé avant '
-      .. 'la validation.')
+    tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier) et le met dans la voiture, au stand ; ce fichier part à la '
+      .. 'Corbeille une fois chargé. Rien n\'est gardé avant la validation.')
     if ui.button('Valider sans essai' .. partial .. ' · la met dans la voiture###Valider ' .. v .. suffix) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
@@ -1191,7 +1214,7 @@ local function refineCard(host, app, intents, kind, palette)
       palette[r.active and 'accent' or 'na'])
     tip(host, 'Un calcul ' .. (app.settings.refineLaps > 1 and ('tous les ' .. app.settings.refineLaps .. ' tours propres')
       or 'à chaque tour propre') .. ' ; chaque setup proposé est annoncé à l\'écran ; rien n\'est enregistré avant « Valider » ; '
-      .. 'le charger ensuite au stand pour l\'essayer ; jusqu\'à l\'arrêt.')
+      .. 'l\'essayer au stand (un clic), trier ses réglages, puis valider ; jusqu\'à l\'arrêt.')
     -- version en piste (si ce n'est pas la dernière) et dernière version : à valider, écarter ou figer, puis à
     -- charger (décisions de Vincent du 21/10/2026 : « on valide ou on ne valide pas à chaque étape »)
     local last, inCar = nil, nil
@@ -2094,7 +2117,7 @@ local function header(host, app, intents, palette)
   local autoText, autoColor = M.autoLine(app)
   small(host, autoText, palette[autoColor])
   local status, kind = M.statusLine(app)
-  small(host, '● ' .. status, palette[kind])
+  small(host, '• ' .. status, palette[kind])
   if d then
     local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
       or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')
@@ -2237,8 +2260,8 @@ local function stepCard(host, app, intents, palette, selected)
       .. 'tours ; elle sera prête à votre retour au stand.', palette.pending
   elseif pending then
     local v = 'v' .. pending.version
-    title, text = 'Étape 3/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » écrit le fichier '
-      .. 'd\'essai ; puis « Charger » au stand.'
+    title, text = 'Étape 3/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » la met dans la '
+      .. 'voiture, au stand, en un clic.'
     actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = pending.version,
       verdict = 'essayer' } }, style = 'primary' }
   elseif validated then
@@ -2258,7 +2281,9 @@ local function stepCard(host, app, intents, palette, selected)
     withFont(host, 'Title', function() colored(host, title, color) end)
     -- Racing 26 : barre d'étapes (4 segments inclinés) ; validée ou figée : les 4 en vert
     local n = tonumber(tostring(title):match('^Étape (%d)/4'))
-    local done = tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil
+    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil
+    local done = not pendingLoad and (tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil)
+    if pendingLoad and n == nil then n = 4 end
     local S = host.ui.skin
     if S and (n or done) then
       local okC, at = Util.call(host.ui.getCursor)
@@ -2411,7 +2436,7 @@ local function skinHeader(host, app, intents, palette)
   local d = app.discovery
   local S = ui.skin
   local okP, at = Util.call(ui.getCursor)
-  ui.skinText('SETUPLAB', S.colors.bg, false, Skin.SIZE.header, true, 'display')
+  ui.skinText('SETUPLAB', S.colors.clear, false, Skin.SIZE.header, true, 'display')
   if okP and at and Util.isFinite(at.x) then
     S.withRole('display', function()
       local okM, m = Util.call(S.real.measureDWriteText, 'SETUP', Skin.SIZE.header)
@@ -2448,17 +2473,17 @@ local function skinHeader(host, app, intents, palette)
   -- Racing 26 : état en un mot (au stand, en piste, en veille), en petit parallélogramme
   local where = app.auto ~= true and 'EN VEILLE' or (app.carAtPit and app.carAtPit() and 'AU STAND' or 'EN PISTE')
   nextTo(-1)
-  local okP, at = Util.call(ui.getCursor)
-  local S = ui.skin
-  if okP and at and Util.isFinite(at.x) and p then
+  local okB, badgeAt = Util.call(ui.getCursor)
+  if okB and badgeAt and Util.isFinite(badgeAt.x) and p then
+    local at2 = badgeAt
     S.withRole('label', function()
       local text = L.t(where)
-      local okM, m = Util.call(S.real.measureDWriteText, text, 10)
-      local w = (okM and m and m.x or 60) + 16
-      local color = where == 'EN VEILLE' and S.colors.raised or (where == 'AU STAND' and S.colors.select or S.colors.select)
-      S.slanted(at.x, at.y + 1, at.x + w, at.y + 19, 5, color)
-      p.x, p.y = at.x + 8, at.y + 4
-      Util.call(S.real.dwriteDrawText, text, 10, p, where == 'EN VEILLE' and S.colors.grey or S.colors.blueSoft)
+      local okW, m = Util.call(S.real.measureDWriteText, text, 10)
+      local w = (okW and m and m.x or 60) + 16
+      S.slanted(at2.x, at2.y + 1, at2.x + w, at2.y + 19, 5, where == 'EN VEILLE' and S.colors.raised or S.colors.select)
+      p.x, p.y = at2.x + 8, at2.y + 4
+      local ink = where == 'EN VEILLE' and S.colors.grey or (where == 'EN PISTE' and S.colors.go or S.colors.blueSoft)
+      Util.call(S.real.dwriteDrawText, text, 10, p, ink)
       p.x, p.y = w, 20
       Util.call(ui.dummy, p)
     end)
@@ -2467,7 +2492,7 @@ local function skinHeader(host, app, intents, palette)
   ui.sameLine()
   local okC, cur = Util.call(ui.getCursor)
   local okR, room = Util.call(ui.availableSpaceX)
-  local okM, m = Util.call(ui.measureText, 'SetupLab actif')
+  local okM, m = Util.call(S.withRole, 'tab', function() return S.real.measureDWriteText(L.t('SetupLab actif'), Skin.SIZE.main) end)
   local need = okM and m and type(m) ~= 'number' and m.x and (m.x + 60) or 200
   if okC and cur and okR and Util.isFinite(room) and p then
     if room > need then
@@ -2559,7 +2584,7 @@ local function statusLines(host, app, palette)
   local autoText, autoColor = M.autoLine(app)
   small(host, autoText, palette[autoColor])
   local status, kind = M.statusLine(app)
-  small(host, '● ' .. status, palette[kind])
+  small(host, '• ' .. status, palette[kind])
   if d then
     local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
       or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')
@@ -2581,20 +2606,27 @@ local function skinTabs(host, app, tabs)
   local okW, avail = Util.call(ui.availableSpaceX)
   local p, q = vec(host, app.ui, 'tabA'), vec(host, app.ui, 'tabB')
   if not (okC and origin and okW and Util.isFinite(avail) and p and q) then return app.ui.tab end
-  local items, total = {}, 0
   local size, pad = Skin.SIZE.tab, 14
-  S.withRole('tab', function()
-    for i, tab in ipairs(tabs) do
-      local visible, id = Skin.split(tab[1])
-      visible = L.t(visible)
-      local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
-      local w = okM and m and m.x or (#visible * 8)
-      items[i] = { id = id, text = visible, w = w }
-      total = total + w + 2 * pad + 2
-    end
-  end)
+  -- largeurs des libellés : mesurées une fois par langue (elles ne changent pas d'une image à l'autre)
+  app.ui.tabCache = app.ui.tabCache or {}
+  local cached = app.ui.tabCache[L.lang]
+  if cached == nil then
+    cached = { items = {}, total = 0 }
+    S.withRole('tab', function()
+      for i, tab in ipairs(tabs) do
+        local visible, id = Skin.split(tab[1])
+        visible = L.t(visible)
+        local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
+        local w = okM and m and m.x or (#visible * 8)
+        cached.items[i] = { id = id, text = visible, w = w }
+        cached.total = cached.total + w + 2 * pad + 2
+      end
+    end)
+    app.ui.tabCache[L.lang] = cached
+  end
+  local items, total = cached.items, cached.total
   local scale = total > avail and math.max(0.6, avail / total) or 1
-  local fs, gap = math.max(10, size * scale), math.max(6, pad * scale)
+  local fs, gap = math.floor(math.max(10, size * scale) * 2 + 0.5) / 2, math.max(6, pad * scale)
   local x, y0 = origin.x, origin.y
   for _, it in ipairs(items) do
     local w = it.w * (fs / size) + 2 * gap
@@ -2614,7 +2646,7 @@ local function skinTabs(host, app, tabs)
     S.withRole('tab', function()
       ui.skin.real.dwriteDrawText(it.text, fs, p, active and S.colors.dark or S.colors.grey)
     end)
-    x = x + w + 2
+    x = x + w + 2 * scale
   end
   p.x, p.y = origin.x, y0 + 31
   q.x, q.y = origin.x + avail, y0 + 32
@@ -2739,7 +2771,7 @@ function M.capsSection(host, app, intents, palette)
       local rows = {}
       for _, entry in ipairs(d.caps.list) do
         rows[#rows + 1] = {
-          { text = '● ' .. entry.label, color = palette[entry.status], tip = entry.detail ~= '' and entry.detail or nil },
+          { text = '• ' .. entry.label, color = palette[entry.status], tip = entry.detail ~= '' and entry.detail or nil },
           { text = Caps.STATUS_LABEL[entry.status], color = palette[entry.status] },
         }
       end
@@ -2763,7 +2795,9 @@ function M.capsSection(host, app, intents, palette)
   else
     small(host, 'Écriture non testée.', palette.muted)
   end
-  small(host, 'Thème SuperHUD : ' .. tostring(M.skinStatus or 'non évalué'), palette[ui.skin and 'available' or 'pending'])
+  small(host, 'Thème de l\'interface : ' .. tostring(M.skinStatus or 'non évalué')
+    .. (ui.skin and (ui.skin.fontDir and ' ; polices de l\'app' or ' ; polices absentes : Segoe UI') or ''),
+    palette[ui.skin and 'available' or 'pending'])
   small(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone, palette.muted)
 end
 
@@ -2837,7 +2871,7 @@ function M.overlay(host, app)
   local tMine = nil
   if e == nil then
     colored(host, 'SetupLab · aucun setup de SetupLab en piste', palette.muted)
-    small(host, app.auto and 'Actif : chaque setup proposé s\'annonce ici ; le valider puis le charger au stand.'
+    small(host, app.auto and 'Actif : chaque setup proposé s\'annonce ici ; l\'essayer au stand, trier ses réglages, puis le valider.'
       or 'Pour l\'affinage pendant que vous roulez : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de '
         .. 'setup (au stand).',
       palette.muted)
@@ -2917,7 +2951,7 @@ function M.overlay(host, app)
         .. n .. ' tour' .. (n > 1 and 's' or '') .. ' analysé' .. (n > 1 and 's' or ''), palette.pending)
       small(host, 'Prête à votre retour au stand.', palette.muted)
     else
-      colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Valider puis Charger',
+      colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Essayer, puis Valider',
         palette.accent)
     end
   end
