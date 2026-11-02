@@ -758,4 +758,40 @@ tests['NV21 course : setups de qualification d\'une séance précédente reconnu
   T.eq(app.perf.errors, 0)
 end
 
+-- Demande de Vincent du 02/11/2026 : en séance de course, un ancien setup de qualification de SetupLab (v4, séance
+-- précédente) chargé depuis le menu d'AC après la découverte est reconnu sans nouvelle découverte, et la v1 de course
+-- se calcule tout de suite, sans tour de plus (réglages par défaut : 2 tours, premier setup immédiat décoché).
+tests['NV22 séance de course : v4 chargé depuis le menu d\'AC, v1 de course sans tour de plus'] = function()
+  local h, app = ready({ session = 3 })
+  app.settings.refineMinLaps, app.settings.refineInstantFirst = 2, false
+  local folder = folderOf(h)
+  local d = app.discovery
+  local v4 = d.setup.text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
+  T.ok(v4 ~= d.setup.text, 'v4 différent du setup de la voiture')
+  h.written[folder .. '/SetupLab_Qualif_v4.ini'] = v4
+  app.qualiScan = nil
+  app.handleIntents({ raceLaps = 12 })
+  app.handleIntents({ refineStart = 'race' })
+  frames(h, 30)
+  local r = app.refine
+  T.ok(r and r.kind == 'race' and r.active, 'affinage course')
+  local _, action = app.raceBlocker()
+  T.eq(action, 'loadfile', 'v4 pas encore dans la voiture')
+  T.ok(app.race == nil or app.race.state == nil, 'rien calculé avant le chargement')
+  -- chargé depuis le menu d'AC, après la découverte (le menu pose les valeurs du fichier : ici, une barre avant + 1)
+  local arb = spinner(h, 'ARB_FRONT')
+  arb.value = arb.value + 1
+  T.ok(waitFor(h, function() return app.qualiInCar() ~= nil end, 120), 'reconnu sans nouvelle découverte')
+  T.eq(app.qualiInCar().file, 'SetupLab_Qualif_v4.ini')
+  -- course calculée tout de suite, sans tour
+  T.ok(waitFor(h, function() return app.race ~= nil and app.race.state == 'done' and r.phase == 'tours' end),
+    'calcul de course : ' .. tostring(r.waiting) .. ' ; ' .. tostring(app.ui.message))
+  T.eq(r.minLaps or 0, 0, 'aucun tour roulé')
+  -- la suivante attend le minimum (tours avec la version de course)
+  local first = false
+  for _, e in ipairs(r.history) do first = first or e.version ~= nil end
+  if first then T.ok(not app.refineMinReached(r), 'version suivante : minimum de tours') end
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

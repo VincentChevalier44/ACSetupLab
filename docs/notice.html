@@ -246,7 +246,7 @@
   <p>For every car and track, SetupLab computes:</p>
   <ul>
     <li>a <strong>qualifying</strong> setup: practice, track day, hotlap, time attack, qualifying;</li>
-    <li>a <strong>race</strong> setup: full stint, fuel, tyre wear, traffic. It starts from your validated qualifying setup.</li>
+    <li>a <strong>race</strong> setup: full stint, fuel, tyre wear, traffic. It starts from one of your SetupLab qualifying setups.</li>
   </ul>
   <p>It reads the car files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line, simulates the lap, searches for the best setup and <strong>explains every setting</strong> it proposes. It records your laps to <strong>fit its model to your driving</strong>, and refines the setup while you drive.</p>
   <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed effect yourself, and the car setup only changes when you confirm it, in the pits.</div>
@@ -390,13 +390,13 @@
 
 <section id="race">
   <h2>14. Race setup</h2>
-  <p>The race setup comes <strong>after a validated qualifying version</strong> (at least a v1): it starts from it, and your laps with it give your pace. Until then the <strong>RACE</strong> tab is locked and offers <span class="btn primary">Go to the QUALIFYING tab</span>. Then it shows three conditions, each with what fulfils it:</p>
+  <p>The race setup comes <strong>after a SetupLab qualifying setup</strong> (at least a v1): it starts from it, and your laps with it give your pace. Any of your SetupLab qualifying setups on this track works (v1, v2, v3…, trials included), even from an earlier session: load it from AC's setup menu and SetupLab recognises it by its values. Until there is one, the <strong>RACE</strong> tab is locked and offers <span class="btn primary">Go to the QUALIFYING tab</span>. Then it shows three conditions, each with what fulfils it:</p>
   <ol>
-    <li><strong>Validated qualifying setup</strong> on this track (otherwise the setup validated in practice);</li>
-    <li><strong>in the car</strong>: <span class="btn go">Load the validated qualifying setup</span> button;</li>
+    <li><strong>Qualifying setup</strong>: your validated one on this track (otherwise the one validated in practice), or any other SetupLab qualifying setup;</li>
+    <li><strong>in the car</strong>: <span class="btn go">Load the validated qualifying setup</span> button, or load another one from AC's setup menu;</li>
     <li><strong>number of race laps</strong>, with the slider (Ctrl + click to type it), kept for this car on this track. The lap count planned by the session is shown as a reminder.</li>
   </ol>
-  <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured.</p>
+  <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured. With SetupLab active, the first race version is computed straight away, without extra laps: your laps with this setup were driven in qualifying. The next race versions wait for the minimum of clean laps. When SetupLab loads the race setup (two clicks in the pits), the selected quick pit preset gets its pressures and tyres; fuel and repairs stay yours.</p>
 </section>
 
 <section id="manual">
@@ -416,7 +416,7 @@
     <thead><tr><th>Tab</th><th>Content</th></tr></thead>
     <tbody>
       <tr><td><strong>QUALIFYING</strong></td><td>Refinement and versions (validate or modify), computation, setup name, result (tiles, settings, explanations, charts).</td></tr>
-      <tr><td><strong>RACE</strong></td><td>Locked until a qualifying version is validated; then the three conditions of the race setup, and the same for the stint: average lap, fuel, wear, traffic.</td></tr>
+      <tr><td><strong>RACE</strong></td><td>Locked until there is a SetupLab qualifying setup on this track; then the three conditions of the race setup, and the same for the stint: average lap, fuel, wear, traffic.</td></tr>
       <tr><td><strong>MEMORY</strong></td><td>The validated or locked setups for this track, to load or unlock.</td></tr>
       <tr><td><strong>MEASURE</strong></td><td>Recorded laps (valid or not, with the reason), model calibration, tyres, track roughness.</td></tr>
       <tr><td><strong>SETTINGS</strong></td><td>Language, app settings (each with its explanation on hover), what SetupLab takes into account (weather, track temperature and grip, slow/medium/fast corners, chicanes, longest straight, share of full throttle and braking) and how every setup setting is handled, dry and wet.</td></tr>

@@ -3,6 +3,7 @@
 ## Unreleased (beta 1.5.2, in progress)
 
 - **Race setup from any SetupLab qualifying setup**: v1, v2, v3..., trials and best-lap names included, from an earlier session too (AC restarted). The one in the car is recognised by its values, even after AC re-saved it from its menu; otherwise the RACE tab lists them and asks to load one from AC's setup menu.
+- **First race version straight away**: with SetupLab active in a race session, the first race version is computed as soon as a SetupLab qualifying setup is in the car, without extra laps (your laps with it were driven in qualifying); the next race versions wait for the minimum of clean laps. A setup loaded from AC's menu after the discovery is recognised at once (the car's setup is re-read in the pits).
 - **Pit strategy**: when SetupLab loads a race setup (two clicks in the pits), the selected quick pit preset gets its tyre pressures and tyres. Fuel and repairs are left as you set them. A setup loaded from AC's menu does not change the pit menu.
 - **Main window back on the setup screen**: its close button is removed, and its internal name changes so CSP shows it again for players who had closed it (it was saved as closed outside the app folder, so reinstalling did not help). Its position and size reset once.
 - Overlay: says where the "SetupLab active" checkbox is (SetupLab window, setup screen).

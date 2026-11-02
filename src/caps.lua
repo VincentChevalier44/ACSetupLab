@@ -146,6 +146,12 @@ function M.makeUtcOffset(ffi)
   return offset, nil
 end
 
+-- Menu d'arrêt rapide lisible et réglable (présence seulement ; réglé par exporter.lua après un chargement de course).
+function M.pitApiPresent(host)
+  return M.isCallable(M.resolve(host, 'ac.getPitstopSpinners'), host.ffi)
+    and M.isCallable(M.resolve(host, 'ac.setPitstopSpinnerValue'), host.ffi)
+end
+
 -- Sondes statiques : présence des fonctions, version, droits d'E/S, dossiers connus.
 function M.probeStatic(host)
   local r = { functions = {}, presentCount = 0, missing = {}, neverCalled = {}, folders = {} }
@@ -415,6 +421,19 @@ function M.evaluate(static, d)
   else
     add('setup_load', 'Chargement dans la voiture', M.PENDING,
       'possible, non testé : au stand, menu de setup ouvert, après l\'enregistrement d\'un setup')
+  end
+  -- Stratégie d'arrêt (D8 amendé le 02/11/2026) : preset sélectionné réglé après un chargement de course par SetupLab ;
+  -- réglages lus dans le menu d'arrêt, pour la vérification en jeu
+  local pit = d and d.pitStrategy
+  local menu = (pit and type(pit.seen) == 'table' and #pit.seen > 0) and (' ; menu d\'arrêt : ' .. table.concat(pit.seen, ', '))
+    or ''
+  if d and d.pitApi == false then
+    add('pit_strategy', 'Stratégie d\'arrêt', M.UNAVAILABLE, 'menu d\'arrêt rapide inaccessible dans cette version de CSP')
+  elseif pit then
+    add('pit_strategy', 'Stratégie d\'arrêt', pit.ok and M.AVAILABLE or M.PENDING, tostring(pit.note) .. menu)
+  else
+    add('pit_strategy', 'Stratégie d\'arrêt', M.PENDING,
+      'possible, non testé : charger un setup de course avec SetupLab, au stand')
   end
   add('clipboard', 'Presse-papiers', M.hasAll(static, { 'ac.setClipboardText' }) and M.AVAILABLE or M.UNAVAILABLE, '')
   -- persistance (§13) : confirmée quand des entrées d'une séance précédente ont été relues

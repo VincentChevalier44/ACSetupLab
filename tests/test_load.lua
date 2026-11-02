@@ -409,6 +409,8 @@ tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, c
   confirm(h)
   T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end), 'chargement constaté')
   T.eq(h.pitCalls, 0, 'tour rapide : stratégie d\'arrêt intacte')
+  T.eq(app.discovery.caps.byId.pit_strategy.status, 'pending')
+  T.contains(app.discovery.caps.byId.pit_strategy.detail, 'non testé')
   -- même fichier présenté comme setup de course
   local saved = app.saved.quali
   app.saved.race = { path = saved.path, name = saved.name, text = saved.text, signature = saved.signature, hash = saved.hash,
@@ -445,6 +447,10 @@ tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, c
   frame(h)
   T.ok(shown(h, 'Stratégie d\'arrêt (preset sélectionné)'), 'note affichée dans l\'onglet COURSE')
   h.tab = nil
+  -- rapport J0 : ce qui a été posé et les réglages lus dans le menu d'arrêt
+  local cap = app.discovery.caps.byId.pit_strategy
+  T.eq(cap.status, 'available', tostring(cap.detail))
+  T.contains(cap.detail, 'menu d\'arrêt : FUEL=fuel, COMPOUND=compound, PRESSURE_LF=pressure')
   T.eq(app.perf.errors, 0)
 end
 

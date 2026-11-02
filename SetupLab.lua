@@ -413,7 +413,9 @@ end
 local function discover(ctx)
   local d = { static = app.static, clockOk = app.clock ~= nil, clockReason = app.clockReason, clockSource = app.clockSource,
     writeTest = app.writeTest,
-    loadTest = app.loadTest, loadVerified = app.loadVerified }
+    loadTest = app.loadTest, loadVerified = app.loadVerified, pitStrategy = app.pitStrategy,
+    -- menu d'arrêt rapide (lu et réglé après un chargement de course, D8 amendé le 02/11/2026)
+    pitApi = Caps.pitApiPresent(host) }
   d.session = Datasource.readSession(host)
   ctx.tick()
   d.car = Datasource.readCar(host, 0, ctx)
@@ -807,7 +809,7 @@ local function refreshContext()
     app.loaded, app.pins, app.start = {}, { quali = {}, race = {} }, {}
     app.refines, app.manualKind = {}, nil
     app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
-    app.pitStrategy, app.qualiScan = nil, nil
+    app.pitStrategy, app.qualiScan, app.inCar = nil, nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
     startDiscovery()
@@ -1260,6 +1262,7 @@ local function refreshCaps()
   local d = app.discovery
   if d and app.discoveryState == 'done' then
     d.writeTest, d.loadTest, d.loadVerified = app.writeTest, app.loadTest, app.loadVerified
+    d.pitStrategy = app.pitStrategy
     d.caps = Caps.evaluate(app.static, d)
     app.report = nil
     scheduleReport(d)
@@ -1341,11 +1344,12 @@ local function raceBlocker()
       return 'charger depuis le menu de setup d\'AC un de vos setups de qualification de SetupLab : la course partira de lui',
         'loadfile'
     end
-    -- monté dans la voiture : setup de la découverte, ou chargé et vérifié depuis (avant la nouvelle découverte)
+    -- monté dans la voiture : setup de la voiture (relu au stand), ou chargé et vérifié depuis (avant la nouvelle découverte)
     local d = app.discovery
+    local family = app.inCarFamily and app.inCarFamily() or (d and d.family)
     local loaded = false
     for _, l in pairs(app.loaded) do loaded = loaded or (l.name ~= nil and l.name == m.file) end
-    if not (loaded or (d and d.family and m.family and d.family == m.family)) then
+    if not (loaded or (family and m.family and family == m.family)) then
       return 'charger d\'abord le setup de qualification validé (' .. tostring(m.file) .. ') : la course part de lui'
         .. (#files > 1 and ' ; ou un autre de vos setups de qualification depuis le menu de setup d\'AC' or ''), 'load'
     end
@@ -1785,12 +1789,33 @@ local function qualiFiles()
 end
 app.qualiFiles = qualiFiles
 
--- Setup de qualification de SetupLab monté dans la voiture (reconnu par ses valeurs), ou nil.
-local function qualiInCar()
+-- Famille du setup dans la voiture (demande de Vincent du 02/11/2026 : setup chargé depuis le menu d'AC après la
+-- découverte) : relue voiture arrêtée, au plus toutes les K.inCarFamilyEvery secondes ; en roulant, ou crans illisibles,
+-- la dernière lue (sinon celle de la découverte).
+local function inCarFamily()
   local d = app.discovery
   if not (d and d.family) then return nil end
+  local c = app.inCar
+  local known = c and c.discovery == d
+  if known and math.abs(app.now - c.at) < K.inCarFamilyEvery then return c.family end
+  local family = known and c.family or d.family
+  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  local speed = okC and Util.get(car, 'speedMs') or nil
+  if Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh then
+    local _, live = liveSignature()
+    family = live or family
+  end
+  app.inCar = { discovery = d, at = app.now, family = family }
+  return family
+end
+app.inCarFamily = inCarFamily
+
+-- Setup de qualification de SetupLab monté dans la voiture (reconnu par ses valeurs), ou nil.
+local function qualiInCar()
+  local family = inCarFamily()
+  if family == nil then return nil end
   for _, f in ipairs(qualiFiles()) do
-    if f.family == d.family then return f end
+    if f.family == family then return f end
   end
   return nil
 end
@@ -2313,7 +2338,7 @@ local function loadTick()
       if check.kind == 'race' then
         local done, why, seen = Exporter.applyPitStrategy(host, check.target)
         local note = pitStrategyNote(done, why)
-        app.pitStrategy = { done = done, reason = why, note = note, ok = done ~= nil and #done > 0 }
+        app.pitStrategy = { done = done, reason = why, note = note, ok = done ~= nil and #done > 0, seen = seen }
         log('INFO', 'pit', note .. (seen and (' Menu d\'arrêt : ' .. table.concat(seen, ', ')) or ''))
       end
       local s = app.start[check.kind]
@@ -2480,12 +2505,16 @@ end
 -- cours dans la voiture, les deux atteints ; remis à zéro à chaque chargement.
 local function refineMinReached(r)
   -- premier setup tout de suite (case cochée) : aucune version encore proposée par cet affinage
-  if app.settings.refineInstantFirst then
-    local first = true
-    for _, e in ipairs(r.history or {}) do
-      if e.version then first = false end
-    end
-    if first then return true end
+  local first = true
+  for _, e in ipairs(r.history or {}) do
+    if e.version then first = false end
+  end
+  if first and app.settings.refineInstantFirst then return true end
+  -- course (demande de Vincent du 02/11/2026) : la première version part tout de suite d'un setup de qualification de
+  -- SetupLab dans la voiture (ses tours ont été faits en qualification) ; les suivantes attendent le minimum
+  if first and r.kind == 'race' then
+    local _, action = raceBlocker()
+    if action == nil or action == 'laps' then return true end
   end
   local laps, minutes = app.settings.refineMinLaps or 0, app.settings.refineMinMinutes or 0
   return (r.minLaps or 0) >= laps and (r.minTime or 0) >= minutes * 60

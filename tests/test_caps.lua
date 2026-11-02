@@ -146,8 +146,9 @@ tests['K05 évaluation complète : GT3 à Spa'] = function()
   end
   local _, lengthDetail = status(d, 'track_length')
   T.contains(lengthDetail, 'déclarée 7004 m')
-  T.eq(#d.caps.list, 24)
+  T.eq(#d.caps.list, 25)
   T.eq(status(d, 'setup_load'), 'pending', 'chargement possible, non testé')
+  T.eq(status(d, 'pit_strategy'), 'pending', 'stratégie d\'arrêt possible, non testée')
   T.eq(h.writeCalls, 0, 'aucune écriture pendant la découverte')
   T.eq(h.pitCalls, 0, 'menu d\'arrêt intact')
 end

@@ -246,7 +246,7 @@
   <p>Pour chaque couple voiture × circuit, SetupLab calcule :</p>
   <ul>
     <li>un setup de <strong>qualification</strong> : essai, journée circuit, hotlap, time attack, qualification ;</li>
-    <li>un setup de <strong>course</strong> : relais complet, carburant, usure des pneus, trafic. Il part de votre setup de qualification validé.</li>
+    <li>un setup de <strong>course</strong> : relais complet, carburant, usure des pneus, trafic. Il part d'un de vos setups de qualification de SetupLab.</li>
   </ul>
   <p>Il lit les fichiers de la voiture (pneus, aéro, moteur, boîte, freins, suspension, différentiel, DRS, ERS) et la ligne IA du circuit, simule le tour, cherche le meilleur setup et <strong>explique chaque réglage</strong> qu'il propose. Il enregistre vos tours pour <strong>caler son modèle sur votre pilotage</strong>, et affine le setup pendant que vous roulez.</p>
   <div class="note">Vous gardez toujours la main : rien n'est enregistré sans votre clic, chaque effet proposé est gardé ou refusé par vous, et le setup de la voiture ne change que sur votre confirmation, au stand.</div>
@@ -391,13 +391,13 @@
 
 <section id="course">
   <h2>14. Setup de course</h2>
-  <p>Le setup de course se fait <strong>après une version de qualification validée</strong> (au moins une v1) : il part d'elle, et vos tours avec elle donnent votre rythme. Jusque-là, l'onglet <strong>COURSE</strong> est verrouillé et propose <span class="btn primary">Aller à l'onglet QUALIF</span>. Ensuite, il montre trois conditions, chacune avec ce qui la remplit :</p>
+  <p>Le setup de course se fait <strong>après un setup de qualification de SetupLab</strong> (au moins une v1) : il part de lui, et vos tours avec lui donnent votre rythme. N'importe lequel de vos setups de qualification de SetupLab sur ce circuit convient (v1, v2, v3…, essais compris), même d'une séance précédente : chargez-le depuis le menu de setup d'AC, SetupLab le reconnaît par ses valeurs. Tant qu'il n'y en a aucun, l'onglet <strong>COURSE</strong> est verrouillé et propose <span class="btn primary">Aller à l'onglet QUALIF</span>. Ensuite, il montre trois conditions, chacune avec ce qui la remplit :</p>
   <ol>
-    <li><strong>Qualification validée</strong> sur ce circuit (sinon le setup validé en essai) ;</li>
-    <li><strong>dans la voiture</strong> : bouton <span class="btn go">Charger le setup de qualification validé</span> ;</li>
+    <li><strong>Setup de qualification</strong> : celui validé sur ce circuit (sinon celui validé en essai), ou n'importe quel autre setup de qualification de SetupLab ;</li>
+    <li><strong>dans la voiture</strong> : bouton <span class="btn go">Charger le setup de qualification validé</span>, ou un autre chargé depuis le menu de setup d'AC ;</li>
     <li><strong>nombre de tours de la course</strong>, au curseur (Ctrl + clic pour le saisir au clavier), gardé pour cette voiture sur ce circuit. Le nombre de tours prévu par la séance est rappelé.</li>
   </ol>
-  <p>Ensuite le calcul simule le relais complet : carburant embarqué, usure des pneus par essieu, trafic (DRS dans l'air sale). Le composé n'est changé que si l'usure a été mesurée.</p>
+  <p>Ensuite le calcul simule le relais complet : carburant embarqué, usure des pneus par essieu, trafic (DRS dans l'air sale). Le composé n'est changé que si l'usure a été mesurée. SetupLab actif, la première version de course se calcule tout de suite, sans tours de plus : vos tours avec ce setup ont été faits en qualification. Les versions de course suivantes attendent le minimum de tours propres. Quand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres.</p>
 </section>
 
 <section id="manuel">
@@ -417,7 +417,7 @@
     <thead><tr><th>Onglet</th><th>Contenu</th></tr></thead>
     <tbody>
       <tr><td><strong>QUALIF</strong></td><td>Affinage et versions (valider ou modifier), calcul, nom du setup, résultat (tuiles, réglages, explications, graphiques).</td></tr>
-      <tr><td><strong>COURSE</strong></td><td>Verrouillé tant qu'aucune version de qualification n'est validée ; ensuite les trois conditions du setup de course, et la même chose pour le relais : tour moyen, carburant, usure, trafic.</td></tr>
+      <tr><td><strong>COURSE</strong></td><td>Verrouillé tant qu'aucun setup de qualification de SetupLab n'existe sur ce circuit ; ensuite les trois conditions du setup de course, et la même chose pour le relais : tour moyen, carburant, usure, trafic.</td></tr>
       <tr><td><strong>MÉMOIRE</strong></td><td>Les setups validés ou figés de ce circuit, à charger ou à déverrouiller.</td></tr>
       <tr><td><strong>MESURE</strong></td><td>Tours enregistrés (valides ou non, avec la raison), calibration du modèle, pneus, rugosité de la piste.</td></tr>
       <tr><td><strong>RÉGLAGES</strong></td><td>Langue, réglages de l'app (chacun avec son explication au survol), ce que SetupLab prend en compte (météo, température et grip de la piste, virages lents, moyens et rapides, chicanes, plus longue ligne droite, part du tour à pleine charge et au freinage) et prise en compte de chaque réglage du setup, au sec et sous la pluie.</td></tr>

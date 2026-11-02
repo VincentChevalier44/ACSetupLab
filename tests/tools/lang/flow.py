@@ -201,4 +201,9 @@ EN = {
     "Stratégie d'arrêt non mise à jour : %s.": 'Pit strategy not updated: %s.',
     "menu d'arrêt illisible": 'pit menu unreadable',
     "réglage du menu d'arrêt indisponible dans cette version de CSP": 'pit menu setting unavailable in this CSP version',
+    "Stratégie d'arrêt": 'Pit strategy',
+    "menu d'arrêt rapide inaccessible dans cette version de CSP": 'quick pit menu not accessible in this CSP version',
+    'possible, non testé : charger un setup de course avec SetupLab, au stand':
+        'possible, not tested: load a race setup with SetupLab, in the pits',
+    "%s ; menu d'arrêt : %s": '%s; pit menu: %s',
 }
