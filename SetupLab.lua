@@ -1471,10 +1471,8 @@ end
 
 -- Calculs de setup : qualification (J4) et course (J6), mêmes garde-fous, même enregistrement.
 local COMPUTE = {
-  quali = { label = 'tour rapide', budgetKey = 'optBudgetEvalsQ', prefix = Config.exportQualiPrefix,
-    prepare = Optimizer.prepareQuali, run = Optimizer.runQuali },
-  race = { label = 'course', budgetKey = 'optBudgetEvalsC', prefix = Config.exportRacePrefix,
-    prepare = Optimizer.prepareRace, run = Optimizer.runRace },
+  quali = { label = 'tour rapide', budgetKey = 'optBudgetEvalsQ', prepare = Optimizer.prepareQuali, run = Optimizer.runQuali },
+  race = { label = 'course', budgetKey = 'optBudgetEvalsC', prepare = Optimizer.prepareRace, run = Optimizer.runRace },
 }
 
 -- Mesures pour la course (§8.7) : séances du week-end, taux d'usure et aspiration de la session, et,
@@ -3058,7 +3056,6 @@ local function startReady(kind)
   end
   return s ~= nil and s.ready == true
 end
-app.startReady = startReady
 
 local function startWaiting(kind)
   local s = app.start[kind]
@@ -3841,8 +3838,8 @@ local function handleIntents(intents)
   end
   if intents.autoToggle then autoToggle() end
   if app.inert and (intents.calibrate or intents.validate or intents.setting or intents.copyLap or intents.load
-      or intents.loadArm or intents.refineStart or intents.refineJudge or intents.refineLock or intents.memoryLoad
-      or intents.memoryLock) then
+      or intents.refineStart or intents.refineJudge or intents.refineLock or intents.memoryLoad or intents.memoryLock
+      or intents.start or intents.refineChoice or intents.raceFrom or intents.raceResume or intents.updateApply) then
     app.ui.message = 'Indisponible : ' .. app.inert
     return
   end
@@ -3930,8 +3927,8 @@ local function handleIntents(intents)
     app.ui.message = 'Retouches libérées : le prochain calcul peut de nouveau changer tous les réglages.'
     log('INFO', 'pins', app.ui.message)
   end
-  -- un clic (1.5.3) ; loadArm : ancien nom de l'intention, gardé ; loadConfirm (second clic d'avant) ne fait plus rien
-  if intents.load or intents.loadArm then requestLoad(intents.load or intents.loadArm) end
+  -- un clic (1.5.3)
+  if intents.load then requestLoad(intents.load) end
   if intents.setting then
     local key, value = intents.setting.key, intents.setting.value
     for _, def in ipairs(Config.settings) do

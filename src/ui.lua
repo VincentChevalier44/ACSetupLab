@@ -13,6 +13,7 @@ local Caps = require('src/caps')
 local SetupSpace = require('src/setup_space')
 local L = require('src/i18n')
 local Skin = require('src/skin')
+local Calibration = require('src/calibration')
 
 local M = {}
 
@@ -48,7 +49,7 @@ local STATUS_COLOR = {
 }
 
 function M.new()
-  return { message = nil, messageAt = 0, colors = nil, point = nil, showCaps = false, vecs = {} }
+  return { message = nil, colors = nil, point = nil, vecs = {} }
 end
 
 -- Langue (décision de Vincent du 26/10/2026 : anglais par défaut, français au choix, tout traduit) : l'interface
@@ -1744,8 +1745,8 @@ end
 -- Onglet Mesure (§9.1 à §9.3 bis, §14.1)
 -- ---------------------------------------------------------------------------
 
-local FACTOR_LABELS = { mu = 'adhérence', power = 'puissance', drag = 'traînée', lift = 'appui', brake = 'freinage' }
-local FACTOR_ORDER = { 'mu', 'power', 'drag', 'lift', 'brake' }
+-- facteurs de calibration : ceux du modèle (src/calibration.lua), dans son ordre
+local FACTOR_LABELS, FACTOR_ORDER = Calibration.LABELS, Calibration.KEYS
 
 local function measureSection(host, app, intents, palette)
   local ui = host.ui

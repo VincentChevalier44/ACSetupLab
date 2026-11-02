@@ -49,7 +49,6 @@ EN = {
     'froid': 'cold',
     'trop froid': 'too cold',
     'chaud': 'hot',
-    'trop chaud': 'too hot',
     'valeur': 'value',
     'format inconnu': 'unknown format',
     'ac.readDataFile absent': 'ac.readDataFile missing',

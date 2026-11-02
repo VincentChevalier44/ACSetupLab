@@ -36,7 +36,6 @@ EN = {
     'Tout garder': 'Keep everything',
     ' (%s/%s réglages)': ' (%s/%s settings)',
     'Valider sans essai': 'Validate without trying',
-    'Valider sans essai (%s/%s réglages)': 'Validate without trying (%s/%s settings)',
     'Valider sans essai · la met dans la voiture': 'Validate without trying · puts it in the car',
     'Valider sans essai (%s/%s réglages) · la met dans la voiture': 'Validate without trying (%s/%s settings) · puts it in the car',
     'Valider %s (%s/%s réglages)': 'Validate %s (%s/%s settings)',
@@ -101,16 +100,8 @@ EN = {
     'Changer de départ': 'Change the starting point',
     "Repartir d'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.":
         "Start again from another setup: your current setup, the car's default one, or your reference.",
-    '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab.':
-        "1. Start: choose which setup to start from: your current setup (the one in the car, yours or the default one), the car's default setup, or your validated reference on this track. Choosing activates SetupLab.",
     "2. Rouler : après le minimum de tours propres (onglet Réglages), SetupLab propose une version. En piste, il annonce qu'il a le minimum d'informations et continue d'analyser vos tours ; elle est prête à votre retour au stand.":
         '2. Drive: after the minimum clean laps (SETTINGS tab), SetupLab proposes a version. On track, it announces that it has the minimum information and keeps analysing your laps; it is ready when you return to the pits.',
-    "3. Essayer : « Essayer vN » écrit la version dans un fichier d'essai ; « Charger » la met dans la voiture. Roulez avec.":
-        '3. Try: "Try vN" writes the version into a trial file; "Load" puts it in the car. Drive with it.',
-    "4. Valider : « Valider vN » la garde telle quelle ; « Modifier… » pour refuser un réglage précis (par exemple l'aileron arrière) et garder le reste. Elle devient votre référence pour ce circuit ; chargez-la et continuez : SetupLab repart d'elle.":
-        '4. Validate: "Validate vN" keeps it as it is; "Modify…" to refuse one particular setting (for example the rear wing) and keep the rest. It becomes your reference for this track; load it and carry on: SetupLab continues from it.',
-    "Le setup de course se fait après une version de qualification validée (au moins une v1) : il part d'elle, montée dans la voiture, et vos tours avec elle donnent votre rythme. Saisissez seulement le nombre de tours de la course (onglet COURSE).":
-        'The race setup comes after a validated qualifying version (at least a v1): it starts from it, fitted to the car, and your laps with it give your pace. Just enter the number of race laps (RACE tab).',
     'Ce que SetupLab prend en compte': 'What SetupLab takes into account',
     'Météo et piste : air %s °C, piste %s °C, grip %s %, %s ; recalcul quand elles changent.':
         'Weather and track: air %s °C, track %s °C, grip %s %, %s; recomputed when they change.',
@@ -204,14 +195,6 @@ EN = {
     "Vos setups de qualification sur ce circuit : %s. Chargez celui de votre choix depuis le menu de setup d'AC : SetupLab le reconnaît et la course part de lui.":
         "Your qualifying setups on this track: %s. Load the one you want from AC's setup menu: SetupLab recognises it and the race starts from it.",
     "À faire : %s.": 'To do: %s.',
-    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s (changement de pneus prévu à l'arrêt), pressions %s.":
-        'Pit strategy (selected preset) updated: %s tyres (tyre change planned at the stop), pressures %s.',
-    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s, pressions %s.":
-        'Pit strategy (selected preset) updated: %s tyres, pressures %s.',
-    "Stratégie d'arrêt (preset sélectionné) mise à jour : pressions %s.": 'Pit strategy (selected preset) updated: pressures %s.',
-    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s.": 'Pit strategy (selected preset) updated: %s tyres.',
-    "Stratégie d'arrêt non mise à jour : aucun réglage de pression ou de pneus modifiable dans le menu d'arrêt.":
-        'Pit strategy not updated: no editable pressure or tyre setting in the pit menu.',
     "Stratégie d'arrêt non mise à jour : %s. Menu d'arrêt : %s": 'Pit strategy not updated: %s. Pit menu: %s',
     "Menu d'arrêt : %s": 'Pit menu: %s',
     'n° %s': 'no. %s',

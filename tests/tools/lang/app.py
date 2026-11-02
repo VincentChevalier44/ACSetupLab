@@ -253,8 +253,6 @@ EN = {
     'v%s : déjà %s.': 'v%s: already %s.',
     'Essai impossible : %s': 'Cannot try: %s',
     'v%s : essai impossible, écriture refusée (%s).': 'v%s: cannot try, write refused (%s).',
-    'v%s en essai : %s. Au stand, menu de setup ouvert : « Charger » ; %s':
-        'v%s on trial: %s. In the pits, setup menu open: "Load"; %s',
     'v%s : %s effet%s gardé%s sur %s.': 'v{1}: {2} effect{3} kept out of {5}.',
     'v%s : aucun effet gardé ; « Recommencer » pour ne pas la garder.': 'v%s: no effect kept; "Start over" to not keep it.',
     'Setup figé : %s (%s), gardé en mémoire pour ce circuit et proposé à %s':
@@ -279,7 +277,6 @@ EN = {
     'Course : %s tours, gardés pour ce circuit.': 'Race: %s laps, kept for this track.',
     'Nombre de tours de course refusé : entier de 1 à %s.': 'Race lap count refused: a whole number from 1 to %s.',
     'Calibration impossible : aucun tour valide avec un setup connu.': 'Cannot calibrate: no valid lap with a known setup.',
-    "Chargement annulé : le setup en cours n'a pas changé.": 'Load cancelled: the setup in the car has not changed.',
     "Validation en jeu (§14.1) : 1. un tour propre avec le setup d'origine ; 2. enregistrer le setup proposé puis le charger dans le menu de setup ; 3. un tour propre avec lui. Le gain mesuré est alors comparé au gain prévu.":
         'In-game validation (§14.1): 1. a clean lap with the original setup; 2. save the proposed setup and load it in the setup menu; 3. a clean lap with it. The measured gain is then compared with the predicted gain.',
     'Rapport en cours de préparation, réessayer dans un instant.': 'Report being prepared, try again in a moment.',

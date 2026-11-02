@@ -107,7 +107,7 @@ end
 local function load(h, app, kind)
   stop(h)
   frames(h, 1)
-  app.handleIntents({ loadArm = kind or 'quali' })
+  app.handleIntents({ load = kind or 'quali' })
   render(h)
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement')
   render(h)

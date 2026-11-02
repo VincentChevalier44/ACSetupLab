@@ -381,7 +381,7 @@ tests['AU04 cadenas : figé, affinage arrêté ; app relancée : proposé et cha
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
   h.click = 'Charger###memload_qualif_sec'
   frames(h, 1)
-  T.eq(app.loadArm, nil)
+  T.eq(app.loadCheck, nil, 'aucun chargement en cours')
   T.contains(app.ui.message, 'modifié')
   h.sim.time = h.sim.time + (Config.K.memoryRecheck + 1) * 1000
   h.click = 'Relancer la découverte'

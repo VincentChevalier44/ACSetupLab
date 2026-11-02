@@ -35,9 +35,6 @@ EN = {
     'Calibration automatique': 'Automatic calibration',
     "Pluie : niveaux d'aide en plus (antipatinage, ABS)": 'Rain: extra aid levels (traction control, ABS)',
     'Affinage : tours propres avant un nouveau calcul (0 = en continu)': 'Refinement: clean laps before a new computation (0 = continuous)',
-    'Affinage : tours propres minimum avant une proposition': 'Refinement: minimum clean laps before a proposal',
-    'Affinage : minutes de roulage minimum avant une proposition (0 = sans)':
-        'Refinement: minimum driving minutes before a proposal (0 = none)',
     'Langue': 'Language',
     'Journal détaillé (DEBUG)': 'Detailed log (DEBUG)',
     'Application active': 'App enabled',

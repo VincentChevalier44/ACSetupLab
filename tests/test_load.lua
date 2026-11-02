@@ -173,8 +173,6 @@ tests['J02 gardes : stand, arrêt, menu de setup, setup imposé, voiture, en lig
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end))
   app.handleIntents({ load = 'quali' })
   T.contains(app.ui.message, 'Indisponible')
-  app.handleIntents({ loadArm = 'quali' })
-  T.contains(app.ui.message, 'Indisponible')
   h.sim.isOnlineRace = false
   T.eq(#h.loadCalls, 0, 'aucun chargement')
   T.eq(backups(h), 0, 'aucune copie de sauvegarde')

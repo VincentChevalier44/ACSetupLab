@@ -29,7 +29,6 @@ M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', '
 M.exportTestPrefix = 'SetupLab_Test_'
 M.fileDefaultName = 'SetupLab'
 M.fileGenre = { quali = 'Qualif', race = 'Course' }
-M.fileWet = 'Pluie'
 M.exportQualiPrefix = M.fileDefaultName .. '_' .. M.fileGenre.quali .. '_'
 M.exportRacePrefix = M.fileDefaultName .. '_' .. M.fileGenre.race .. '_'
 -- Copie du setup en cours écrite juste avant un chargement dans la voiture (réversibilité).
@@ -200,7 +199,6 @@ M.K = {
   logMaxChars = 400,          -- longueur maximale d'une ligne de journal
 
   -- Données non fiables (D11)
-  maxIniBytes = 524288,
   maxIniSections = 1024,
   maxIniKeys = 256,
   maxValueChars = 1024,
