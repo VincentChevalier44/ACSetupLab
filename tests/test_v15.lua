@@ -478,12 +478,11 @@ tests['NV12 départ : setup par défaut écrit puis chargé ; mon setup sans ret
   T.eq(s and s.mode, 'default', tostring(app.ui.message))
   T.eq(s.file, 'SetupLab_Defaut.ini')
   T.ok(h.written[folder .. '/SetupLab_Defaut.ini'], 'fichier du setup par défaut')
-  T.eq(s.ready, false, 'à charger au stand')
   T.eq(app.saved.quali.name, 'SetupLab_Defaut.ini', 'setup à charger')
-  frames(h, 120)
-  T.eq(app.refine.version, 0, 'rien de proposé avant le chargement')
-  T.contains(app.refine.waiting, 'charger le setup de départ')
-  loadAtPit(h, app)
+  -- 1.5.3 (décision de Vincent du 02/11/2026) : le départ choisi va dans la voiture en un clic
+  T.ok(app.loadCheck and app.loadCheck.path == folder .. '/SetupLab_Defaut.ini', 'chargé en un clic : ' .. tostring(app.ui.message))
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
   T.eq(arb.value, arb.defaultValue, 'réglage revenu à sa valeur par défaut')
   T.eq(app.start.quali.ready, true, 'départ dans la voiture')
   -- setup personnel chargé ensuite depuis le menu d'AC, puis « Mon setup actuel » : aucune retouche gardée
@@ -568,6 +567,10 @@ tests['NV15 départ de la référence (figée ou non) ; setup par défaut réuti
     loadAtPit(h, app)
     T.eq(app.start.quali.ready, true, 'référence dans la voiture')
   end
+  -- 1.5.3 : la référence s'est chargée en un clic ; la découverte relancée sur elle se termine d'abord
+  T.ok(waitFor(h, function()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end))
   -- figée : déverrouiller et reprendre
   app.handleIntents({ memoryLock = { key = 'qualif|sec', locked = true } })
   T.ok(app.memory['qualif|sec'].locked, 'figée')
@@ -581,13 +584,17 @@ tests['NV15 départ de la référence (figée ou non) ; setup par défaut réuti
   T.eq(app.start.quali.mode, 'reference')
   frames(h, 120)
   T.ok(app.refine and app.refine.active, 'affinage repris')
-  -- setup par défaut deux fois : le même fichier (découverte terminée)
-  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  -- setup par défaut deux fois : le même fichier (découverte terminée ; 1.5.3 : le départ se charge en un clic, puis
+  -- la découverte est relancée sur lui)
+  local function settled()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end
+  T.ok(waitFor(h, settled))
   app.handleIntents({ start = 'default' })
   local first = app.start.quali.file
   T.eq(first, 'SetupLab_Defaut.ini', tostring(app.ui.message))
   app.handleIntents({ startReset = 'quali' })
-  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  T.ok(waitFor(h, settled))
   app.handleIntents({ start = 'default' })
   T.eq(app.start.quali and app.start.quali.file, first, 'réutilisé : ' .. tostring(app.ui.message))
   T.no(h.written[folder .. '/SetupLab_Defaut-2.ini'], 'pas de second fichier')

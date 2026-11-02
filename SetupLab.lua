@@ -3513,6 +3513,10 @@ local function startChoose(kind, mode)
   if r and r.active then refineStop() end
   app.auto = true
   refineStart(kind)
+  -- 1.5.3 (décision de Vincent du 02/11/2026) : la référence ou le setup par défaut choisi va dans la voiture en un
+  -- clic ; refusé (hors du stand…) : la raison est dite et le bouton « Charger » reste
+  local s = app.start[kind]
+  if s and not s.ready and (mode == 'reference' or mode == 'default') then requestLoad(kind) end
 end
 
 local function autoToggle()
