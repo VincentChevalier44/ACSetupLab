@@ -59,6 +59,21 @@ EN = {
     'De quel setup SetupLab part-il ? Il le fait évoluer avec vos tours, version après version (v1, v2…).':
         'Which setup should SetupLab start from? It evolves it with your laps, version after version (v1, v2…).',
     'Reprendre ma référence %s': 'Resume my reference %s',
+    'Étape 1/4 · Départ de la course : de quelle qualif part-on ?':
+        'Step 1/4 · Race start: which qualifying setup do we start from?',
+    'Partir de la qualif v%s': 'Start from qualifying v%s',
+    'En un clic : %s va dans la voiture et la v1 de course se calcule.':
+        'One click: %s goes into the car and race v1 is computed.',
+    '%s · dans la voiture': '%s · in the car',
+    'Reprendre ma course v%s': 'Resume my race v%s',
+    "%s va dans la voiture et l'affinage de la course reprend de lui.":
+        '%s goes into the car and the race refinement resumes from it.',
+    "Départ de la course impossible : %s n'est plus dans le dossier des setups.":
+        'Race start impossible: %s is no longer in the setups folder.',
+    "Chargez %s depuis le menu de setup d'AC : SetupLab le reconnaît et la course part de lui.":
+        "Load %s from AC's setup menu: SetupLab recognises it and the race starts from it.",
+    'Chargement impossible : %s a changé depuis sa validation.':
+        'Load impossible: %s has changed since it was validated.',
     'Votre setup validé sur ce circuit : chargé au stand, puis affiné.': 'Your validated setup on this track: loaded in the pits, then refined.',
     'Mon setup actuel': 'My current setup',
     "Le setup qui est dans la voiture : le vôtre (chargé depuis le menu de setup d'AC) ou celui par défaut.":

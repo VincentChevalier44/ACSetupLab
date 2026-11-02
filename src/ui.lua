@@ -1561,6 +1561,38 @@ local function racePanel(host, app, intents, palette)
       .. 'du menu d\'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup '
       .. 'chargé depuis le menu d\'AC ne change pas le menu d\'arrêt.')
     local started = app.raceStarted and app.raceStarted() or false
+    -- 1.5.3 (décision de Vincent du 02/11/2026) : départ de la course au choix, en un clic
+    local rr = app.refine and app.refine.active and app.refine.kind == 'race'
+    if not rr and app.raceChoices then
+      local choices = app.raceChoices()
+      local any = false
+      for _, c in ipairs(choices) do any = any or c.loadable or c.inCar end
+      if any then
+        colored(host, 'Étape 1/4 · Départ de la course : de quelle qualif part-on ?', palette.text)
+        local first = true
+        for _, c in ipairs(choices) do
+          if c.loadable or c.inCar then
+            local style = first and 'primary' or 'go'
+            if actionButton(host, app.ui, palette, 'Partir de la qualif v' .. tostring(c.version) .. '###race_from_' .. c.file,
+                style, false) then
+              intents.raceFrom = c.file
+            end
+            tip(host, 'En un clic : ' .. c.file .. ' va dans la voiture et la v1 de course se calcule.')
+            small(host, c.file .. (c.inCar and ' · dans la voiture' or ''), palette[c.inCar and 'available' or 'muted'])
+            first = false
+          end
+        end
+      end
+      local bucket = app.wet and app.wet.state or 'sec'
+      local race = app.memory and app.memory['course|' .. bucket]
+      if race and race.text and not race.problem then
+        if actionButton(host, app.ui, palette, 'Reprendre ma course v' .. tostring(race.version) .. '###race_resume', 'go',
+            false) then
+          intents.raceResume = 'course|' .. bucket
+        end
+        tip(host, race.file .. ' va dans la voiture et l\'affinage de la course reprend de lui.')
+      end
+    end
     local ref = inCar and inCar.file or (m and m.file)
     if ref == nil and started then ref = 'course commencée : elle continue depuis le setup dans la voiture' end
     colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),

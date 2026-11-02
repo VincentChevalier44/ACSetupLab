@@ -218,4 +218,128 @@ tests['CH03 « Relancer l\'affinage » vaut « Continuer » ; une réponse pour 
   T.eq(app.perf.errors, 0)
 end
 
+-- Tranche 4 (décision de Vincent du 02/11/2026) : la course part d'une qualif validée au choix, d'un lancement d'AC à
+-- l'autre ; « Reprendre ma course vN ».
+local function restart(h)
+  Fake.install(h)
+  assert(loadfile(PY.appDir .. '/SetupLab.lua'))()
+  local app = rawget(_G, 'SETUPLAB').app
+  app.utcOffset = function() return 7200 end
+  app.settings.optBudgetEvalsQ, app.settings.optBudgetEvalsC = 80, 20
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte au redémarrage')
+  return app
+end
+
+local function nudge(h, app)
+  local sp = h.spinners[1]
+  sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.qualiScan = nil
+end
+
+local function choiceOf(h, app, file)
+  local found
+  T.ok(waitFor(h, function()
+    for _, c in ipairs(app.raceChoices()) do
+      if c.file == file then found = c end
+    end
+    return found ~= nil
+  end, 120), 'qualif proposée pour la course : ' .. tostring(file))
+  return found
+end
+
+tests['RC01 course : partir d\'une qualif validée, en un clic (chargée, puis l\'affinage de la course démarre)'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  app.handleIntents({ refineChoice = { version = e.version, lock = true } })
+  app.handleIntents({ raceLaps = 12 })
+  T.ok(waitFor(h, function() return choiceOf(h, app, e.file).inCar end, 600), 'dans la voiture')
+  -- une autre base dans la voiture : la qualif validée se charge d'un clic
+  nudge(h, app)
+  local c = choiceOf(h, app, e.file)
+  T.ok(c.loadable and not c.inCar, 'chargeable, pas dans la voiture')
+  local loads = #h.loadCalls
+  app.handleIntents({ raceFrom = e.file })
+  T.eq(#h.loadCalls, loads + 1, 'chargée en un clic')
+  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. e.file)
+  T.ok(app.refine and app.refine.active and app.refine.kind == 'race', 'affinage de la course démarré')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  local rr = app.refine
+  -- le calcul de la course part de la qualif chargée (v1 proposée, ou « déjà le meilleur » avec ce petit budget)
+  T.ok(waitFor(h, function() return app.race ~= nil and app.race.state == 'done' and rr.phase == 'tours' end, 60000),
+    'calcul de course : ' .. tostring(rr.waiting))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['RC02 qualif validée lors d\'un lancement précédent d\'AC : toujours chargeable par SetupLab pour la course'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  app.handleIntents({ refineChoice = { version = e.version } })
+  -- une version validée qui n'est plus la référence de la mémoire (une v2 validée depuis l'a remplacée) : seule la
+  -- liste des versions validées la garde
+  local Store = require('src/store')
+  for key in pairs(app.store.entries) do
+    if key:find('^mem:') then Store.remove(app.store, key) end
+  end
+  frames(h, 70) -- le stockage s'écrit au plus une fois par seconde
+  nudge(h, app)
+  app = restart(h)
+  T.eq(app.written[e.file], e.hash, 'reconnue comme écrite par SetupLab')
+  app.handleIntents({ raceLaps = 12 })
+  local c = choiceOf(h, app, e.file)
+  T.ok(c.loadable, 'chargeable')
+  app.handleIntents({ raceFrom = e.file })
+  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. e.file, 'chargée en un clic')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  -- fichier modifié depuis : plus proposé au chargement (D8)
+  h.written[folderOf(h) .. '/' .. e.file] = h.written[folderOf(h) .. '/' .. e.file] .. '\n; retouche\n'
+  nudge(h, app)
+  T.no(choiceOf(h, app, e.file).loadable, 'fichier modifié : pas chargeable')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['RC03 « Reprendre ma course vN » : la course validée revient dans la voiture et son affinage reprend'] = function()
+  local h, app = boot({ session = 3 })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  app.settings.refineMinLaps, app.settings.refineInstantFirst, app.settings.optBudgetEvalsC = 0, false, 300
+  Fake.raceReady(h, app, 12)
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  frames(h, 2)
+  app.handleIntents({ refineStart = 'race' })
+  local rr = app.refine
+  T.ok(waitFor(h, function() return rr.version >= 1 and rr.phase == 'tours' end, 60000), 'v1 de course : ' .. tostring(rr.waiting))
+  local e
+  for i = #rr.history, 1, -1 do
+    if rr.history[i].version then e = rr.history[i]; break end
+  end
+  tryLoaded(h, app, rr, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  local m = app.memory['course|sec']
+  T.ok(m and m.file == e.file, 'course validée en mémoire')
+  frames(h, 70)
+  nudge(h, app)
+  app = restart(h)
+  app.handleIntents({ raceLaps = 12 })
+  T.ok(app.memory['course|sec'] and app.memory['course|sec'].text, 'course validée relue')
+  local loads = #h.loadCalls
+  app.handleIntents({ raceResume = 'course|sec' })
+  T.eq(#h.loadCalls, loads + 1, 'chargée en un clic')
+  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. e.file)
+  T.ok(app.refine and app.refine.active and app.refine.kind == 'race', 'affinage de la course repris')
+  T.eq(app.refine.base, e.version, 'numérotation à la suite')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  T.ok(waitFor(h, function() return app.raceStarted() and app.discoveryState == 'done' end, 1200),
+    'course commencée : elle continue depuis la voiture')
+  T.eq(app.raceBlocker(), nil, 'rien ne bloque')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

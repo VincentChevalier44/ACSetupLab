@@ -8,6 +8,8 @@
 - **"Start over" puts your previous setup back**: refusing the version that is in the car loads the setup you had before (your reference, or the backup copy made before the trial).
 - **"Validate" always puts the kept version in the car**: after the trial with some settings refused, or validated without a trial ("Validate without trying · puts it in the car"). The refinement carries on from it and your laps judge it. If the car is not ready (setup menu closed), the version is still validated and the reason is shown under "Load".
 - **After each validation, SetupLab asks**: "Carry on refining" (a new version with your next laps) or "Lock vN". Nothing new is computed until you answer; restarting the refinement counts as carrying on.
+- **Race start of your choice**: the RACE tab lists your validated qualifying versions on this track (v1, v2, v3...), including those validated during an earlier AC launch. "Start from qualifying vN" puts it in the car and starts the race refinement in one click. Other SetupLab qualifying files are still recognised when you load them from AC's setup menu.
+- **"Resume my race vN"**: a race setup validated earlier goes back into the car and its refinement carries on from it (numbering continues).
 - New app logo.
 
 ## 1.0.0-beta.1.5.2 — 2026-11-02 — beta 1.5.2: race setup from your qualifying setup, pit strategy, window back

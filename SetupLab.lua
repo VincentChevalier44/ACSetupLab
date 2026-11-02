@@ -212,6 +212,34 @@ local function memoryPut(m)
     locked = m.locked == true }, stamp())
 end
 
+-- Versions de qualification validées de ce circuit, gardées d'un lancement d'AC à l'autre (1.5.3) : la course peut partir
+-- de l'une d'elles. Liste { key, file, hash, version, stamp }, la plus récente d'abord.
+local function validatedEntries(d)
+  local base = storeKey('ver', d or app.discovery, 'qualif')
+  local list = {}
+  if base == nil then return list end
+  local prefix = base .. ':'
+  for key, entry in pairs(app.store.entries or {}) do
+    if key:sub(1, #prefix) == prefix and type(entry.file) == 'string' and entry.hash then
+      list[#list + 1] = { key = key, file = entry.file, hash = entry.hash, version = entry.version, stamp = entry.stamp or 0 }
+    end
+  end
+  table.sort(list, function(x, y)
+    if x.stamp ~= y.stamp then return x.stamp > y.stamp end
+    return x.key < y.key
+  end)
+  return list
+end
+
+local function validatedPut(file, hash, version)
+  local key = storeKey('ver', app.discovery, 'qualif', hash)
+  if key == nil then return false end
+  Store.put(app.store, key, { file = file, hash = hash, version = version }, stamp())
+  local list = validatedEntries()
+  for i = #list, K.validatedMax + 1, -1 do Store.remove(app.store, list[i].key) end
+  return true
+end
+
 -- Exécute fn sous pcall et ajoute sa durée au coût de la frame courante.
 local function measure(fn, ...)
   local started = app.clock and app.clock() or nil
@@ -1849,7 +1877,7 @@ local function qualiFiles()
       if okL and type(text) == 'string' and #text <= K.maxTextBytes then
         local values = setupValues(text)
         local tyres = Util.isFinite(values.TYRES) and values.TYRES or d.compoundIndex
-        scan.list[#scan.list + 1] = { file = f.file, version = f.version, trial = f.trial,
+        scan.list[#scan.list + 1] = { file = f.file, version = f.version, trial = f.trial, hash = Util.hashString(text),
           family = signatureOf(d.setup.spinners, values, tyres, K.familyIgnored) }
       end
     end
@@ -2045,6 +2073,9 @@ app.queueBestRename, app.queueFileOp, app.setupValues = queueBestRename, queueFi
 -- Un fichier parti à la Corbeille : plus rien ne le désigne.
 local function forgetFile(name)
   app.written[name] = nil
+  for _, v in ipairs(validatedEntries()) do
+    if v.file == name then Store.remove(app.store, v.key) end
+  end
   for i = #app.backups, 1, -1 do
     if app.backups[i].name == name then table.remove(app.backups, i) end
   end
@@ -2069,6 +2100,9 @@ end
 -- Un fichier renommé : tout ce qui le désignait suit (versions, mémoire, setup à charger, setup chargé).
 local function followRename(old, new, path)
   app.written[new], app.written[old] = app.written[old], nil
+  for _, v in ipairs(validatedEntries()) do
+    if v.file == old then Store.put(app.store, v.key, { file = new, hash = v.hash, version = v.version }, stamp()) end
+  end
   local function move(rec)
     if rec and rec.file == old then rec.file, rec.path = new, path end
   end
@@ -2208,6 +2242,11 @@ local function refreshMemory()
         app.memory[g.key .. '|' .. bucket] = nil
       end
     end
+  end
+  -- versions de qualification validées lors d'un lancement précédent (1.5.3) : chargeables par SetupLab (D8 : fichiers
+  -- écrits par lui) ; le chargement revérifie leur contenu exact (Exporter.loadBlocker)
+  for _, v in ipairs(validatedEntries(d)) do
+    if app.written[v.file] == nil then app.written[v.file] = v.hash end
   end
 end
 app.refreshMemory = refreshMemory
@@ -3178,6 +3217,7 @@ local function writeVersion(r, e)
   e.trial = nil
   e.file, e.path, e.hash, e.ownFile = w.name, w.path, Util.hashString(kept.text), true
   app.written[w.name] = e.hash
+  if r.kind == 'quali' then validatedPut(w.name, e.hash, e.version) end
   setLoadTarget(r.kind, e)
   -- tours roulés avec elle : calibration et validation en jeu (§14.1)
   if e.known then rememberSetup(e.signature, e.known) end
@@ -3443,6 +3483,60 @@ local function memoryLoad(key)
   requestLoad(kind, 'memory')
 end
 
+-- Départ de la course (1.5.3, décision de Vincent du 02/11/2026) : vos setups de qualification de SetupLab du dossier ;
+-- chargeables en un clic ceux que SetupLab a écrits (validés, cette séance ou une précédente) ; les autres se chargent
+-- depuis le menu de setup d'AC. Liste { file, version, loadable, inCar }, la version la plus haute d'abord.
+local function raceChoices()
+  local inCar = qualiInCar()
+  local list = {}
+  for _, f in ipairs(qualiFiles()) do
+    if not f.trial then
+      list[#list + 1] = { file = f.file, version = f.version, hash = f.hash,
+        loadable = f.hash ~= nil and app.written[f.file] == f.hash, inCar = inCar ~= nil and inCar.file == f.file }
+    end
+  end
+  table.sort(list, function(x, y)
+    if x.version ~= y.version then return x.version > y.version end
+    return x.file < y.file
+  end)
+  return list
+end
+app.raceChoices = raceChoices
+
+-- « Partir de la qualif vN » : elle va dans la voiture (un clic) et l'affinage de la course démarre ; déjà dans la voiture :
+-- l'affinage démarre. Renvoie vrai si l'affinage de la course doit démarrer.
+local function raceFrom(file)
+  local choice
+  for _, c in ipairs(raceChoices()) do
+    if c.file == file then choice = c end
+  end
+  if choice == nil then
+    app.ui.message = 'Départ de la course impossible : ' .. tostring(file) .. ' n\'est plus dans le dossier des setups.'
+    return false
+  end
+  if choice.inCar then return true end
+  if not choice.loadable then
+    app.ui.message = 'Chargez ' .. tostring(file) .. ' depuis le menu de setup d\'AC : SetupLab le reconnaît et la course part '
+      .. 'de lui.'
+    return false
+  end
+  local d = app.discovery
+  local folder = Exporter.targetFolder(host)
+  local path = folder and (folder .. '/' .. file)
+  local ok, text = false, nil
+  if path then ok, text = Util.call(Util.get(host.io, 'load'), path) end
+  if not (ok and type(text) == 'string' and Util.hashString(text) == choice.hash and d and d.setup) then
+    app.ui.message = 'Chargement impossible : ' .. tostring(file) .. ' a changé depuis sa validation.'
+    return false
+  end
+  local values = setupValues(text)
+  local tyres = Util.isFinite(values.TYRES) and values.TYRES or d.compoundIndex
+  setLoadTarget('quali', { file = file, path = path, text = text, hash = choice.hash, origin = 'memory',
+    bucket = app.wet and app.wet.state or 'sec', signature = signatureOf(d.setup.spinners, values, tyres) })
+  requestLoad('quali', 'memory')
+  return app.loadCheck ~= nil
+end
+
 local function startChoose(kind, mode)
   local d = app.discovery
   if mode ~= 'mine' and not (d and d.setup and app.discoveryState == 'done') then
@@ -3590,6 +3684,15 @@ local function handleIntents(intents)
   -- calcul de course demandé pendant l'affinage du tour rapide (constat de Vincent du 02/11/2026 : la carte d'étape
   -- attendait une v3) : la course devient l'affinage en cours et part tout de suite du setup de qualification de la
   -- voiture ; le tour rapide garde ses versions (repris plus tard depuis l'onglet QUALIF)
+  if intents.raceFrom and not app.inert then
+    if raceFrom(intents.raceFrom) then intents.refineStart = 'race' end
+  end
+  -- « Reprendre ma course vN » (1.5.3) : la course validée va dans la voiture et son affinage reprend d'elle
+  if intents.raceResume and not app.inert then
+    local m = app.memory[intents.raceResume]
+    memoryLoad(intents.raceResume)
+    if app.loadCheck ~= nil or (m and m.text and liveHasValues(setupValues(m.text))) then intents.refineStart = 'race' end
+  end
   if intents.raceStart and app.refine and app.refine.active and app.refine.kind ~= 'race' then
     intents.raceStart, intents.refineStart = nil, 'race'
   end

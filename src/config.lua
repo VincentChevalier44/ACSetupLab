@@ -214,6 +214,7 @@ M.K = {
   exportMaxSuffix = 99,       -- suffixes -2…-99 essayés avant de renoncer (jamais d'écrasement)
   fileOpsMax = 64,            -- rangement des fichiers (Corbeille, meilleur tour dans le nom) : opérations en attente
   backupsMax = 64,            -- copies « Avant chargement » de la séance suivies (rangement à la validation)
+  validatedMax = 12,         -- versions de qualification validées gardées par voiture et circuit (base de la course)
   raceQualiFilesMax = 40,     -- setups de qualification de SetupLab relus pour la course (dossier de la voiture et du circuit)
   raceQualiReadsPerFrame = 4, -- setups de qualification relus au plus par image (pas d'à-coup, les plus récents d'abord)
   inCarFamilyEvery = 0.5,     -- setup de la voiture relu au stand au plus toutes les … s (setup chargé depuis le menu d'AC)

@@ -49,6 +49,9 @@ M.SCHEMAS = {
   -- désigné par son nom de fichier et l'empreinte de son contenu ; figé (cadenas) ou non
   mem = { file = { 'string' }, hash = HASH, version = { 'number', 0, 1000 }, gain = { 'number', -120, 120 },
     time = { 'number', 0, 1e4 }, locked = FLAG, stamp = STAMP },
+  -- versions de qualification validées (1.5.3, décision de Vincent du 02/11/2026 : la course part de l'une d'elles,
+  -- d'un lancement d'AC à l'autre) ; clé : voiture, circuit, disposition, « qualif », empreinte du fichier
+  ver = { file = { 'string' }, hash = HASH, version = { 'number', 0, 1000 }, stamp = STAMP },
   -- nombre de tours de la course saisi (décision de Vincent du 26/10/2026), gardé par voiture et circuit
   rlaps = { laps = { 'number', 1, 500 }, stamp = STAMP },
 }
