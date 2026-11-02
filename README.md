@@ -47,7 +47,7 @@ Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free versi
 
 ### Updating
 
-No need to uninstall. Close Assetto Corsa completely (CSP reloads apps while the game runs), extract the new archive into `assettocorsa/apps/lua/` and replace the files. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside its folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French. Older betas shipped internal notes in `SetupLab/docs/` (`API_NOTES.md`, `RELECTURE_*.md`, `SetupLab_PDR_v0.2.md`): they are never read and can be deleted, or delete the `SetupLab` folder before extracting for a clean install.
+**Delete the old `SetupLab` folder first.** Close Assetto Corsa completely (CSP reloads apps while the game runs), delete `assettocorsa/apps/lua/SetupLab`, then extract the new archive into `assettocorsa/apps/lua/`. This also removes files from older betas that are no longer used. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside that folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French.
 
 ## Quick start
 
