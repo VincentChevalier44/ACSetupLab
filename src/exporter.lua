@@ -195,6 +195,35 @@ end
 
 -- Charge le fichier dans la voiture après un dernier contrôle (M.loadBlocker). Renvoie { ok, reason,
 -- called } ; called : ac.loadSetup a été appelée (son issue compte pour la capacité setup_load).
+-- Stratégie d'arrêt (accord de Vincent du 02/11/2026, D8 amendé) : après le chargement vérifié d'un setup de course, le
+-- preset d'arrêt rapide sélectionné reçoit ses pressions et son composé ; carburant et réparations restent au choix du
+-- pilote. values : crans du setup chargé (PRESSURE_LF…, TYRES). Renvoie la liste { name, kind, value, before } posée (vide :
+-- rien de modifiable) et les noms lus du menu, ou nil et la raison.
+function M.applyPitStrategy(host, values)
+  local okS, spinners = call(get(host.ac, 'getPitstopSpinners'))
+  if not (okS and type(spinners) == 'table') then return nil, 'menu d\'arrêt illisible' end
+  local set = get(host.ac, 'setPitstopSpinnerValue')
+  if set == nil then return nil, 'réglage du menu d\'arrêt indisponible dans cette version de CSP' end
+  local done, seen = {}, {}
+  for i = 1, math.min(#spinners, 32) do
+    local sp = spinners[i]
+    local name, kind = get(sp, 'name'), get(sp, 'type')
+    seen[#seen + 1] = Util.truncate(tostring(name), 32) .. '=' .. Util.truncate(tostring(kind), 16)
+    local wanted = nil
+    if kind == 'pressure' and type(name) == 'string' then wanted = values[name] end
+    if kind == 'compound' then wanted = values.TYRES end
+    if Util.isFinite(wanted) and get(sp, 'readOnly') ~= true then
+      local lo, hi = tonumber(get(sp, 'min')), tonumber(get(sp, 'max'))
+      if Util.isFinite(lo) and Util.isFinite(hi) then wanted = Util.clamp(wanted, lo, hi) end
+      local okP, accepted = call(set, name, wanted)
+      if okP and accepted ~= false then
+        done[#done + 1] = { name = name, kind = kind, value = wanted, before = tonumber(get(sp, 'value')) }
+      end
+    end
+  end
+  return done, nil, seen
+end
+
 function M.loadIntoCar(host, path, expected, written)
   local why = M.loadBlocker(host, path, expected, written)
   if why then return { ok = false, reason = why } end

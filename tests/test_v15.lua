@@ -723,7 +723,7 @@ tests['NV21 course : setups de qualification d\'une séance précédente reconnu
   local other = text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
   h.written[folder .. '/SetupLab_Qualif_v1.ini'] = other
   T.eq(app.raceBlocker(), 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'cache : rien encore')
-  app.discovery.qualiFiles = nil
+  app.qualiScan = nil
   local why, action = app.raceBlocker()
   T.eq(action, 'loadfile', tostring(why))
   h.tab = 'Course'
@@ -732,10 +732,29 @@ tests['NV21 course : setups de qualification d\'une séance précédente reconnu
   T.ok(shownText(h, 'menu de setup d\'AC'), 'dit de charger depuis le menu d\'AC')
   h.tab = nil
   h.written[folder .. '/SetupLab_Qualif_v3_essai.ini'] = text .. '\n; réenregistré par AC\n'
-  app.discovery.qualiFiles = nil
+  app.qualiScan = nil
   why, action = app.raceBlocker()
   T.ok(action ~= 'qualif' and action ~= 'loadfile' and action ~= 'load', 'setup de la voiture reconnu : ' .. tostring(why))
   T.eq(app.qualiInCar().file, 'SetupLab_Qualif_v3_essai.ini')
+  -- voiture en mouvement : pas de relecture du dossier, la liste d'avant reste servie
+  local before = #app.qualiFiles()
+  app.qualiScan.generation = 'forcée'
+  h.car.speedMs = 30
+  T.eq(#app.qualiFiles(), before, 'liste précédente en roulant')
+  T.eq(app.qualiScan.generation, 'forcée', 'pas de relecture en roulant')
+  h.car.speedMs = 0
+  T.eq(#app.qualiFiles(), before)
+  T.ok(app.qualiScan.generation ~= 'forcée', 'relue voiture arrêtée')
+  -- calcul de course sans qualification validée en mémoire : il part du setup reconnu dans la voiture
+  app.settings.optBudgetEvalsC = 30
+  app.handleIntents({ raceLaps = 12 })
+  T.eq(app.raceBlocker(), nil, 'garde de course levée')
+  app.handleIntents({ raceStart = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  T.eq(app.raceBlocker(), nil, 'garde levée après la découverte')
+  app.handleIntents({ raceStart = true })
+  T.ok(waitFor(h, function() return app.race and app.race.state ~= 'running' end), 'calcul course')
+  T.eq(app.race.state, 'done', tostring(app.race and app.race.error) .. ' ; ' .. tostring(app.ui.message))
   T.eq(app.perf.errors, 0)
 end
 

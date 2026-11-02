@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased (beta 1.5.2, in progress)
+
+- **Race setup from any SetupLab qualifying setup**: v1, v2, v3..., trials and best-lap names included, from an earlier session too (AC restarted). The one in the car is recognised by its values, even after AC re-saved it from its menu; otherwise the RACE tab lists them and asks to load one from AC's setup menu.
+- **Pit strategy**: when SetupLab loads a race setup (two clicks in the pits), the selected quick pit preset gets its tyre pressures and tyres. Fuel and repairs are left as you set them. A setup loaded from AC's menu does not change the pit menu.
+- **Main window back on the setup screen**: its close button is removed, and its internal name changes so CSP shows it again for players who had closed it (it was saved as closed outside the app folder, so reinstalling did not help). Its position and size reset once.
+- Overlay: says where the "SetupLab active" checkbox is (SetupLab window, setup screen).
+
 ## 1.0.0-beta.1.5.1 — 2026-10-29 — beta 1.5.1: clear feedback after each lap, CSP 0.3.1 compatibility
 
 Why this update: in game, after a clean lap, SetupLab looked as if it had not seen the lap. It had counted it and was computing, but said nothing while computing, and nothing at all when the current setup was already the best it could find. Custom Shaders Patch 0.3.1-preview2 also changed two things SetupLab relied on.

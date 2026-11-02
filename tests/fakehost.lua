@@ -513,7 +513,8 @@ function F.new(opts)
   local track = F.buildTrack(trackFixture)
   local h = {
     opts = opts, carId = carFixture.id, files = files, track = track,
-    writeCalls = 0, clipboard = nil, releases = {}, disposed = 0, uiCalls = 0, click = nil, calls = {}, loadCalls = {},
+    writeCalls = 0, pitCalls = 0, pitstop = { FUEL = 0, COMPOUND = -1, PRESSURE_LF = 16, PRESSURE_RF = 16, PRESSURE_LR = 16,
+      PRESSURE_RR = 16 }, clipboard = nil, releases = {}, disposed = 0, uiCalls = 0, click = nil, calls = {}, loadCalls = {},
     events = {},  -- journal ordonné des écritures et des chargements (D8 amendé)
   }
   local mode = opts.iniMode or 'split'
@@ -730,7 +731,21 @@ function F.new(opts)
     end,
     saveCurrentSetup = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,
     resetSetupToDefault = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,
-    setPitstopSpinnerValue = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,
+    -- menu d'arrêt rapide (D8 amendé le 02/11/2026) : preset sélectionné, réglé seulement après un chargement de course
+    getPitstopSpinners = function()
+      local list = {}
+      for _, name in ipairs({ 'FUEL', 'COMPOUND', 'PRESSURE_LF', 'PRESSURE_RF', 'PRESSURE_LR', 'PRESSURE_RR' }) do
+        local kind = name == 'FUEL' and 'fuel' or (name == 'COMPOUND' and 'compound' or 'pressure')
+        list[#list + 1] = { name = name, type = kind, min = kind == 'compound' and -1 or 0, max = kind == 'fuel' and 120 or 60,
+          readOnly = false, value = h.pitstop[name] }
+      end
+      return list
+    end,
+    setPitstopSpinnerValue = function(name, value)
+      h.pitCalls = h.pitCalls + 1
+      h.pitstop[name] = value
+      return true
+    end,
   }
   h.ac.INIConfig.currentSetup = function() return { sections = F.parseIniCsp(stringifySetup(h), mode) } end
   -- Système de fichiers simulé : les écritures sont enregistrées dans h.written (chemin -> contenu)

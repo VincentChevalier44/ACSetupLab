@@ -1564,7 +1564,9 @@ local function racePanel(host, app, intents, palette)
     colored(host, 'Le setup de course part de votre setup de qualification', palette.text)
     tip(host, 'Le calcul de course part d\'un de vos setups de qualification de SetupLab (v1, v2, v3…, d\'une séance précédente '
       .. 'comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi '
-      .. '(carburant, usure, relais).')
+      .. '(carburant, usure, relais).\nQuand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné '
+      .. 'du menu d\'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup '
+      .. 'chargé depuis le menu d\'AC ne change pas le menu d\'arrêt.')
     local ref = inCar and inCar.file or (m and m.file)
     colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),
       palette[ref and 'available' or 'pending'])
@@ -1597,6 +1599,9 @@ local function racePanel(host, app, intents, palette)
     end
     local hint = sessionRaceLaps(app)
     if hint then small(host, 'Course prévue dans la séance : ' .. hint .. ' tours.', palette.muted) end
+    -- menu d'arrêt réglé au dernier chargement du setup de course par SetupLab
+    local pit = app.pitStrategy
+    if pit and pit.note then small(host, pit.note, palette[pit.ok and 'available' or 'pending']) end
     if why then small(host, 'À faire : ' .. why .. '.', palette.pending) end
   end)
 end
@@ -2643,7 +2648,8 @@ function M.overlay(host, app)
   if e == nil then
     colored(host, 'SetupLab · aucun setup de SetupLab en piste', palette.muted)
     small(host, app.auto and 'Actif : chaque setup proposé s\'annonce ici ; le valider puis le charger au stand.'
-      or 'Cocher « SetupLab actif » pour l\'affinage pendant que vous roulez.', palette.muted)
+      or 'Affinage en pause : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de setup (au stand).',
+      palette.muted)
   else
     local name = e.version and ('v' .. e.version) or tostring(e.file)
     local where = (kind == 'race' and 'Course' or 'Qualif') .. ', ' .. (e.bucket == 'pluie' and 'pluie' or 'sec')

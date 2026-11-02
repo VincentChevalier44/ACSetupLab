@@ -401,4 +401,51 @@ tests['J07 filet d\'exécution : ac.loadSetup appelée hors de l\'exporteur -> e
   T.eq(#h.loadCalls, 0)
 end
 
+-- Stratégie d'arrêt (demande de Vincent du 02/11/2026, option A) : après le chargement vérifié d'un setup de course, le
+-- preset d'arrêt sélectionné prend ses pressions et son composé ; un setup de tour rapide ne la touche pas.
+tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, composé) ; tour rapide : intacte'] = function()
+  local h, app = ready()
+  arm(h)
+  confirm(h)
+  T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end), 'chargement constaté')
+  T.eq(h.pitCalls, 0, 'tour rapide : stratégie d\'arrêt intacte')
+  -- même fichier présenté comme setup de course
+  local saved = app.saved.quali
+  app.saved.race = { path = saved.path, name = saved.name, text = saved.text, signature = saved.signature, hash = saved.hash,
+    bucket = saved.bucket, carId = saved.carId }
+  app.proposals.race = saved.signature
+  local values = app.setupValues(saved.text)
+  -- retouche dans le menu de setup : le chargement suivant n'est pas « déjà en place »
+  local touched = h.spinners[1]
+  touched.value = touched.value + (touched.step or 1)
+  app.handleIntents({ loadArm = 'race' })
+  T.ok(app.loadArm and app.loadArm.kind == 'race', tostring(app.ui.message))
+  for _ = 1, math.ceil(Config.K.loadConfirmMinSeconds * 60) + 2 do frame(h) end
+  app.handleIntents({ loadConfirm = 'race' })
+  T.ok(untilDone(h, app, function(a) return a.loadCheck == nil end), 'chargement constaté')
+  T.ok(h.pitCalls >= 4, 'pressions réglées : ' .. h.pitCalls)
+  for _, name in ipairs({ 'PRESSURE_LF', 'PRESSURE_RF', 'PRESSURE_LR', 'PRESSURE_RR' }) do
+    T.eq(h.pitstop[name], values[name], name)
+  end
+  if values.TYRES then T.eq(h.pitstop.COMPOUND, values.TYRES, 'composé') end
+  T.eq(h.pitstop.FUEL, 0, 'carburant inchangé')
+  local note = assert(app.pitStrategy and app.pitStrategy.note, 'note du menu d\'arrêt')
+  T.ok(app.pitStrategy.ok, note)
+  T.contains(note, 'Stratégie d\'arrêt (preset sélectionné) mise à jour : ')
+  T.contains(note, 'pressions ')
+  if values.TYRES then T.contains(note, '(changement de pneus prévu à l\'arrêt)') end
+  T.ok(not note:find('COMPOUND', 1, true), 'gomme nommée : ' .. note)
+  T.contains(app.ui.message, 'chargé et vérifié dans la voiture')
+  local I18n = require('src/i18n')
+  local en = I18n.en(note)
+  T.ok(not I18n.looksFrench(en), 'anglais : ' .. en)
+  T.contains(en, 'Pit strategy (selected preset) updated')
+  -- dite dans l'onglet COURSE
+  h.tab = 'Course'
+  frame(h)
+  T.ok(shown(h, 'Stratégie d\'arrêt (preset sélectionné)'), 'note affichée dans l\'onglet COURSE')
+  h.tab = nil
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

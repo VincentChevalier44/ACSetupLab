@@ -37,7 +37,9 @@ M.FUNCTIONS = {
 -- Fonctions présentes dans le SDK mais que SetupLab n'appelle jamais : elles modifieraient
 -- le setup en cours (D8). Leur présence est seulement constatée. ac.loadSetup n'en fait plus partie
 -- depuis l'amendement de D8 du 20/10/2026 (chargement d'un setup SetupLab, exporter.lua).
-M.NEVER_CALLED = { 'ac.setSetupSpinnerValue', 'ac.saveCurrentSetup', 'ac.resetSetupToDefault', 'ac.setPitstopSpinnerValue',
+-- ac.setPitstopSpinnerValue n'en fait plus partie depuis l'amendement de D8 du 02/11/2026 (stratégie d'arrêt d'un setup de
+-- course chargé, exporter.lua).
+M.NEVER_CALLED = { 'ac.setSetupSpinnerValue', 'ac.saveCurrentSetup', 'ac.resetSetupToDefault',
   'physics.setTyresCompound', 'physics.setCarFuel' }
 
 -- Une valeur est appelable si c'est une fonction Lua, une fonction C exposée en cdata

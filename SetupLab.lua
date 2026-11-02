@@ -807,6 +807,7 @@ local function refreshContext()
     app.loaded, app.pins, app.start = {}, { quali = {}, race = {} }, {}
     app.refines, app.manualKind = {}, nil
     app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
+    app.pitStrategy, app.qualiScan = nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
     startDiscovery()
@@ -1740,13 +1741,23 @@ end
 local function qualiFiles()
   local d = app.discovery
   if not (d and d.setup and d.setup.spinners) then return {} end
-  local generation = 0
-  for _ in pairs(app.written) do generation = generation + 1 end
-  if d.qualiFiles and d.qualiFilesAt == generation then return d.qualiFiles end
-  local list = {}
-  d.qualiFiles, d.qualiFilesAt = list, generation
   local folder = Exporter.targetFolder(host)
-  if folder == nil then return list end
+  if folder == nil then return {} end
+  local count, length = 0, 0
+  for name in pairs(app.written) do count, length = count + 1, length + #tostring(name) end
+  local generation = count .. ':' .. length
+  local s = app.qualiScan
+  if s == nil or s.folder ~= folder then
+    s = { folder = folder, list = {} }
+    app.qualiScan = s
+  end
+  if s.discovery == d and s.generation == generation then return s.list end
+  -- relecture voiture arrêtée seulement : en roulant, la liste d'avant (même dossier) reste servie
+  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  local speed = okC and Util.get(car, 'speedMs') or nil
+  if not (Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh) then return s.list end
+  local list = {}
+  s.list, s.discovery, s.generation = list, d, generation
   local ok, names = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
   if not (ok and type(names) == 'table') then return list end
   for i = 1, math.min(#names, K.scanMaxFiles) do
@@ -2233,6 +2244,35 @@ local function loadReadiness()
     stopped = Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh, menu = okE and editable == true }
 end
 
+-- Stratégie d'arrêt posée après un chargement de course : ce qui a changé, dit au pilote.
+local function pitStrategyNote(done, why)
+  if done == nil then return 'Stratégie d\'arrêt non mise à jour : ' .. tostring(why) .. '.' end
+  local pressures, compound, change = {}, nil, false
+  for _, v in ipairs(done) do
+    if v.kind == 'pressure' then pressures[#pressures + 1] = Util.fmt(v.value, 0) end
+    if v.kind == 'compound' then
+      local d = app.discovery
+      local slot = d and d.carBase and CarModel.compoundSlot(d.carBase, v.value)
+      local c = slot and d.carBase.compounds[slot]
+      compound = c and tostring(c.short or c.name) or ('n° ' .. Util.fmt(v.value, 0))
+      change = v.before ~= nil and v.before < 0
+    end
+  end
+  local p = table.concat(pressures, ' / ')
+  if compound and #pressures > 0 then
+    if change then
+      return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound
+        .. ' (changement de pneus prévu à l\'arrêt), pressions ' .. p .. '.'
+    end
+    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound .. ', pressions ' .. p .. '.'
+  elseif #pressures > 0 then
+    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pressions ' .. p .. '.'
+  elseif compound then
+    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound .. '.'
+  end
+  return 'Stratégie d\'arrêt non mise à jour : aucun réglage de pression ou de pneus modifiable dans le menu d\'arrêt.'
+end
+
 local function loadTick()
   local arm = app.loadArm
   if arm then
@@ -2267,6 +2307,15 @@ local function loadTick()
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
       -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
       app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
+      -- setup de course : le preset d'arrêt rapide sélectionné prend ses pressions et son composé (demande de Vincent du
+      -- 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 »)
+      -- (note dite sur sa ligne dans l'onglet COURSE ; le message de chargement reste celui d'avant)
+      if check.kind == 'race' then
+        local done, why, seen = Exporter.applyPitStrategy(host, check.target)
+        local note = pitStrategyNote(done, why)
+        app.pitStrategy = { done = done, reason = why, note = note, ok = done ~= nil and #done > 0 }
+        log('INFO', 'pit', note .. (seen and (' Menu d\'arrêt : ' .. table.concat(seen, ', ')) or ''))
+      end
       local s = app.start[check.kind]
       if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.loadVerified = app.loadTest

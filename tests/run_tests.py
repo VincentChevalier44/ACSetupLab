@@ -45,6 +45,7 @@ def lint_self_tests():
          'write API outside allowed module: save'),
         ('SetupLab.lua', 'local h = {}\nh.ac.setSetupSpinnerValue("WING_1", 3)\n', 'forbidden setup mutation'),
         ('src/ui.lua', 'local M = {}\nfunction M.f(h) h.ac:loadSetup("x") end\nreturn M\n', 'forbidden setup mutation'),
+        ('SetupLab.lua', 'local h = {}\nh.ac.setPitstopSpinnerValue("PRESSURE_LF", 19)\n', 'forbidden setup mutation'),
         ('src/util.lua', '-- TODO plus tard\nreturn {}\n', 'TODO/FIXME/XXX'),
         ('src/util.lua', 'local M = {}\n\treturn M\n', 'tab character'),
         ('src/util.lua', 'return {} \n', 'trailing whitespace'),

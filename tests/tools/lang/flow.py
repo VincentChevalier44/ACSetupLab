@@ -180,9 +180,25 @@ EN = {
     'Le setup de course part de votre setup de qualification': 'The race setup starts from your qualifying setup',
     "Le calcul de course part d'un de vos setups de qualification de SetupLab (v1, v2, v3…, d'une séance précédente comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi (carburant, usure, relais).":
         'The race computation starts from one of your SetupLab qualifying setups (v1, v2, v3…, from an earlier session too), fitted to the car: your laps with it give your pace. It prepares the lap count you enter (fuel, wear, stints).',
+    "Quand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup chargé depuis le menu d'AC ne change pas le menu d'arrêt.":
+        "When SetupLab loads the race setup (two clicks in the pits), the selected preset of the quick pit menu gets its pressures and tyres; fuel and repairs stay yours. A setup loaded from AC's menu does not change the pit menu.",
     '1. Setup de qualification : %s': '1. Qualifying setup: %s',
     "1. Setup de qualification : aucun — en faire un dans l'onglet QUALIF": '1. Qualifying setup: none — make one in the QUALIFYING tab',
     "Vos setups de qualification sur ce circuit : %s. Chargez celui de votre choix depuis le menu de setup d'AC : SetupLab le reconnaît et la course part de lui.":
         "Your qualifying setups on this track: %s. Load the one you want from AC's setup menu: SetupLab recognises it and the race starts from it.",
     "À faire : %s.": 'To do: %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s (changement de pneus prévu à l'arrêt), pressions %s.":
+        'Pit strategy (selected preset) updated: %s tyres (tyre change planned at the stop), pressures %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s, pressions %s.":
+        'Pit strategy (selected preset) updated: %s tyres, pressures %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour : pressions %s.": 'Pit strategy (selected preset) updated: pressures %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour : pneus %s.": 'Pit strategy (selected preset) updated: %s tyres.',
+    "Stratégie d'arrêt non mise à jour : aucun réglage de pression ou de pneus modifiable dans le menu d'arrêt.":
+        'Pit strategy not updated: no editable pressure or tyre setting in the pit menu.',
+    "Stratégie d'arrêt non mise à jour : %s. Menu d'arrêt : %s": 'Pit strategy not updated: %s. Pit menu: %s',
+    "Menu d'arrêt : %s": 'Pit menu: %s',
+    'n° %s': 'no. %s',
+    "Stratégie d'arrêt non mise à jour : %s.": 'Pit strategy not updated: %s.',
+    "menu d'arrêt illisible": 'pit menu unreadable',
+    "réglage du menu d'arrêt indisponible dans cette version de CSP": 'pit menu setting unavailable in this CSP version',
 }

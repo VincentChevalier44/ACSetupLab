@@ -46,11 +46,11 @@ WRITE_API = {
     'setClipboardText': {'SetupLab', 'exporter'}, 'setActiveSetupName': set(), 'refreshSetups': {'exporter'},
 }
 # D8 : ne jamais modifier le setup en cours par cran ni l'enregistrer par-dessus un fichier.
-NEVER = {'setSetupSpinnerValue', 'saveCurrentSetup', 'resetSetupToDefault', 'setPitstopSpinnerValue', 'setTyresCompound',
-         'setCarFuel'}
+NEVER = {'setSetupSpinnerValue', 'saveCurrentSetup', 'resetSetupToDefault', 'setTyresCompound', 'setCarFuel'}
 # D8 amendé le 20/10/2026 (décision de Vincent) : chargement d'un setup écrit par SetupLab, seulement
 # depuis l'exporteur (gardes, copie de sauvegarde et confirmation dans la colle).
-LOAD_API = {'loadSetup': {'exporter'}}
+# D8 amendé le 02/11/2026 (décision de Vincent) : stratégie d'arrêt d'un setup de course chargé, depuis l'exporteur seulement.
+LOAD_API = {'loadSetup': {'exporter'}, 'setPitstopSpinnerValue': {'exporter'}}
 
 TEXT_FORBIDDEN = re.compile(r'\b(TODO|FIXME|XXX)\b')
 MAX_LINE = 140

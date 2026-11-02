@@ -149,6 +149,7 @@ tests['K05 évaluation complète : GT3 à Spa'] = function()
   T.eq(#d.caps.list, 24)
   T.eq(status(d, 'setup_load'), 'pending', 'chargement possible, non testé')
   T.eq(h.writeCalls, 0, 'aucune écriture pendant la découverte')
+  T.eq(h.pitCalls, 0, 'menu d\'arrêt intact')
 end
 
 tests['K06 évaluation dégradée : données illisibles, encodage, pluie, DRS/ERS, E/S'] = function()
