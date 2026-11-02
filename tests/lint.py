@@ -2,7 +2,9 @@
 
 Règles :
 - globales autorisées selon le rôle du fichier (colle, noyau pur, entrées/sorties, interface) ;
-- interdits partout : os, web, io (hors colle), load/loadstring/dofile/loadfile, debug, print… ;
+- interdits partout : os, web (globale lue par la colle seulement, champ host.web réservé à la colle et à
+  src/updater.lua ; envois post, request, socket… interdits partout), io (hors colle), load/loadstring/dofile/loadfile,
+  debug, print… ;
 - graphe des require conforme à D5 (le noyau pur ne dépend que du noyau pur) ;
 - fonctions d'écriture réservées à certains fichiers ; fonctions qui modifieraient le setup
   en cours (D8) interdites partout ;
@@ -55,6 +57,9 @@ NEVER = {'setSetupSpinnerValue', 'saveCurrentSetup', 'resetSetupToDefault', 'set
 # depuis l'exporteur (gardes, copie de sauvegarde et confirmation dans la colle).
 # D8 amendé le 02/11/2026 (décision de Vincent) : stratégie d'arrêt d'un setup de course chargé, depuis l'exporteur seulement.
 LOAD_API = {'loadSetup': {'exporter'}, 'setPitstopSpinnerValue': {'exporter'}}
+# Réseau (mise à jour en jeu, 02/11/2026) : aucun envoi nulle part ; le champ web de l'hôte, colle et updater seulement.
+NETWORK_SEND = {'post', 'request', 'socket', 'loadRemoteModel', 'loadRemoteAnimation', 'loadRemoteAssets', 'resolveDNS'}
+NETWORK_FIELD = {'SetupLab', 'updater'}
 
 TEXT_FORBIDDEN = re.compile(r'\b(TODO|FIXME|XXX)\b')
 MAX_LINE = 140
@@ -137,7 +142,11 @@ class Checker:
 
     # Règles d'appel -------------------------------------------------------------
     def check_field(self, node, field):
-        if field in NEVER or (field in LOAD_API and self.module not in LOAD_API[field]):
+        if field in NETWORK_SEND:
+            self.report(node, 'network send forbidden: ' + field)
+        elif field == 'web' and self.module not in NETWORK_FIELD:
+            self.report(node, 'network access outside the updater: ' + field)
+        elif field in NEVER or (field in LOAD_API and self.module not in LOAD_API[field]):
             self.report(node, 'forbidden setup mutation (D8): ' + field)
         elif field in WRITE_API and self.module not in WRITE_API[field]:
             self.report(node, 'write API outside allowed module: ' + field)
@@ -154,7 +163,7 @@ class Checker:
         if isinstance(value, bytes):
             value = value.decode('utf-8', 'replace')
         name = value.rsplit('.', 1)[-1] if ' ' not in value else value
-        if name in NEVER or name in WRITE_API or name in LOAD_API:
+        if name in NEVER or name in WRITE_API or name in LOAD_API or name in NETWORK_SEND or name == 'web':
             self.check_field(node, name)
 
     def check_require(self, node):

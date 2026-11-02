@@ -45,6 +45,18 @@ EN = {
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
     'EN VEILLE': 'STANDBY',
+    'Mise à jour : au stand, voiture arrêtée (CSP recharge SetupLab juste après).':
+        'Update: in the pits, car stopped (CSP reloads SetupLab right after).',
+    'Réessayer': 'Try again',
+    'Mise à jour impossible : %s. Réinstallez SetupLab à la main depuis %s.':
+        'Update impossible: %s. Reinstall SetupLab by hand from %s.',
+    "écriture refusée dans le dossier de l'app (%s), installation mélangée":
+        'writing refused in the app folder (%s), mixed installation',
+    'contrôle des fichiers impossible': 'cannot check the files',
+    'fichier utilisé par le jeu (%s)': 'file in use by the game (%s)',
+    'dossier de sauvegarde impossible': 'cannot create the backup folder',
+    "dossier de l'app inattendu": 'unexpected app folder',
+    'extraction incomplète (%s)': 'incomplete extraction (%s)',
     'voiture replacée sur la piste': 'car reset on track',
     'choc (dégâts)': 'impact (damage)',
     'coupe de piste': 'track cut',

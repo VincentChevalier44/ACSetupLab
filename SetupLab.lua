@@ -3864,20 +3864,28 @@ local function handleIntents(intents)
     app.ui.message = 'Calibration impossible : aucun tour valide avec un setup connu.'
   end
   if intents.copyLap then copyLap() end
-  if intents.updateApply and app.updater.state == 'available' then
+  local canApply = app.updater.state == 'available' or (app.updater.state == 'failed' and not app.updater.wrote)
+  if intents.updateApply and canApply and not (carAtPit() and carStopped()) then
+    app.ui.message = 'Mise à jour : au stand, voiture arrêtée (CSP recharge SetupLab juste après).'
+  elseif intents.updateApply and canApply then
+    -- rien de perdu au rechargement : le stockage est écrit d'abord
+    Store.flush(app.store)
     local okA, appDir = Util.call(Util.get(host.ac, 'getFolder'), Util.get(Util.get(host.ac, 'FolderID'), 'ScriptOrigin'))
     local okT, tempDir = Util.call(Util.get(host.ac, 'getFolder'), Util.get(Util.get(host.ac, 'FolderID'), 'AppDataTemp'))
     local version = app.updater.info and app.updater.info.version
     log('INFO', 'update', 'Mise à jour vers ' .. tostring(version) .. ' : téléchargement')
-    Updater.apply(app.updater, host, { app = okA and appDir or nil, temp = okT and tempDir or nil }, function(ok, why)
-      if ok then
-        app.ui.message = 'Mise à jour ' .. tostring(version) .. ' installée : CSP recharge SetupLab, qui revient en veille.'
-        log('INFO', 'update', app.ui.message)
-      else
-        app.ui.message = 'Mise à jour impossible : ' .. tostring(why) .. '.'
-        log('WARN', 'update', app.ui.message)
-      end
-    end)
+    Updater.apply(app.updater, host, { app = okA and appDir or nil, temp = okT and tempDir or nil }, Config.version,
+      function(ok, why, mixed)
+        if ok then
+          app.ui.message = 'Mise à jour ' .. tostring(version) .. ' installée : CSP recharge SetupLab, qui revient en veille.'
+          log('INFO', 'update', app.ui.message)
+        else
+          app.ui.message = 'Mise à jour impossible : ' .. tostring(why) .. '.'
+            .. (mixed and (' Réinstallez SetupLab à la main depuis ' .. tostring(app.updater.info and app.updater.info.page)
+              .. '.') or '')
+          log(mixed and 'ERROR' or 'WARN', 'update', app.ui.message)
+        end
+      end)
   end
   if intents.updateCopyLink and app.updater.info then
     local okC = Util.call(Util.get(host.ac, 'setClipboardText'), app.updater.info.page)

@@ -20,8 +20,9 @@ M.MAX_ENTRIES = 300
 local MAIN = 'SetupLab.lua'
 local VERSION_PATTERN = '^%d+%.%d+%.%d+[%w%.%-]*$'
 
+-- Appel protégé : une fonction de CSP peut être une fonction C (cdata, pas « function ») ; seule son absence compte.
 local function call(fn, ...)
-  if type(fn) ~= 'function' then return false, 'fonction absente' end
+  if fn == nil then return false, 'fonction absente' end
   return pcall(fn, ...)
 end
 
@@ -107,15 +108,16 @@ function M.checkZip(entries, version, manifest)
   return files
 end
 
--- Fichiers de l'ancienne version absents de la nouvelle (liste files.txt de l'ancienne), chemins sûrs seulement.
+-- Fichiers de l'ancienne version absents de la nouvelle (liste files.txt de l'ancienne), chemins sûrs seulement ; sans
+-- distinction de casse (Windows : un fichier renommé en changeant de casse est le même fichier).
 function M.staleFiles(oldList, newFiles)
   local keep, out = {}, {}
-  for _, rel in ipairs(newFiles) do keep[rel] = true end
+  for _, rel in ipairs(newFiles) do keep[rel:lower()] = true end
   if type(oldList) ~= 'string' then return out end
   for line in oldList:gmatch('[^\r\n]+') do
     local rel = line:match('^%s*(.-)%s*$')
-    if rel ~= '' and not keep[rel] and not rel:find('..', 1, true) and not rel:find('[\\:%c]') and rel:sub(1, 1) ~= '/'
-        and rel ~= MAIN and rel ~= 'manifest.ini' then
+    if rel ~= '' and not keep[rel:lower()] and not rel:find('..', 1, true) and not rel:find('[\\:%c]') and rel:sub(1, 1) ~= '/'
+        and rel:lower() ~= MAIN:lower() and rel:lower() ~= 'manifest.ini' then
       out[#out + 1] = rel
     end
   end
@@ -145,15 +147,11 @@ function M.new()
   return { state = 'idle' }
 end
 
-local function fail(u, why)
-  u.state, u.why = 'failed', why
-end
-
 -- Vérification : une seule requête (état « idle » seulement) ; réseau absent ou réponse illisible : rien à l'écran.
 function M.check(u, host, current)
   if u.state ~= 'idle' then return false end
   local web = host.web
-  if not (web and type(web.get) == 'function') then
+  if not (web and web.get ~= nil) then
     u.state = 'off'
     return false
   end
@@ -186,71 +184,112 @@ local function dirOf(path)
   return path:match('^(.*)/[^/]*$')
 end
 
+-- Crée base et les dossiers de rel ; vrai si le dossier final existe.
 local function ensureDirs(io, base, rel)
-  local dir = dirOf(rel)
-  if dir == nil then return true end
+  call(io.createDir, base)
   local acc = base
-  for part in dir:gmatch('[^/]+') do
+  local dir = dirOf(rel)
+  for part in (dir or ''):gmatch('[^/]+') do
     acc = acc .. '/' .. part
     call(io.createDir, acc)
   end
-  return true
+  local okD, exists = call(io.dirExists, acc)
+  return not okD or exists == true
 end
 
--- Remplacement (dans la même image) : copie de sauvegarde de chaque fichier actuel, puis copie des nouveaux, SetupLab.lua
--- en dernier ; un échec remet les fichiers d'avant. Renvoie vrai, ou faux et la raison.
-local function replaceAll(io, staging, appFolder, files)
-  table.sort(files, function(a, b)
+local function fileExists(io, path)
+  local ok, exists = call(io.fileExists, path)
+  if not ok then return nil end
+  return exists == true
+end
+
+-- Remplacement, dans la même image : seuls les fichiers qui changent sont écrits (les polices, chargées par DirectWrite,
+-- ne sont pas réécrites) ; copie de sauvegarde de chacun, puis copie des nouveaux, SetupLab.lua en dernier. Un échec
+-- remet les fichiers d'avant (et retire ceux qui n'existaient pas) ; renvoie vrai, ou faux, la raison et vrai si
+-- l'installation est restée mélangée.
+local function replaceChanged(io, staging, appFolder, changed)
+  table.sort(changed, function(a, b)
     if (a == MAIN) ~= (b == MAIN) then return b == MAIN end
     return a < b
   end)
   local backup = staging .. '/avant'
   local saved = {}
-  for _, rel in ipairs(files) do
+  for _, rel in ipairs(changed) do
     local target = appFolder .. '/' .. rel
-    local okE, exists = call(io.exists, target)
-    if okE and exists then
-      ensureDirs(io, backup, rel)
+    local exists = fileExists(io, target)
+    if exists == nil then return false, 'contrôle des fichiers impossible' end
+    local okU, used = call(io.fileInUse, target)
+    if exists and okU and used then return false, 'fichier utilisé par le jeu (' .. rel .. ')' end
+    if exists then
+      if not ensureDirs(io, backup, rel) then return false, 'dossier de sauvegarde impossible' end
       local okC, copied = call(io.copyFile, target, backup .. '/' .. rel, false)
       if not (okC and copied) then return false, 'copie de sauvegarde impossible (' .. rel .. ')' end
       saved[rel] = true
     end
   end
-  local done = {}
-  for _, rel in ipairs(files) do
+  local touched = {}
+  for _, rel in ipairs(changed) do
     ensureDirs(io, appFolder, rel)
+    touched[#touched + 1] = rel
     local okC, copied = call(io.copyFile, staging .. '/' .. M.ROOT .. rel, appFolder .. '/' .. rel, false)
     if not (okC and copied) then
-      for _, back in ipairs(done) do
-        if saved[back] then call(io.copyFile, backup .. '/' .. back, appFolder .. '/' .. back, false) end
+      local mixed = false
+      for _, back in ipairs(touched) do
+        local target = appFolder .. '/' .. back
+        if saved[back] then
+          local okB, restored = call(io.copyFile, backup .. '/' .. back, target, false)
+          if not (okB and restored) then
+            -- copie refusée : le fichier est peut-être resté intact (la copie a échoué avant d'écrire)
+            local okT, now = call(io.load, target)
+            local okK, before = call(io.load, backup .. '/' .. back)
+            mixed = mixed or not (okT and okK and type(now) == 'string' and now == before)
+          end
+        elseif fileExists(io, target) then
+          local okR, removed = call(io.recycle, target)
+          mixed = mixed or not (okR and removed)
+        end
       end
+      if mixed then return false, 'écriture refusée dans le dossier de l\'app (' .. rel .. '), installation mélangée', true end
       return false, 'écriture refusée dans le dossier de l\'app (' .. rel .. '), fichiers d\'avant remis'
     end
-    done[#done + 1] = rel
   end
   return true
 end
 
--- Au clic : téléchargement, contrôles, extraction hors de l'app, remplacement. paths = { app = dossier de l'app,
--- temp = dossier temporaire }. onDone(ok, message) est appelé à la fin.
-function M.apply(u, host, paths, onDone)
-  if u.state ~= 'available' or not u.info then return false end
+-- Version installée, lue dans le manifeste du dossier de l'app (garde contre un dossier inattendu).
+local function installedVersion(io, appFolder)
+  local ok, text = call(io.load, appFolder .. '/manifest.ini')
+  if not (ok and type(text) == 'string') then return nil end
+  return text:match('[\r\n]VERSION=([^\r\n]+)') or text:match('^VERSION=([^\r\n]+)')
+end
+
+-- Au clic : téléchargement, contrôles, extraction hors de l'app, vérification des fichiers extraits, remplacement des
+-- fichiers qui changent (surveillance des fichiers de CSP en pause), fichiers périmés à la Corbeille, puis redémarrage de
+-- l'app. paths = { app = dossier de l'app, temp = dossier temporaire } ; current : version en cours. onDone(ok, message)
+-- est appelé à la fin. Un échec avant toute écriture dans l'app peut être retenté.
+function M.apply(u, host, paths, current, onDone)
+  local retry = u.state == 'failed' and not u.wrote
+  if not ((u.state == 'available' or retry) and u.info) then return false end
   local web, io, ac = host.web, host.io, host.ac
   local info = u.info
+  local function finish(ok, why, mixed)
+    if ok then
+      u.state = 'done'
+    else
+      u.state, u.why, u.mixed = 'failed', why, mixed == true
+    end
+    if onDone then onDone(ok, why, mixed == true) end
+  end
   if not (paths and type(paths.app) == 'string' and paths.app ~= '' and type(paths.temp) == 'string' and paths.temp ~= '') then
-    fail(u, 'dossiers inconnus')
+    finish(false, 'dossiers inconnus')
+    return false
+  end
+  if installedVersion(io, paths.app) ~= current or not fileExists(io, paths.app .. '/' .. MAIN) then
+    finish(false, 'dossier de l\'app inattendu')
     return false
   end
   u.state = 'downloading'
   call(web.timeouts, 4000, 10000, 10000, 60000)
-  local function finish(ok, why)
-    if ok then
-      u.state = 'done'
-    else
-      fail(u, why)
-    end
-    if onDone then onDone(ok, why) end
-  end
   local ok = call(web.get, info.url, { ['User-Agent'] = 'SetupLab' }, function(err, response)
     if err or type(response) ~= 'table' or response.status ~= 200 or type(response.body) ~= 'string' then
       finish(false, 'téléchargement impossible (' .. tostring(err or (type(response) == 'table' and response.status)) .. ')')
@@ -282,14 +321,35 @@ function M.apply(u, host, paths, onDone)
         finish(false, 'extraction impossible (' .. tostring(errX) .. ')')
         return
       end
-      local okR, whyR = replaceAll(io, staging, paths.app, files)
+      -- fichiers extraits identiques à l'archive vérifiée ; seuls ceux qui changent seront écrits
+      local changed = {}
+      for _, rel in ipairs(files) do
+        local okS, staged = call(io.load, staging .. '/' .. M.ROOT .. rel)
+        local okE, expected = call(io.loadFromZip, body, M.ROOT .. rel)
+        if not (okS and okE and type(staged) == 'string' and staged == expected) then
+          finish(false, 'extraction incomplète (' .. rel .. ')')
+          return
+        end
+        local okA, current0 = call(io.load, paths.app .. '/' .. rel)
+        if not (okA and current0 == staged) then changed[#changed + 1] = rel end
+      end
+      call(ac.pauseFilesWatching, true)
+      u.wrote = true
+      local okR, whyR, mixed = replaceChanged(io, staging, paths.app, changed)
+      if okR then
+        for _, rel in ipairs(stale) do
+          if fileExists(io, paths.app .. '/' .. rel) then call(io.recycle, paths.app .. '/' .. rel) end
+        end
+        u.stale, u.changed = #stale, #changed
+      end
+      call(ac.pauseFilesWatching, false)
       if not okR then
-        finish(false, whyR)
+        finish(false, whyR, mixed)
         return
       end
-      for _, rel in ipairs(stale) do call(io.recycle, paths.app .. '/' .. rel) end
-      u.stale = #stale
       finish(true, nil)
+      -- nouvelle version chargée à l'image suivante (sinon, au prochain passage de la surveillance des fichiers)
+      call(ac.restartApp)
     end)
     if not okX then finish(false, 'extraction refusée') end
   end)

@@ -34,17 +34,30 @@ local function withNetwork(h)
     if id == 2002 then return TEMP end
     return getFolder(id)
   end
-  h.ac.checksumSHA256 = function(data) return h.sha[data] or string.rep('0', 64) end
-  h.copies, h.copyFails = {}, {}
-  h.io.exists = function(path) return h.written[path] ~= nil end
-  h.io.createDir = function() return true end
-  h.io.copyFile = function(from, to, failIfExists)
-    if h.copyFails[to] or h.written[from] == nil then return false end
+  -- en jeu, une partie de l'API de CSP est faite de fonctions C (cdata) : ici des tables appelables, jamais « function »
+  local function cfn(fn) return setmetatable({}, { __call = function(_, ...) return fn(...) end }) end
+  h.ac.checksumSHA256 = cfn(function(data) return h.sha[data] or string.rep('0', 64) end)
+  h.copies, h.copyFails, h.inUse, h.dirsMade = {}, {}, {}, {}
+  -- dossiers : ceux de l'app existent ; un fichier ne se copie que dans un dossier existant
+  local dirs = { [APPDIR] = true, [APPDIR .. '/src'] = true, [TEMP] = true }
+  local function makeDir(path)
+    local acc = nil
+    for part in path:gmatch('[^/]+') do
+      acc = acc and (acc .. '/' .. part) or part
+      dirs[acc] = true
+    end
+  end
+  h.io.createDir = cfn(function(path) makeDir(path); h.dirsMade[#h.dirsMade + 1] = path; return true end)
+  h.io.dirExists = cfn(function(path) return dirs[path] == true end)
+  h.io.fileExists = cfn(function(path) return h.written[path] ~= nil end)
+  h.io.fileInUse = cfn(function(path) return h.inUse[path] == true end)
+  h.io.copyFile = cfn(function(from, to, failIfExists)
+    if h.copyFails[to] or h.written[from] == nil or not dirs[to:match('^(.*)/[^/]*$')] then return false end
     if failIfExists ~= false and h.written[to] ~= nil then return false end
     h.written[to] = h.written[from]
     h.copies[#h.copies + 1] = to
     return true
-  end
+  end)
   h.io.scanZip = function(data)
     local z = h.zips[data]
     if not z then return {} end
@@ -58,10 +71,17 @@ local function withNetwork(h)
     end
     return nil
   end
-  h.io.extractFromZipAsync = function(data, destination, _, callback)
-    for _, e in ipairs(h.zips[data] or {}) do h.written[destination .. '/' .. e[1]] = e[2] end
+  h.io.extractFromZipAsync = cfn(function(data, destination, _, callback)
+    for _, e in ipairs(h.zips[data] or {}) do
+      local path = destination .. '/' .. e[1]
+      if e[1]:sub(-1) == '/' then makeDir(path:sub(1, -2)) else makeDir(path:match('^(.*)/[^/]*$')); h.written[path] = e[2] end
+    end
     callback(nil)
-  end
+  end)
+  h.restarts = 0
+  h.ac.restartApp = cfn(function() h.restarts = h.restarts + 1; return true end)
+  h.paused = {}
+  h.ac.pauseFilesWatching = cfn(function(pause) h.paused[#h.paused + 1] = pause end)
   -- version installée : ses fichiers et sa liste
   h.written[APPDIR .. '/SetupLab.lua'] = '-- ancienne'
   h.written[APPDIR .. '/manifest.ini'] = '[ABOUT]\nVERSION=' .. Config.version .. '\n'
@@ -190,6 +210,9 @@ tests['UP03 plus récente : proposée ; rien sans clic ; au clic, vérifiée, in
   T.eq(h.written[APPDIR .. '/SetupLab.lua'], '-- nouvelle')
   T.eq(h.written[APPDIR .. '/src/util.lua'], '-- nouvelle util')
   T.eq(h.copies[#h.copies], APPDIR .. '/SetupLab.lua', 'SetupLab.lua en dernier')
+  T.eq(h.paused[1], true, 'surveillance des fichiers de CSP en pause pendant le remplacement')
+  T.eq(h.paused[#h.paused], false, 'puis reprise')
+  T.eq(h.restarts, 1, 'app redémarrée sur la nouvelle version')
   T.eq(h.written[APPDIR .. '/src/vieux.lua'], nil, 'fichier retiré')
   T.eq(h.recycled[#h.recycled], APPDIR .. '/src/vieux.lua', 'à la Corbeille')
   T.contains(app.ui.message, 'installée')
@@ -232,6 +255,39 @@ tests['UP05 écriture refusée en cours de remplacement : les fichiers d\'avant 
   T.eq(h.written[APPDIR .. '/SetupLab.lua'], '-- ancienne', 'SetupLab.lua jamais touché')
   T.eq(h.written[APPDIR .. '/manifest.ini'], '[ABOUT]\nVERSION=' .. Config.version .. '\n', 'manifeste remis')
   T.ok(h.written[APPDIR .. '/src/vieux.lua'], 'rien retiré')
+end
+
+tests['UP07 dossier de sauvegarde créé ; fichier identique jamais réécrit ; fichier utilisé : rien n\'est écrit'] = function()
+  local h, app = boot()
+  local body, sha = newZip(h)
+  -- manifest.ini de l'archive identique à celui installé ? non (version) ; src/util.lua identique : jamais réécrit
+  h.written[APPDIR .. '/src/util.lua'] = '-- nouvelle util'
+  available(h, app, body, sha)
+  app.handleIntents({ updateApply = true })
+  h.webCalls[2].callback(nil, { status = 200, body = body, headers = {} })
+  T.eq(app.updater.state, 'done', tostring(app.updater.why))
+  for _, path in ipairs(h.copies) do T.ok(path:find('/src/util.lua', 1, true) == nil, 'identique, non réécrit : ' .. path) end
+  local backupRoot = false
+  for _, d in ipairs(h.dirsMade) do backupRoot = backupRoot or d:sub(-6) == '/avant' end
+  T.ok(backupRoot, 'dossier de sauvegarde créé')
+  -- fichier utilisé par le jeu : arrêt avant toute écriture dans l'app
+  local h2, app2 = boot()
+  local body2, sha2 = newZip(h2)
+  available(h2, app2, body2, sha2)
+  h2.inUse[APPDIR .. '/src/util.lua'] = true
+  app2.handleIntents({ updateApply = true })
+  h2.webCalls[2].callback(nil, { status = 200, body = body2, headers = {} })
+  T.eq(app2.updater.state, 'failed')
+  T.contains(app2.updater.why, 'utilisé par le jeu')
+  T.eq(h2.written[APPDIR .. '/SetupLab.lua'], '-- ancienne')
+  -- en piste : refusé, rien de téléchargé
+  local h3, app3 = boot()
+  local body3, sha3 = newZip(h3)
+  available(h3, app3, body3, sha3)
+  h3.car.isInPit, h3.car.isInPitlane, h3.car.speedMs = false, false, 40
+  app3.handleIntents({ updateApply = true })
+  T.eq(#h3.webCalls, 1, 'rien téléchargé en piste')
+  T.contains(app3.ui.message, 'au stand')
 end
 
 tests['UP06 réglage décoché, ou réseau absent : aucune requête'] = function()

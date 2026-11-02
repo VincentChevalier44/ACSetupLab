@@ -2530,7 +2530,7 @@ local function updateLine(host, app, intents, palette)
   local u = app.updater
   if not u then return end
   if u.state == 'available' and u.info then
-    colored(host, 'Mise à jour disponible : ' .. tostring(u.info.version) .. ' (installée : ' .. tostring(Config.version)
+    wrapped(host, 'Mise à jour disponible : ' .. tostring(u.info.version) .. ' (installée : ' .. tostring(Config.version)
       .. ')', palette.available)
     if actionButton(host, app.ui, palette, 'Mettre à jour###update_apply', 'go', false) then intents.updateApply = true end
     tip(host, 'Télécharge l\'archive de la version ' .. tostring(u.info.version) .. ' sur GitHub, vérifie sa taille et son '
@@ -2542,7 +2542,10 @@ local function updateLine(host, app, intents, palette)
   elseif u.state == 'done' then
     colored(host, 'Mise à jour installée : CSP recharge SetupLab.', palette.available)
   elseif u.state == 'failed' then
-    colored(host, 'Mise à jour impossible : ' .. tostring(u.why) .. '.', palette.pending)
+    wrapped(host, 'Mise à jour impossible : ' .. tostring(u.why) .. '.', palette[u.mixed and 'unavailable' or 'pending'])
+    if u.info and not u.wrote and actionButton(host, app.ui, palette, 'Réessayer###update_apply', 'go', false) then
+      intents.updateApply = true
+    end
     if u.info then
       small(host, 'Installez-la à la main depuis ' .. u.info.page, palette.muted)
       if host.ui.button('Copier le lien###update_link') then intents.updateCopyLink = true end

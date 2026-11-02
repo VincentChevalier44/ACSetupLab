@@ -23,7 +23,7 @@ DIRS = {'src': ('.lua',), 'docs': ('.md', '.html'), 'fonts': ('.ttf', '.txt')}
 FORBIDDEN = re.compile(r'\b(os\.(?!preciseClock\b)\w+|loadstring|dofile)\s*\(')
 # réseau : mise à jour en jeu seulement (demande de Vincent du 02/11/2026), lecture et téléchargement depuis
 # src/updater.lua ; aucun envoi (post, request, socket)
-NETWORK = re.compile(r'\bweb\.(\w+)\s*\(')
+NETWORK = re.compile(r'\bweb\.(\w+)')
 NETWORK_ALLOWED = {'src/updater.lua': {'get', 'timeouts'}}
 
 
@@ -95,6 +95,10 @@ def main():
         target.unlink()
         sys.exit('archive refusée : banc d\'essai présent')
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    # fichier de version lu par la mise à jour en jeu : à pousser sur main APRÈS la publication de la release
+    (DIST / 'update.txt').write_text(
+        f'version={version}\nurl=https://github.com/VincentChevalier44/ACSetupLab/releases/download/v{version}/{target.name}\n'
+        f'sha256={digest}\nsize={target.stat().st_size}\n', encoding='utf-8', newline='\n')
     (DIST / f'SetupLab-{version}.sha256').write_text(f'{digest}  {target.name}\n', encoding='utf-8')
     print(f'{target} : {len(names)} fichiers, {target.stat().st_size} octets, SHA-256 {digest}')
 
