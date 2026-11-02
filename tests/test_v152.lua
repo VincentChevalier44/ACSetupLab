@@ -491,6 +491,57 @@ tests['LG02 erreur sur plusieurs lignes : une seule ligne au log CSP ; sans ac.l
   T.eq(app.perf.errors, 1)
 end
 
+-- Journal de Vincent du 02/11/2026 (Imola) : « Retouche gardée (quali) : CAMBER_LF -23 -> -20 » juste après le chargement
+-- de la v1 de course. Les écarts du setup de course au setup de qualification chargé avant lui ne sont pas des retouches
+-- du pilote : seules comptent celles faites depuis le dernier setup chargé par SetupLab.
+local function pinCount(pins)
+  local n = 0
+  for _ in pairs(pins or {}) do n = n + 1 end
+  return n
+end
+
+tests['PN01 setup de course chargé après un setup de qualification : aucune « retouche » de qualif ; les vraies restent'] = function()
+  local Util = require('src/util')
+  local h, app = ready({ session = 1 })
+  local folder = folderOf(h)
+  local base = h.ac.stringifyCurrentSetup(true, false)
+  local quali = otherSetup(base)
+  h.written[folder .. '/SetupLab_Qualif_v2.ini'] = quali
+  local hq = Util.hashString(quali)
+  app.written['SetupLab_Qualif_v2.ini'] = hq
+  app.saved.quali = { path = folder .. '/SetupLab_Qualif_v2.ini', name = 'SetupLab_Qualif_v2.ini', text = quali,
+    signature = 'qualif-v2', hash = hq, bucket = 'sec', carId = h.ac.getCarID(0) }
+  app.proposals.quali = 'qualif-v2'
+  loadVia(h, app, 'quali')
+  T.ok(app.loaded.quali, 'qualification chargée')
+  -- une vraie retouche du pilote sur la qualification, vue à la découverte suivante
+  local sp = assert(spinnerOf(h, 'PRESSURE_LF'))
+  sp.value = math.min(sp.max, sp.value + 1)
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  T.eq(pinCount(app.pins.quali), 1, 'retouche du pilote gardée pour la qualification')
+  local genuine = app.pins.quali.PRESSURE_LF.value
+  -- setup de course : pressions et gomme différentes, plus d'autres crans
+  local race = asymmetric(h, app)
+  race = otherSetup(otherSetup(race))
+  raceSaved(h, app, race)
+  loadVia(h, app, 'race')
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte après la course')
+  frames(h, 30)
+  T.eq(pinCount(app.pins.quali), 1, 'aucune retouche de qualification tirée du setup de course')
+  T.eq(app.pins.quali.PRESSURE_LF.value, genuine, 'la vraie retouche garde sa valeur')
+  T.eq(pinCount(app.pins.race), 0, 'setup de course tel que chargé : aucune retouche')
+  -- retouche faite après le chargement de la course : elle compte pour la course
+  local arb = assert(spinnerOf(h, 'ARB_FRONT'))
+  arb.value = arb.value > arb.min and arb.value - 1 or arb.value + 1
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte après la retouche')
+  T.ok(app.pins.race.ARB_FRONT, 'retouche de la course gardée pour la course')
+  T.eq(pinCount(app.pins.quali), 1)
+  T.eq(app.perf.errors, 0)
+end
+
 -- Boutons neutres lisibles (constat de Vincent du 02/11/2026 : Figer, Recommencer, Valider vN « on les confond avec les
 -- textes normaux ») : au fond des cartes (field), l'aplat field du bouton ne se voyait pas.
 tests['UI01 bouton neutre du thème : aplat plus clair que les cartes, trait bleu ; boutons de couleur inchangés'] = function()

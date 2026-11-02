@@ -812,7 +812,7 @@ local function refreshContext()
     app.calibrations, app.validations = {}, {}
     app.proposalOrigins, app.pendingComputes, app.saved, app.refine = {}, {}, {}, nil
     app.memory, app.memoryFiles = {}, {}
-    app.loaded, app.pins, app.start = {}, { quali = {}, race = {} }, {}
+    app.loaded, app.pins, app.start, app.lastLoadKind = {}, { quali = {}, race = {} }, {}, nil
     app.refines, app.manualKind = {}, nil
     app.loadArm, app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil, nil
     app.pitStrategy, app.qualiScan, app.inCar = nil, nil, nil
@@ -2313,25 +2313,29 @@ end
 -- chaque découverte, un cran différent du dernier setup chargé par SetupLab est une retouche du pilote ; il est
 -- gardé (à sa valeur dans la voiture) par les calculs suivants de ce genre, jusqu'à « Libérer vos retouches ».
 -- Le carburant n'en est pas une (K.signatureIgnored).
+-- Seul le dernier setup chargé par SetupLab sert de référence (journal de Vincent du 02/11/2026, Imola : charger la v1
+-- de course après la qualification faisait de chaque écart entre les deux une « retouche » de la qualification, gardée
+-- par ses calculs suivants) ; les retouches des autres genres restent telles quelles.
 local function detectPins(d)
   if not (d and d.setup and d.space) then return end
-  for kind, loaded in pairs(app.loaded) do
-    local pins = app.pins[kind]
-    for _, sp in ipairs(d.setup.spinners) do
-      if d.space.members[sp.name] and not K.signatureIgnored[sp.name] then
-        local want = loaded.values[sp.name]
-        if pins[sp.name] then
-          pins[sp.name].value = sp.value
-        elseif type(want) == 'number' and math.abs(sp.value - want) > K.setupValueTol then
-          pins[sp.name] = { value = sp.value, from = want }
-          log('INFO', 'pins', 'Retouche gardée (' .. kind .. ') : ' .. sp.name .. ' ' .. tostring(want) .. ' -> ' .. tostring(sp.value))
-        end
+  local kind = app.lastLoadKind
+  local loaded = kind and app.loaded[kind]
+  local pins = kind and app.pins[kind]
+  if not (loaded and pins) then return end
+  for _, sp in ipairs(d.setup.spinners) do
+    if d.space.members[sp.name] and not K.signatureIgnored[sp.name] then
+      local want = loaded.values[sp.name]
+      if pins[sp.name] then
+        pins[sp.name].value = sp.value
+      elseif type(want) == 'number' and math.abs(sp.value - want) > K.setupValueTol then
+        pins[sp.name] = { value = sp.value, from = want }
+        log('INFO', 'pins', 'Retouche gardée (' .. kind .. ') : ' .. sp.name .. ' ' .. tostring(want) .. ' -> ' .. tostring(sp.value))
       end
     end
-    local tyres = loaded.values.TYRES
-    if pins.TYRES == nil and type(tyres) == 'number' and d.compoundIndex and tyres ~= d.compoundIndex then
-      pins.TYRES = { value = d.compoundIndex, from = tyres }
-    end
+  end
+  local tyres = loaded.values.TYRES
+  if pins.TYRES == nil and type(tyres) == 'number' and d.compoundIndex and tyres ~= d.compoundIndex then
+    pins.TYRES = { value = d.compoundIndex, from = tyres }
   end
 end
 app.detectPins = detectPins
@@ -2446,6 +2450,7 @@ local function loadTick()
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
       -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
       app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
+      app.lastLoadKind = check.kind
       -- setup de course : le preset d'arrêt rapide sélectionné prend ses pressions et son composé (demande de Vincent du
       -- 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 ») ; note sur sa ligne dans l'onglet COURSE
       applyPit(check)
