@@ -3422,6 +3422,15 @@ local function handleIntents(intents)
   if intents.raceStart and app.refine and app.refine.active and app.refine.kind ~= 'race' then
     intents.raceStart, intents.refineStart = nil, 'race'
   end
+  -- changement d'affinage (course <-> tour rapide) : le calcul en cours de l'affinage d'avant est interrompu (refait à sa
+  -- reprise) ; le nouveau part tout de suite au lieu d'attendre derrière lui (constat de Vincent du 02/11/2026, premier
+  -- setup immédiat coché : la v3 du tour rapide, 1200 évaluations, passait avant la course)
+  local old = app.refine
+  if intents.refineStart and old and old.active and old.kind ~= intents.refineStart and old.phase == 'calcul' then
+    intents[old.kind .. 'Cancel'] = true
+    log('INFO', 'refine', 'Calcul ' .. COMPUTE[old.kind].label .. ' de l\'affinage interrompu : l\'affinage '
+      .. COMPUTE[intents.refineStart].label .. ' passe d\'abord (repris avec l\'affinage ' .. COMPUTE[old.kind].label .. ')')
+  end
   for _, kind in ipairs({ 'quali', 'race' }) do
     if intents[kind .. 'Start'] then startCompute(kind) end
     if intents[kind .. 'Cancel'] and app.pendingComputes[kind] then

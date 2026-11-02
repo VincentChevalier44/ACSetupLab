@@ -861,4 +861,36 @@ tests['NV23b qualif v2 reprise, onglet COURSE : « Affinage automatique (course)
   nv23('Affinage automatique (course)')
 end
 
+-- Constat de Vincent du 02/11/2026 (Monza, séance de qualification, premier setup immédiat coché, 0 tour minimum) :
+-- « reprendre » la v2 lance tout de suite le calcul d'une v3 du tour rapide ; le calcul de course demandé ensuite
+-- attendait derrière lui. Le calcul du tour rapide est interrompu, la course passe tout de suite ; le tour rapide le
+-- refait à sa reprise.
+tests['NV23c premier setup immédiat : la v3 du tour rapide en calcul est interrompue, la course passe tout de suite'] = function()
+  local h, app = ready({ session = 2, skin = true })
+  app.settings.refineMinLaps, app.settings.refineInstantFirst, app.settings.optBudgetEvalsQ = 0, true, 1200
+  Fake.raceReady(h, app, 25)
+  app.raceLaps = nil
+  frames(h, 2)
+  app.handleIntents({ start = 'reference' })
+  local q = app.refine
+  T.ok(waitFor(h, function() return q.phase == 'calcul' and app.quali ~= nil and app.quali.state == 'running' end, 600),
+    'v3 du tour rapide en calcul')
+  h.tab = 'Course'
+  app.handleIntents({ raceLaps = 25 })
+  frames(h, 1)
+  h.click = 'Calculer le setup course'
+  frames(h, 2)
+  T.ok(app.quali.state ~= 'running', 'calcul du tour rapide interrompu : ' .. tostring(app.quali.state))
+  local r = app.refine
+  T.eq(r.kind, 'race', 'la course est l\'affinage en cours')
+  local n = waitFor(h, function() return app.race ~= nil and app.race.state == 'done' end, 60000)
+  T.ok(n ~= nil and n < 700, 'course calculée sans attendre la v3 : ' .. tostring(n) .. ' images')
+  -- tour rapide repris : il refait son calcul
+  app.handleIntents({ refineStart = 'quali' })
+  T.eq(app.refine, q, 'tour rapide repris')
+  T.ok(waitFor(h, function() return app.quali.state == 'running' or app.quali.state == 'done' end, 600),
+    'calcul du tour rapide repris : ' .. tostring(app.quali.state))
+  T.eq(app.perf.errors, 0)
+end
+
 return tests
