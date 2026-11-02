@@ -219,6 +219,12 @@ EN = {
     "v%s est le setup figé (%s) : le déverrouiller d'abord.": 'v%s is the locked setup (%s): unlock it first.',
     'essai de v%s non gardé': 'v%s trial not kept',
     'essai de v%s chargé dans la voiture': 'v%s trial loaded into the car',
+    "Setup de SetupLab chargé depuis le menu d'AC : %s devient la référence.":
+        "SetupLab setup loaded from AC's menu: %s becomes the reference.",
+    "Setup de SetupLab chargé depuis le menu d'AC : %s devient la référence, retouches libérées.":
+        "SetupLab setup loaded from AC's menu: %s becomes the reference, tweaks released.",
+    'Setup revenu à %s.': 'Setup back to %s.',
+    'Setup revenu à %s, retouches libérées.': 'Setup back to %s, tweaks released.',
     "v%s validée : continuer l'affinage ou la figer ?": 'v%s validated: carry on refining, or lock it?',
     'Étape 4/4 · %s validée': 'Step 4/4 · %s validated',
     "Enregistrée : %s. Continuer l'affinage (une nouvelle version avec vos prochains tours), ou la figer ?":

@@ -342,4 +342,28 @@ tests['RC03 « Reprendre ma course vN » : la course validée revient dans la vo
   T.eq(app.perf.errors, 0)
 end
 
+-- Tranche 5 (décision de Vincent du 02/11/2026) : un setup de SetupLab chargé depuis le menu d'AC devient la référence,
+-- sans retouches.
+tests['PN05 retouche gardée, puis un setup de SetupLab rechargé depuis le menu d\'AC : retouches libérées'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  T.ok(waitFor(h, function() return app.loadCheck == nil and app.discoveryState == 'done' end))
+  -- retouche à la main : gardée
+  local sp = h.spinners[1]
+  local was = sp.value
+  sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  T.ok(app.pins.quali[sp.name], 'retouche gardée')
+  -- le fichier de v1 rechargé depuis le menu d'AC (mêmes valeurs) : il redevient la référence, sans retouches
+  sp.value = was
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  T.eq(next(app.pins.quali), nil, 'retouches libérées')
+  T.eq(app.loaded.quali and app.loaded.quali.name, e.file, 'référence : le fichier de v1')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

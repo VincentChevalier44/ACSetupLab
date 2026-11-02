@@ -2352,8 +2352,41 @@ end
 -- Seul le dernier setup chargé par SetupLab sert de référence (journal de Vincent du 02/11/2026, Imola : charger la v1
 -- de course après la qualification faisait de chaque écart entre les deux une « retouche » de la qualification, gardée
 -- par ses calculs suivants) ; les retouches des autres genres restent telles quelles.
+-- Setup de SetupLab chargé depuis le menu d'AC (1.5.3, décision de Vincent du 02/11/2026) : la voiture a exactement un
+-- fichier gardé et intact (référence de la mémoire, version validée) ; il devient le setup chargé de son genre, sans
+-- retouches (ses écarts avec le setup chargé d'avant ne sont pas les vôtres). Renvoie vrai s'il est adopté.
+local function adoptMenuLoad(d)
+  if not d.family then return false end
+  local live = nil
+  for _, f in ipairs(keptFiles()) do
+    if f.family == d.family then
+      if live == nil then
+        local ok, text = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+        if not (ok and type(text) == 'string') then return false end
+        live = setupValues(text)
+      end
+      local values = setupValues(f.text)
+      if sameSetup(live, values) then
+        -- la voiture a exactement ce fichier : aucune retouche (même revenue à la main à sa valeur)
+        local current = app.loaded[f.kind]
+        local same = current and current.name == f.name and app.lastLoadKind == f.kind
+        local had = next(app.pins[f.kind] or {}) ~= nil
+        if same and not had then return true end
+        app.loaded[f.kind] = { values = values, name = f.name }
+        app.lastLoadKind = f.kind
+        app.pins[f.kind] = {}
+        log('INFO', 'pins', (same and ('Setup revenu à ' .. f.name) or ('Setup de SetupLab chargé depuis le menu d\'AC : '
+          .. f.name .. ' devient la référence')) .. (had and ', retouches libérées' or '') .. '.')
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function detectPins(d)
   if not (d and d.setup and d.space) then return end
+  if adoptMenuLoad(d) then return end
   local kind = app.lastLoadKind
   local loaded = kind and app.loaded[kind]
   local pins = kind and app.pins[kind]
