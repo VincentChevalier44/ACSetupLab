@@ -491,4 +491,43 @@ tests['LG02 erreur sur plusieurs lignes : une seule ligne au log CSP ; sans ac.l
   T.eq(app.perf.errors, 1)
 end
 
+-- Boutons neutres lisibles (constat de Vincent du 02/11/2026 : Figer, Recommencer, Valider vN « on les confond avec les
+-- textes normaux ») : au fond des cartes (field), l'aplat field du bouton ne se voyait pas.
+tests['UI01 bouton neutre du thème : aplat plus clair que les cartes, trait bleu ; boutons de couleur inchangés'] = function()
+  local Skin = require('src/skin')
+  local rects = {}
+  local hovered = false
+  local function v2(x, y) return { x = x, y = y } end
+  local real = {
+    pushDWriteFont = function() end, popDWriteFont = function() end, dwriteDrawText = function() end,
+    measureDWriteText = function(text, size) return { x = 6 * #text, y = size * 1.3 } end,
+    availableSpaceX = function() return 300 end, invisibleButton = function() return false end,
+    itemHovered = function() return hovered end, itemActive = function() return false end,
+    itemRectMin = function() return v2(10, 20) end, itemRectMax = function() return v2(110, 46) end,
+    drawRectFilled = function(a, b, color) rects[#rects + 1] = { ax = a.x, ay = a.y, bx = b.x, by = b.y, color = color } end,
+  }
+  local S = Skin.new(real, function(r, g, b, m) return { r = r, g = g, b = b, mult = m } end, v2, function(s) return s end)
+  local c = S.colors
+  S.button('Figer v1 (cadenas)')
+  T.eq(#rects, 2, 'trait, puis aplat')
+  T.eq(rects[1].color, c.outline)
+  T.eq(rects[2].color, c.raised)
+  T.ok(rects[2].color.r >= c.field.r + 0.05 and rects[2].color.g >= c.field.g + 0.05, 'aplat plus clair que le fond des cartes')
+  T.eq(rects[2].ax, 11)
+  T.eq(rects[2].ay, 21)
+  T.eq(rects[2].bx, 109)
+  T.eq(rects[2].by, 45)
+  rects, hovered = {}, true
+  S.button('Recommencer (ne pas garder v1)')
+  T.eq(rects[1].color, c.blue, 'survol : trait bleu plein')
+  T.eq(rects[2].color, c.raisedHover)
+  hovered = false
+  for style, key in pairs({ primary = 'blue', go = 'go', danger = 'danger' }) do
+    rects = {}
+    S.button('Action###' .. style, nil, style)
+    T.eq(#rects, 1, style .. ' : un seul aplat, comme avant')
+    T.eq(rects[1].color, c[key])
+  end
+end
+
 return tests

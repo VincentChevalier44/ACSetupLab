@@ -8,6 +8,7 @@
 - **Pit strategy**: when SetupLab loads a race setup (two clicks in the pits), the selected quick pit preset gets its tyre pressures and tyres, so a tyre change is planned at the stop; it is also done when that race setup was already in the car. Fuel and repairs are left as you set them. A compound missing from the pit menu is not set, and anything the game refuses is reported (RACE tab and J0 report, with the values read back from the menu). A setup loaded from AC's menu does not change the pit menu.
 - **Main window back on the setup screen**: its close button is removed, and its internal name changes so CSP shows it again for players who had closed it (it was saved as closed outside the app folder, so reinstalling did not help). Its position and size reset once.
 - Overlay: says where the "SetupLab active" checkbox is (SetupLab window, setup screen).
+- **Buttons easier to see**: buttons without a colour (Lock, Start over, Validate vN, Validate without trying, Modify...) now have a lighter fill and a thin blue outline, so they no longer look like plain text inside the cards.
 - **Journal in CSP's log**: each line of SetupLab's journal is also written to CSP's log (`Documents\Assetto Corsa\logs\custom_shaders_patch.log`, lines `[Lua: App: SetupLab]`), on one line and at the same rate, so a session can still be checked after AC is closed (CSP replaces that file when AC starts again). The lines are in French, like the J0 report.
 
 ## 1.0.0-beta.1.5.1 — 2026-10-29 — beta 1.5.1: clear feedback after each lap, CSP 0.3.1 compatibility

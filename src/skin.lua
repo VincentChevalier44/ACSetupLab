@@ -18,6 +18,8 @@ M.COLORS = {
   panelLine = { 0.2, 0.27, 0.35, 0.6 },
   go = { 0.12, 0.52, 0.28, 1 }, goHover = { 0.16, 0.63, 0.35, 1 }, danger = { 0.6, 0.18, 0.15, 1 },
   dangerHover = { 0.72, 0.23, 0.2, 1 }, blueHover = { 0.30, 0.66, 1, 1 },
+  -- bouton neutre : plus clair que le fond des cartes (field) et cerné de bleu (constat de Vincent du 02/11/2026)
+  raised = { 0.21, 0.23, 0.25, 1 }, raisedHover = { 0.27, 0.30, 0.33, 1 }, outline = { 0.20, 0.59, 1, 0.55 },
 }
 
 -- Tailles de texte (px) : comme SuperHUD (textes 12-13, titres de section 11, titres en gras).
@@ -49,7 +51,7 @@ function M.new(real, rgbm, vec2, translate)
   local c = {}
   for k, v in pairs(M.COLORS) do c[k] = rgbm(v[1], v[2], v[3], v[4]) end
   S.colors = c
-  local pa, pb, ps = vec2(0, 0), vec2(0, 0), vec2(0, 0)
+  local pa, pb, ps, pi, pj = vec2(0, 0), vec2(0, 0), vec2(0, 0), vec2(0, 0), vec2(0, 0)
   -- police courante : poussée par withFont (ui.pushFont) : Small, Title, sinon texte normal
   local fontNames = {}
   for name, value in pairs(type(real.Font) == 'table' and real.Font or {}) do fontNames[value] = name end
@@ -112,7 +114,9 @@ function M.new(real, rgbm, vec2, translate)
     return out, real.measureDWriteText(out, size)
   end
 
-  -- Bouton plat (SuperHUD) : FIELD, survol plus clair ; primary : bleu, texte sombre ; go : vert ; danger : rouge.
+  -- Bouton plat (SuperHUD) : primary : bleu, texte sombre ; go : vert ; danger : rouge. Neutre : aplat plus clair que le
+  -- fond des cartes, cerné d'un trait bleu de 1 px (bleu plein au survol) ; au fond FIELD des cartes, l'aplat FIELD de
+  -- SuperHUD ne laissait voir que le texte (constat de Vincent du 02/11/2026 : « on les confond avec les textes normaux »).
   -- size : nil (largeur du libellé), x < 0 (toute la largeur), x > 0 (largeur donnée) ; y > 0 : hauteur.
   function S.button(label, size, style)
     local visible, id = split(label)
@@ -129,7 +133,7 @@ function M.new(real, rgbm, vec2, translate)
       local clicked = real.invisibleButton('###' .. id, ps)
       local hovered, active = real.itemHovered(), real.itemActive()
       local a, b = real.itemRectMin(), real.itemRectMax()
-      local bg, fg
+      local bg, fg, border
       if style == 'primary' then
         bg, fg = (hovered or active) and c.blueHover or c.blue, c.dark
       elseif style == 'go' then
@@ -137,9 +141,15 @@ function M.new(real, rgbm, vec2, translate)
       elseif style == 'danger' then
         bg, fg = (hovered or active) and c.dangerHover or c.danger, c.light
       else
-        bg, fg = (hovered or active) and c.hover or c.field, c.light
+        bg, fg, border = (hovered or active) and c.raisedHover or c.raised, c.light, (hovered or active) and c.blue or c.outline
       end
-      real.drawRectFilled(a, b, bg, 3)
+      if border then
+        real.drawRectFilled(a, b, border, 3)
+        pi.x, pi.y, pj.x, pj.y = a.x + 1, a.y + 1, b.x - 1, b.y - 1
+        real.drawRectFilled(pi, pj, bg, 2)
+      else
+        real.drawRectFilled(a, b, bg, 3)
+      end
       local text, tm = fit(visible, fs, math.max(10, (b.x - a.x) - 18))
       pa.x, pa.y = a.x + math.max(9, ((b.x - a.x) - tm.x) / 2), a.y + ((b.y - a.y) - tm.y) / 2
       real.dwriteDrawText(text, fs, pa, fg)
