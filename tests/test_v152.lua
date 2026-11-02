@@ -430,4 +430,65 @@ tests['PV07 réglage du menu d\'arrêt hors de l\'exporteur : refusé par le ban
   T.eq(h.pitCalls, 0)
 end
 
+-- Journal recopié dans le log de CSP (accord de Vincent du 02/11/2026) : relire une séance après coup.
+local function lastEntry(app)
+  local entries = require('src/util').logEntries(app.log)
+  return entries[#entries]
+end
+
+local function cspCount(h, fragment)
+  local n = 0
+  for _, line in ipairs(h.cspLog) do
+    if line:find(fragment, 1, true) then n = n + 1 end
+  end
+  return n
+end
+
+tests['LG01 journal recopié dans le log de CSP, ligne pour ligne et au même débit'] = function()
+  local Util = require('src/util')
+  local h, app = ready()
+  local entries = Util.logEntries(app.log)
+  T.ok(#entries > 0, 'journal de la découverte')
+  T.eq(#h.cspLog, app.log.seq, 'une ligne du log CSP par ligne gardée au journal')
+  for i, e in ipairs(entries) do
+    T.eq(h.cspLog[#h.cspLog - #entries + i], e.level .. ' ' .. e.code .. ' : ' .. e.text)
+  end
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 3 } })
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 4 } })
+  T.eq(cspCount(h, 'INFO setting : '), 1, 'même code dans les 2 s : ni au journal ni au log CSP')
+  T.eq(#h.cspLog, app.log.seq)
+  frames(h, math.ceil(Config.K.logMinInterval * 60) + 5)
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 2 } })
+  T.eq(cspCount(h, 'INFO setting : '), 2, 'au-delà de 2 s : de nouveau au journal et au log CSP')
+  T.eq(#h.cspLog, app.log.seq)
+  T.eq(app.perf.errors, 0)
+end
+
+tests['LG02 erreur sur plusieurs lignes : une seule ligne au log CSP ; sans ac.log ou ac.log en erreur, rien ne casse'] = function()
+  local h, app = ready()
+  local text = h.ui.text
+  h.ui.text = function() error('premiere ligne\n  seconde ligne', 0) end
+  frames(h, 1)
+  h.ui.text = text
+  T.eq(app.perf.errors, 1, 'erreur de l\'interface comptée')
+  local last = h.cspLog[#h.cspLog]
+  T.contains(last, 'ERROR ui_main : ')
+  T.contains(last, 'premiere ligne | seconde ligne')
+  T.no(last:find('[\r\n]'), 'une seule ligne')
+  frames(h, 30)
+  T.eq(app.perf.errors, 1, 'l\'interface repart')
+  -- ac.log en erreur : le journal continue, l'app aussi
+  h.ac.log = function() error('ac.log indisponible') end
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 3 } })
+  T.eq(lastEntry(app).code, 'setting')
+  frames(h, 30)
+  -- ac.log absent (CSP sans cette fonction) : idem
+  h.ac.log = nil
+  frames(h, math.ceil(Config.K.logMinInterval * 60) + 5)
+  app.handleIntents({ setting = { key = 'refineMinLaps', value = 2 } })
+  T.eq(lastEntry(app).code, 'setting')
+  frames(h, 30)
+  T.eq(app.perf.errors, 1)
+end
+
 return tests

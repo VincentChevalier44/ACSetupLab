@@ -516,6 +516,7 @@ function F.new(opts)
     writeCalls = 0, pitCalls = 0, pitPresets = {}, pitstop = { FUEL = 0, COMPOUND = -1, PRESSURE_LF = 16, PRESSURE_RF = 16, PRESSURE_LR = 16,
       PRESSURE_RR = 16 }, clipboard = nil, releases = {}, disposed = 0, uiCalls = 0, click = nil, calls = {}, loadCalls = {},
     events = {},  -- journal ordonné des écritures et des chargements (D8 amendé)
+    cspLog = {},  -- lignes écrites par ac.log (log de CSP)
   }
   local mode = opts.iniMode or 'split'
   local carIni = files['car.ini'] and F.parseIniCsp(files['car.ini'], 'split') or {}
@@ -593,6 +594,11 @@ function F.new(opts)
     FolderID = { UserSetups = 11, ContentCars = 13, CurrentTrackLayoutUI = 1028 },
     getPatchVersion = function() return '0.3.0-preview675' end,
     getPatchVersionCode = function() return 4210 end,
+    log = function(...)
+      local parts = {}
+      for i = 1, select('#', ...) do parts[i] = tostring((select(i, ...))) end
+      h.cspLog[#h.cspLog + 1] = table.concat(parts, ' ')
+    end,
     getSim = function() return h.sim end,
     getSession = function(i) if i == 0 then return h.session end return nil end,
     getCar = function(i) if i == 0 then return h.car end return nil end,

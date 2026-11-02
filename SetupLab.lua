@@ -192,8 +192,14 @@ local function storeKey(kind, d, ...)
   return Store.entryKey(kind, d.car.id, track, layout, ...)
 end
 
+-- Chaque ligne gardée au journal est aussi recopiée dans le log de CSP (Documents\Assetto Corsa\logs\
+-- custom_shaders_patch.log, lignes « [Lua: App: SetupLab] »), au même débit et sur une seule ligne : ce qui s'est
+-- passé se relit après la séance, sans rapport J0 (accord de Vincent du 02/11/2026). Sans ac.log, rien ne change.
 local function log(level, code, message)
-  Util.logAdd(app.log, app.now, level, code, message)
+  if Util.logAdd(app.log, app.now, level, code, message) then
+    local e = app.log.lines[app.log.head]
+    Util.call(Util.get(host.ac, 'log'), level .. ' ' .. tostring(code) .. ' : ' .. (e.text:gsub('%s*[\r\n]+%s*', ' | ')))
+  end
 end
 
 -- Mémoire du circuit (décision de Vincent du 21/10/2026) : setup validé par voiture, circuit, disposition,

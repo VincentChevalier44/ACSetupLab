@@ -82,7 +82,7 @@ Some settings are deliberately kept, with their reason shown: toe, coast and pre
 
 The J0 report and the copied lap (DIAGNOSTICS and MEASURE tabs), meant for development, are in French. The source code comments are in French.
 
-Feedback is welcome in the [Issues](https://github.com/VincentChevalier44/ACSetupLab/issues). For a problem, attach the report from the **DIAGNOSTICS** tab ("Copy the J0 report").
+Feedback is welcome in the [Issues](https://github.com/VincentChevalier44/ACSetupLab/issues). For a problem, attach the report from the **DIAGNOSTICS** tab ("Copy the J0 report"). If AC is already closed, SetupLab's journal is also in CSP's log, `Documents\Assetto Corsa\logs\custom_shaders_patch.log` (lines `[Lua: App: SetupLab]`), until AC is started again.
 
 ## Development
 
