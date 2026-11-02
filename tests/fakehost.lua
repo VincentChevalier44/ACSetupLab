@@ -513,7 +513,7 @@ function F.new(opts)
   local track = F.buildTrack(trackFixture)
   local h = {
     opts = opts, carId = carFixture.id, files = files, track = track,
-    writeCalls = 0, pitCalls = 0, pitstop = { FUEL = 0, COMPOUND = -1, PRESSURE_LF = 16, PRESSURE_RF = 16, PRESSURE_LR = 16,
+    writeCalls = 0, pitCalls = 0, pitPresets = {}, pitstop = { FUEL = 0, COMPOUND = -1, PRESSURE_LF = 16, PRESSURE_RF = 16, PRESSURE_LR = 16,
       PRESSURE_RR = 16 }, clipboard = nil, releases = {}, disposed = 0, uiCalls = 0, click = nil, calls = {}, loadCalls = {},
     events = {},  -- journal ordonné des écritures et des chargements (D8 amendé)
   }
@@ -732,17 +732,33 @@ function F.new(opts)
     saveCurrentSetup = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,
     resetSetupToDefault = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,
     -- menu d'arrêt rapide (D8 amendé le 02/11/2026) : preset sélectionné, réglé seulement après un chargement de course
+    -- h.pitMax : bornes hautes par réglage ; h.pitRefuse : le jeu refuse (renvoie false) ; h.pitPresets : preset demandé
     getPitstopSpinners = function()
       local list = {}
       for _, name in ipairs({ 'FUEL', 'COMPOUND', 'PRESSURE_LF', 'PRESSURE_RF', 'PRESSURE_LR', 'PRESSURE_RR' }) do
         local kind = name == 'FUEL' and 'fuel' or (name == 'COMPOUND' and 'compound' or 'pressure')
-        list[#list + 1] = { name = name, type = kind, min = kind == 'compound' and -1 or 0, max = kind == 'fuel' and 120 or 60,
+        local max = (h.pitMax and h.pitMax[name]) or (kind == 'fuel' and 120 or 60)
+        list[#list + 1] = { name = name, type = kind, min = kind == 'compound' and -1 or 0, max = max,
           readOnly = false, value = h.pitstop[name] }
       end
       return list
     end,
-    setPitstopSpinnerValue = function(name, value)
+    setPitstopSpinnerValue = function(name, value, presetIndex)
+      -- filet d'exécution (D8 amendé le 02/11/2026) : comme ac.loadSetup, appelée depuis l'exporteur seulement
+      local root = tostring(PY.appDir):gsub('\\', '/')
+      for level = 2, 40 do
+        local info = debug.getinfo(level, 'S')
+        if info == nil then break end
+        local src = (info.source or ''):gsub('\\', '/')
+        if src:find(root .. '/src/exporter.lua', 1, true) then break end
+        if src:find(root, 1, true) and not src:find(root .. '/src/util.lua', 1, true)
+            and not src:find(root .. '/tests/fakehost.lua', 1, true) then
+          error('ac.setPitstopSpinnerValue appelée hors de src/exporter.lua (D8 amendé) : ' .. src)
+        end
+      end
       h.pitCalls = h.pitCalls + 1
+      h.pitPresets[#h.pitPresets + 1] = presetIndex == nil and 'sélectionné' or presetIndex
+      if h.pitRefuse then return false end
       h.pitstop[name] = value
       return true
     end,

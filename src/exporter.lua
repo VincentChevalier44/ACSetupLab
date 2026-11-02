@@ -193,37 +193,63 @@ function M.loadBlocker(host, path, expected, written)
   return nil
 end
 
--- Charge le fichier dans la voiture après un dernier contrôle (M.loadBlocker). Renvoie { ok, reason,
--- called } ; called : ac.loadSetup a été appelée (son issue compte pour la capacité setup_load).
 -- Stratégie d'arrêt (accord de Vincent du 02/11/2026, D8 amendé) : après le chargement vérifié d'un setup de course, le
 -- preset d'arrêt rapide sélectionné reçoit ses pressions et son composé ; carburant et réparations restent au choix du
--- pilote. values : crans du setup chargé (PRESSURE_LF…, TYRES). Renvoie la liste { name, kind, value, before } posée (vide :
--- rien de modifiable) et les noms lus du menu, ou nil et la raison.
+-- pilote. values : crans du setup chargé (PRESSURE_LF…, TYRES). Pression hors des bornes du menu : ramenée à la borne ;
+-- composé hors de la liste du menu : non posé (relecture du 02/11/2026 : une gomme ne se borne pas). Chaque réglage posé
+-- est relu dans le menu. Renvoie { done = { name, kind, value, before, read, checked }, refused = { name, kind, value,
+-- error }, skipped = { name, kind, value }, seen = { 'NOM=type' } }, ou nil et la raison.
 function M.applyPitStrategy(host, values)
   local okS, spinners = call(get(host.ac, 'getPitstopSpinners'))
   if not (okS and type(spinners) == 'table') then return nil, 'menu d\'arrêt illisible' end
   local set = get(host.ac, 'setPitstopSpinnerValue')
   if set == nil then return nil, 'réglage du menu d\'arrêt indisponible dans cette version de CSP' end
-  local done, seen = {}, {}
+  local result = { done = {}, refused = {}, skipped = {}, seen = {} }
   for i = 1, math.min(#spinners, 32) do
     local sp = spinners[i]
     local name, kind = get(sp, 'name'), get(sp, 'type')
-    seen[#seen + 1] = Util.truncate(tostring(name), 32) .. '=' .. Util.truncate(tostring(kind), 16)
+    result.seen[#result.seen + 1] = Util.truncate(tostring(name), 32) .. '=' .. Util.truncate(tostring(kind), 16)
     local wanted = nil
     if kind == 'pressure' and type(name) == 'string' then wanted = values[name] end
-    if kind == 'compound' then wanted = values.TYRES end
+    if kind == 'compound' and type(name) == 'string' then wanted = values.TYRES end
     if Util.isFinite(wanted) and get(sp, 'readOnly') ~= true then
       local lo, hi = tonumber(get(sp, 'min')), tonumber(get(sp, 'max'))
-      if Util.isFinite(lo) and Util.isFinite(hi) then wanted = Util.clamp(wanted, lo, hi) end
-      local okP, accepted = call(set, name, wanted)
-      if okP and accepted ~= false then
-        done[#done + 1] = { name = name, kind = kind, value = wanted, before = tonumber(get(sp, 'value')) }
+      local bounded = Util.isFinite(lo) and Util.isFinite(hi)
+      local entry = { name = name, kind = kind, value = wanted, before = tonumber(get(sp, 'value')) }
+      if kind == 'compound' and bounded and (wanted < lo or wanted > hi) then
+        result.skipped[#result.skipped + 1] = entry
+      else
+        if bounded then entry.value = Util.clamp(wanted, lo, hi) end
+        local okP, accepted = call(set, name, entry.value)
+        if okP and accepted ~= false then
+          result.done[#result.done + 1] = entry
+        else
+          entry.error = (not okP) and Util.truncate(tostring(accepted), 120) or nil
+          result.refused[#result.refused + 1] = entry
+        end
       end
     end
   end
-  return done, nil, seen
+  -- relecture : ce que le menu montre maintenant (preset sélectionné)
+  if #result.done > 0 then
+    local okR, after = call(get(host.ac, 'getPitstopSpinners'))
+    if okR and type(after) == 'table' then
+      local read = {}
+      for i = 1, math.min(#after, 32) do
+        local name = get(after[i], 'name')
+        if type(name) == 'string' then read[name] = tonumber(get(after[i], 'value')) end
+      end
+      for _, e in ipairs(result.done) do
+        e.read = read[e.name]
+        e.checked = e.read ~= nil and e.read == e.value
+      end
+    end
+  end
+  return result, nil
 end
 
+-- Charge le fichier dans la voiture après un dernier contrôle (M.loadBlocker). Renvoie { ok, reason,
+-- called } ; called : ac.loadSetup a été appelée (son issue compte pour la capacité setup_load).
 function M.loadIntoCar(host, path, expected, written)
   local why = M.loadBlocker(host, path, expected, written)
   if why then return { ok = false, reason = why } end

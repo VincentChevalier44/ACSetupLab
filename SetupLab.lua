@@ -2346,33 +2346,62 @@ local function loadReadiness()
     stopped = Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh, menu = okE and editable == true }
 end
 
--- Stratégie d'arrêt posée après un chargement de course : ce qui a changé, dit au pilote.
-local function pitStrategyNote(done, why)
-  if done == nil then return 'Stratégie d\'arrêt non mise à jour : ' .. tostring(why) .. '.' end
-  local pressures, compound, change = {}, nil, false
-  for _, v in ipairs(done) do
-    if v.kind == 'pressure' then pressures[#pressures + 1] = Util.fmt(v.value, 0) end
-    if v.kind == 'compound' then
-      local d = app.discovery
-      local slot = d and d.carBase and CarModel.compoundSlot(d.carBase, v.value)
-      local c = slot and d.carBase.compounds[slot]
-      compound = c and tostring(c.short or c.name) or ('n° ' .. Util.fmt(v.value, 0))
-      change = v.before ~= nil and v.before < 0
-    end
+-- Stratégie d'arrêt posée après un chargement de course : ce qui a changé, dit au pilote, une phrase par constat
+-- (relecture du 02/11/2026 : refus du jeu, gomme absente du menu, relecture différente ; roues nommées). Renvoie la note
+-- et ok (tout posé et relu).
+local PIT_WHEEL = { PRESSURE_LF = 'LF', PRESSURE_RF = 'RF', PRESSURE_LR = 'LR', PRESSURE_RR = 'RR' }
+local function pitStrategyNote(res, why, file)
+  file = tostring(file or '?')
+  if res == nil then return 'Stratégie d\'arrêt non mise à jour : ' .. tostring(why) .. '.', false end
+  local d = app.discovery
+  local function compoundName(index)
+    local slot = d and d.carBase and CarModel.compoundSlot(d.carBase, index)
+    local c = slot and d.carBase.compounds[slot]
+    return c and tostring(c.short or c.name) or ('n° ' .. Util.fmt(index, 0))
   end
-  local p = table.concat(pressures, ' / ')
+  local pressures, compound, unchecked, refused = {}, nil, {}, {}
+  for _, v in ipairs(res.done) do
+    if v.kind == 'pressure' then
+      pressures[#pressures + 1] = (PIT_WHEEL[v.name] or tostring(v.name)) .. ' ' .. Util.fmt(v.value, 0)
+    end
+    if v.kind == 'compound' and v.value >= 0 then compound = compoundName(v.value) end
+    if not v.checked then unchecked[#unchecked + 1] = tostring(v.name) end
+  end
+  for _, v in ipairs(res.refused) do refused[#refused + 1] = tostring(v.name) end
+  local p = table.concat(pressures, ', ')
+  local text
   if compound and #pressures > 0 then
-    if change then
-      return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound
-        .. ' (changement de pneus prévu à l\'arrêt), pressions ' .. p .. '.'
-    end
-    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound .. ', pressions ' .. p .. '.'
+    text = 'Stratégie d\'arrêt (preset sélectionné) mise à jour pour ' .. file .. ' : pneus ' .. compound
+      .. ' (changement de pneus prévu à l\'arrêt), pressions ' .. p .. '.'
   elseif #pressures > 0 then
-    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pressions ' .. p .. '.'
+    text = 'Stratégie d\'arrêt (preset sélectionné) mise à jour pour ' .. file .. ' : pressions ' .. p .. '.'
   elseif compound then
-    return 'Stratégie d\'arrêt (preset sélectionné) mise à jour : pneus ' .. compound .. '.'
+    text = 'Stratégie d\'arrêt (preset sélectionné) mise à jour pour ' .. file .. ' : pneus ' .. compound
+      .. ' (changement de pneus prévu à l\'arrêt).'
+  elseif #refused > 0 then
+    text = 'Stratégie d\'arrêt non mise à jour pour ' .. file .. ' : refusée par le jeu (' .. table.concat(refused, ', ') .. ').'
+  else
+    text = 'Stratégie d\'arrêt non mise à jour pour ' .. file .. ' : aucun réglage de pression ou de pneus modifiable dans le '
+      .. 'menu d\'arrêt.'
   end
-  return 'Stratégie d\'arrêt non mise à jour : aucun réglage de pression ou de pneus modifiable dans le menu d\'arrêt.'
+  if #refused > 0 and #res.done > 0 then text = text .. ' Refusé par le jeu : ' .. table.concat(refused, ', ') .. '.' end
+  for _, v in ipairs(res.skipped) do
+    text = text .. ' Pneus non posés : gomme ' .. compoundName(v.value) .. ' absente du menu d\'arrêt.'
+  end
+  if #unchecked > 0 then text = text .. ' À vérifier dans le menu d\'arrêt : ' .. table.concat(unchecked, ', ') .. '.' end
+  return text, #res.done > 0 and #refused == 0 and #res.skipped == 0 and #unchecked == 0
+end
+
+-- Stratégie d'arrêt d'un setup de course chargé par SetupLab, valeurs constatées dans la voiture (chargement vérifié, ou
+-- setup déjà en place) : note sur sa ligne dans l'onglet COURSE et dans le rapport J0 ; avertissement au journal sinon.
+local function applyPit(check)
+  if check.kind ~= 'race' then return end
+  local file = tostring(check.path):match('[^/\\]+$')
+  local res, why = Exporter.applyPitStrategy(host, check.target)
+  local note, ok = pitStrategyNote(res, why, file)
+  app.pitStrategy = { result = res, reason = why, note = note, ok = ok, seen = res and res.seen, file = file }
+  log(ok and 'INFO' or 'WARN', 'pit', note .. ((res and #res.seen > 0) and (' Menu d\'arrêt : ' .. table.concat(res.seen, ', '))
+    or ''))
 end
 
 local function loadTick()
@@ -2405,19 +2434,15 @@ local function loadTick()
       if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.ui.message = 'Setup ' .. label .. ' en place, mais le chargement n\'est pas constaté : la voiture avait déjà ce '
         .. 'setup (' .. check.backup .. ').'
+      -- setup de course en place (valeurs constatées) : la stratégie d'arrêt est posée quand même (relecture du 02/11/2026)
+      applyPit(check)
     else
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
       -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
       app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
       -- setup de course : le preset d'arrêt rapide sélectionné prend ses pressions et son composé (demande de Vincent du
-      -- 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 »)
-      -- (note dite sur sa ligne dans l'onglet COURSE ; le message de chargement reste celui d'avant)
-      if check.kind == 'race' then
-        local done, why, seen = Exporter.applyPitStrategy(host, check.target)
-        local note = pitStrategyNote(done, why)
-        app.pitStrategy = { done = done, reason = why, note = note, ok = done ~= nil and #done > 0, seen = seen }
-        log('INFO', 'pit', note .. (seen and (' Menu d\'arrêt : ' .. table.concat(seen, ', ')) or ''))
-      end
+      -- 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 ») ; note sur sa ligne dans l'onglet COURSE
+      applyPit(check)
       local s = app.start[check.kind]
       if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.loadVerified = app.loadTest

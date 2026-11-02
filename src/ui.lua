@@ -1619,7 +1619,8 @@ local function kindSection(host, app, intents, kind, palette)
     if app.raceBlocker then _, action = app.raceBlocker() end
     if action == 'qualif' then
       -- rien d'autre tant qu'aucune qualification n'est validée : le setup de course part d'elle
-      wrapped(host, 'Le setup de course se fait après une version de qualification validée (au moins une v1) : onglet QUALIF.',
+      wrapped(host, 'Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à '
+        .. 'l\'essai) : onglet QUALIF.',
         palette.pending)
       if host.ui.skin and actionButton(host, app.ui, palette, 'Aller à l\'onglet QUALIF###goto_quali', 'primary', false) then
         app.ui.tab = 'Tour rapide'
@@ -2113,7 +2114,8 @@ local function stepCard(host, app, intents, palette)
     -- course : elle part de la qualification validée (pas de départ à choisir)
     title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. '.', palette.pending
     if raceAction == 'qualif' then
-      text = text .. ' Le setup de course se fait après une version de qualification validée (au moins une v1).'
+      text = text .. ' Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à '
+        .. 'l\'essai).'
       actions[1] = { label = 'Affiner le tour rapide###step_quali', intent = { refineStart = 'quali' }, style = 'primary',
         tab = 'Tour rapide', tip = 'Lance l\'affinage du setup de tour rapide (onglet QUALIF), même en séance de course.' }
     else
@@ -2298,9 +2300,9 @@ local HELP = {
       .. 'repart d\'elle.',
   } },
   { 'Course', {
-    'Le setup de course se fait après une version de qualification validée (au moins une v1) : il part d\'elle, montée '
-      .. 'dans la voiture, et vos tours avec elle donnent votre rythme. Saisissez seulement le nombre de tours de la course '
-      .. '(onglet COURSE).',
+    'Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l\'essai) : il '
+      .. 'part de lui, monté dans la voiture, et vos tours avec lui donnent votre rythme. Saisissez seulement le nombre de '
+      .. 'tours de la course (onglet COURSE).',
   } },
   { 'Overlay en jeu', {
     'La fenêtre « SetupLab Overlay » (barre d\'apps de CSP) montre en roulant si le setup en piste est mieux ou moins bien que '
@@ -2650,7 +2652,8 @@ function M.overlay(host, app)
   if e == nil then
     colored(host, 'SetupLab · aucun setup de SetupLab en piste', palette.muted)
     small(host, app.auto and 'Actif : chaque setup proposé s\'annonce ici ; le valider puis le charger au stand.'
-      or 'Affinage en pause : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de setup (au stand).',
+      or 'Pour l\'affinage pendant que vous roulez : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de '
+        .. 'setup (au stand).',
       palette.muted)
   else
     local name = e.version and ('v' .. e.version) or tostring(e.file)

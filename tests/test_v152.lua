@@ -12,6 +12,7 @@ local function boot(opts)
   opts = opts or {}
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
     stored = opts.stored, skin = opts.skin })
+  if opts.noPitApi then h.ac.setPitstopSpinnerValue = nil end
   h.sim.raceSessionType = opts.session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
@@ -57,6 +58,18 @@ end
 
 local function otherSetup(text)
   return (text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(x, v) return x .. tostring(tonumber(v) + 1) end, 1))
+end
+
+-- chargement par SetupLab, deux clics au stand (issue non vérifiée : setup déjà en place, écart)
+local function loadTry(h, app, kind)
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  frames(h, 1)
+  app.handleIntents({ loadArm = kind })
+  T.ok(app.loadArm and app.loadArm.kind == kind, 'armé : ' .. tostring(app.ui.message))
+  local started = app.clock()
+  while app.clock() - started < Config.K.loadConfirmMinSeconds + 0.1 do frames(h, 1) end
+  app.handleIntents({ loadConfirm = kind })
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement terminé')
 end
 
 -- chargement par SetupLab, deux clics au stand
@@ -276,6 +289,145 @@ tests['RV08 crans illisibles : aucun setup de qualification reconnu à tort'] = 
   app.qualiScan, app.inCar = nil, nil
   T.eq(#app.qualiFiles(), 0, 'aucune liste sans crans')
   T.eq(app.qualiInCar(), nil)
+end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- Stratégie d'arrêt (relecture du 02/11/2026)
+
+local function spinnerOf(h, name)
+  for _, sp in ipairs(h.spinners) do
+    if sp.name == name then return sp end
+  end
+  return nil
+end
+
+-- setup de course de SetupLab prêt à charger (comme après « Enregistrer ») ; renvoie son nom
+local function raceSaved(h, app, text, name)
+  local Util = require('src/util')
+  local folder = folderOf(h)
+  name = name or 'SetupLab_Course_v1.ini'
+  h.written[folder .. '/' .. name] = text
+  local hash = Util.hashString(text)
+  app.written[name] = hash
+  app.saved.race = { path = folder .. '/' .. name, name = name, text = text, signature = 'course-' .. name, hash = hash,
+    bucket = 'sec', carId = h.ac.getCarID(0) }
+  app.proposals.race = 'course-' .. name
+  return name
+end
+
+-- setup de la voiture avec des pressions différentes à chaque roue et, si la voiture en a plusieurs, une autre gomme
+local function asymmetric(h, app)
+  local text = h.ac.stringifyCurrentSetup(true, false)
+  local want = {}
+  for i, name in ipairs({ 'PRESSURE_LF', 'PRESSURE_RF', 'PRESSURE_LR', 'PRESSURE_RR' }) do
+    local sp = assert(spinnerOf(h, name), name)
+    want[name] = math.min(sp.max, sp.min + i)
+    local n
+    text, n = text:gsub('(%[' .. name .. '%]%s*VALUE=)(%-?[%d%.]+)', function(a) return a .. want[name] end, 1)
+    T.eq(n, 1, name .. ' dans le setup')
+  end
+  local compounds = app.discovery.carBase.compounds
+  local tyres = (#compounds > 1 and compounds[2].index) or app.discovery.compoundIndex
+  local n
+  text, n = text:gsub('(%[TYRES%]%s*VALUE=)(%d+)', function(a) return a .. tyres end, 1)
+  if n == 0 then text = text .. '\n[TYRES]\nVALUE=' .. tyres .. '\n' end
+  return text, want, tyres
+end
+
+tests['PV01 stratégie d\'arrêt : chaque roue sa pression, la gomme du setup, relue dans le menu'] = function()
+  local h, app = ready({ session = 1 })
+  local text, want, tyres = asymmetric(h, app)
+  raceSaved(h, app, text)
+  loadVia(h, app, 'race')
+  for name, v in pairs(want) do T.eq(h.pitstop[name], v, name) end
+  T.eq(h.pitstop.COMPOUND, tyres, 'gomme du setup')
+  T.eq(h.pitstop.FUEL, 0, 'carburant inchangé')
+  T.eq(h.pitPresets[1], 'sélectionné', 'preset sélectionné')
+  local pit = assert(app.pitStrategy, 'stratégie d\'arrêt posée')
+  T.ok(pit.ok, pit.note)
+  T.contains(pit.note, 'SetupLab_Course_v1.ini')
+  T.contains(pit.note, 'LF ' .. want.PRESSURE_LF)
+  T.contains(pit.note, 'RR ' .. want.PRESSURE_RR)
+  T.contains(pit.note, '(changement de pneus prévu à l\'arrêt)')
+  T.eq(app.discovery.caps.byId.pit_strategy.status, 'available', app.discovery.caps.byId.pit_strategy.detail)
+  T.ok(not app.discovery.caps.byId.pit_strategy.detail:find('. ;', 1, true), 'pas de double ponctuation')
+  local I18n = require('src/i18n')
+  local en = I18n.en(pit.note)
+  T.ok(not I18n.looksFrench(en), 'anglais : ' .. en)
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV02 setup de course déjà dans la voiture : stratégie d\'arrêt posée quand même'] = function()
+  local h, app = ready({ session = 1 })
+  raceSaved(h, app, h.ac.stringifyCurrentSetup(true, false), 'SetupLab_Course_v2.ini')
+  loadTry(h, app, 'race')
+  T.contains(tostring(app.loadTest and app.loadTest.reason), 'non concluant')
+  T.ok(h.pitCalls >= 4, 'menu d\'arrêt réglé : ' .. h.pitCalls)
+  T.eq(h.pitstop.PRESSURE_LF, spinnerOf(h, 'PRESSURE_LF').value)
+  T.contains(app.pitStrategy.note, 'SetupLab_Course_v2.ini')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV03 chargement de course en écart : menu d\'arrêt intact'] = function()
+  local h, app = ready({ session = 1 })
+  local text = asymmetric(h, app)
+  raceSaved(h, app, text)
+  h.opts.loadSkip = 'PRESSURE_LF'
+  loadTry(h, app, 'race')
+  T.ok(app.loadTest and not app.loadTest.ok, 'écart constaté')
+  T.eq(h.pitCalls, 0, 'menu d\'arrêt intact')
+  T.eq(app.pitStrategy, nil)
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV04 réglages refusés par le jeu : dit, rapport J0 à confirmer'] = function()
+  local h, app = ready({ session = 1 })
+  local text = asymmetric(h, app)
+  raceSaved(h, app, text)
+  h.pitRefuse = true
+  loadVia(h, app, 'race')
+  local pit = assert(app.pitStrategy)
+  T.ok(not pit.ok, pit.note)
+  T.contains(pit.note, 'refusée par le jeu')
+  T.eq(h.pitstop.PRESSURE_LF, 16, 'rien posé')
+  T.eq(app.discovery.caps.byId.pit_strategy.status, 'pending')
+  local I18n = require('src/i18n')
+  T.ok(not I18n.looksFrench(I18n.en(pit.note)), I18n.en(pit.note))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV05 gomme absente du menu d\'arrêt : non posée, pressions posées, dit'] = function()
+  local h, app = ready({ session = 1 })
+  local text, want = asymmetric(h, app)
+  raceSaved(h, app, text)
+  h.pitMax = { COMPOUND = -1 }
+  loadVia(h, app, 'race')
+  local pit = assert(app.pitStrategy)
+  T.eq(h.pitstop.COMPOUND, -1, 'gomme non posée (pas bornée)')
+  T.eq(h.pitstop.PRESSURE_RF, want.PRESSURE_RF, 'pressions posées')
+  T.ok(not pit.ok, pit.note)
+  T.contains(pit.note, 'Pneus non posés')
+  local I18n = require('src/i18n')
+  T.ok(not I18n.looksFrench(I18n.en(pit.note)), I18n.en(pit.note))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV06 réglage du menu d\'arrêt absent de CSP : rapport J0 « indisponible »'] = function()
+  local h, app = ready({ session = 1, noPitApi = true })
+  T.eq(app.discovery.caps.byId.pit_strategy.status, 'unavailable')
+  local text = asymmetric(h, app)
+  raceSaved(h, app, text)
+  loadVia(h, app, 'race')
+  T.eq(h.pitCalls, 0)
+  T.contains(app.pitStrategy.note, 'indisponible')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['PV07 réglage du menu d\'arrêt hors de l\'exporteur : refusé par le banc'] = function()
+  local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza') })
+  local ok = pcall(h.ac.setPitstopSpinnerValue, 'PRESSURE_LF', 20)
+  T.ok(not ok, 'appel hors de l\'exporteur refusé')
+  T.eq(h.pitCalls, 0)
 end
 
 return tests

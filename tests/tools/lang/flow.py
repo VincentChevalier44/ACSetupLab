@@ -211,4 +211,30 @@ EN = {
     'course commencée : elle continue depuis le setup dans la voiture': 'race started: it goes on from the setup in the car',
     "Calcul %s de l'affinage interrompu : l'affinage %s passe d'abord (repris avec l'affinage %s)":
         'Refinement %s computation interrupted: the %s refinement goes first (resumed with the %s refinement)',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pneus %s (changement de pneus prévu à l'arrêt), pressions %s.":
+        'Pit strategy (selected preset) updated for %s: %s tyres (tyre change planned at the stop), pressures %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pressions %s.":
+        'Pit strategy (selected preset) updated for %s: pressures %s.',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pneus %s (changement de pneus prévu à l'arrêt).":
+        'Pit strategy (selected preset) updated for %s: %s tyres (tyre change planned at the stop).',
+    "Stratégie d'arrêt non mise à jour pour %s : refusée par le jeu (%s).":
+        'Pit strategy not updated for %s: refused by the game (%s).',
+    "Stratégie d'arrêt non mise à jour pour %s : aucun réglage de pression ou de pneus modifiable dans le menu d'arrêt.":
+        'Pit strategy not updated for %s: no editable pressure or tyre setting in the pit menu.',
+    'Refusé par le jeu : %s.':
+        'Refused by the game: %s.',
+    "Pneus non posés : gomme %s absente du menu d'arrêt.":
+        'Tyres not set: compound %s is not in the pit menu.',
+    "À vérifier dans le menu d'arrêt : %s.":
+        'To check in the pit menu: %s.',
+    "%s ; menu d'arrêt : %s":
+        '%s; pit menu: %s',
+    "Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l'essai) : onglet QUALIF.":
+        'The race setup comes after a SetupLab qualifying setup (at least a v1, validated or on trial): QUALIFYING tab.',
+    "Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l'essai).":
+        'The race setup comes after a SetupLab qualifying setup (at least a v1, validated or on trial).',
+    "À faire : %s. Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l'essai).":
+        'To do: %s. The race setup comes after a SetupLab qualifying setup (at least a v1, validated or on trial).',
+    "Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l'essai) : il part de lui, monté dans la voiture, et vos tours avec lui donnent votre rythme. Saisissez seulement le nombre de tours de la course (onglet COURSE).":
+        'The race setup comes after a SetupLab qualifying setup (at least a v1, validated or on trial): it starts from it, fitted to the car, and your laps with it give your pace. Just enter the number of race laps (RACE tab).',
 }

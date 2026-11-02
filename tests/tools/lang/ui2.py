@@ -242,8 +242,8 @@ EN = {
     'SetupLab · en veille : %s': 'SetupLab · standby: %s',
     'SetupLab · aucun setup de SetupLab en piste': 'SetupLab · no SetupLab setup on track',
     "Actif : chaque setup proposé s'annonce ici ; le valider puis le charger au stand.": 'Active: each proposed setup is announced here; try it, sort its effects and validate it in the pits.',
-    "Affinage en pause : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l'écran de setup (au stand).":
-        'Refinement paused: tick "SetupLab active" in the SetupLab window, on the setup screen (in the pits).',
+    "Pour l'affinage pendant que vous roulez : cochez « SetupLab actif » dans la fenêtre SetupLab, sur l'écran de setup (au stand).":
+        'For refinement while you drive: tick "SetupLab active" in the SetupLab window, on the setup screen (in the pits).',
     'SetupLab · %s en piste (%s)': 'SetupLab · %s on track (%s)',
     '%s non gardée : charger la référence au stand.': '%s not kept: load the reference in the pits.',
     "Identique au setup d'avant": 'Same as the previous setup',

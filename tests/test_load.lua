@@ -433,7 +433,7 @@ tests['J20 setup de course chargé : stratégie d\'arrêt réglée (pressions, c
   T.eq(h.pitstop.FUEL, 0, 'carburant inchangé')
   local note = assert(app.pitStrategy and app.pitStrategy.note, 'note du menu d\'arrêt')
   T.ok(app.pitStrategy.ok, note)
-  T.contains(note, 'Stratégie d\'arrêt (preset sélectionné) mise à jour : ')
+  T.contains(note, 'Stratégie d\'arrêt (preset sélectionné) mise à jour pour ')
   T.contains(note, 'pressions ')
   if values.TYRES then T.contains(note, '(changement de pneus prévu à l\'arrêt)') end
   T.ok(not note:find('COMPOUND', 1, true), 'gomme nommée : ' .. note)

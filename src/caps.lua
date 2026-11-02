@@ -32,6 +32,8 @@ M.FUNCTIONS = {
   'ac.getCarMaxSpeedWithGear', 'ac.onSetupFile', 'ac.onLapCompleted', 'ac.onRelease', 'ac.storage',
   'ac.setClipboardText', 'ac.refreshSetups', 'io.available', 'io.load', 'io.save', 'io.fileExists', 'io.createFileDir',
   'io.isFileNameAcceptable', 'ac.loadSetup', 'ac.setMessage',
+  -- menu d'arrêt rapide (D8 amendé le 02/11/2026 : réglé par exporter.lua après un chargement de course)
+  'ac.getPitstopSpinners', 'ac.setPitstopSpinnerValue',
 }
 
 -- Fonctions présentes dans le SDK mais que SetupLab n'appelle jamais : elles modifieraient
@@ -430,7 +432,7 @@ function M.evaluate(static, d)
   if d and d.pitApi == false then
     add('pit_strategy', 'Stratégie d\'arrêt', M.UNAVAILABLE, 'menu d\'arrêt rapide inaccessible dans cette version de CSP')
   elseif pit then
-    add('pit_strategy', 'Stratégie d\'arrêt', pit.ok and M.AVAILABLE or M.PENDING, tostring(pit.note) .. menu)
+    add('pit_strategy', 'Stratégie d\'arrêt', pit.ok and M.AVAILABLE or M.PENDING, (tostring(pit.note):gsub('%.$', '')) .. menu)
   else
     add('pit_strategy', 'Stratégie d\'arrêt', M.PENDING,
       'possible, non testé : charger un setup de course avec SetupLab, au stand')
