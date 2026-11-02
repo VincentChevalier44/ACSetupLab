@@ -1567,10 +1567,12 @@ local function racePanel(host, app, intents, palette)
       .. '(carburant, usure, relais).\nQuand SetupLab charge le setup de course (deux clics au stand), le preset sélectionné '
       .. 'du menu d\'arrêt rapide prend ses pressions et ses pneus ; carburant et réparations restent les vôtres. Un setup '
       .. 'chargé depuis le menu d\'AC ne change pas le menu d\'arrêt.')
+    local started = app.raceStarted and app.raceStarted() or false
     local ref = inCar and inCar.file or (m and m.file)
+    if ref == nil and started then ref = 'course commencée : elle continue depuis le setup dans la voiture' end
     colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),
       palette[ref and 'available' or 'pending'])
-    local mounted = inCar ~= nil or (m ~= nil and action ~= 'load' and action ~= 'loadfile')
+    local mounted = inCar ~= nil or started or (m ~= nil and action ~= 'load' and action ~= 'loadfile')
     colored(host, '2. Dans la voiture : ' .. (mounted and 'oui' or 'non'), palette[mounted and 'available' or 'pending'])
     if not mounted and app.qualiFiles then
       -- vos setups de qualification du dossier : à charger depuis le menu de setup d'AC

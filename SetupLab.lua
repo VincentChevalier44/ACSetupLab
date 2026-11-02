@@ -1207,6 +1207,7 @@ local function inertNow(sim)
 end
 
 local function update(dt)
+  app.frameNo = (app.frameNo or 0) + 1
   if not app.settings.enabled then return end
   local frameStarted = app.clock and app.clock() or nil
   local okSim, sim = Util.call(Util.get(host.ac, 'getSim'))
@@ -1332,15 +1333,41 @@ local function raceReference()
   return nil, nil
 end
 
+-- Course commencée dans cette séance (relecture du 02/11/2026 : la v1 de course essayée et chargée bloquait la suite) :
+-- une version proposée par l'affinage de la course de cette séance, ou un setup de course chargé par SetupLab et toujours
+-- dans la voiture. Elle continue alors depuis le setup dans la voiture, comme le tour rapide.
+local function raceStarted()
+  local rr = app.refines and app.refines.race
+  if rr and rr.sessionKey == app.conditionsKey then
+    for _, e in ipairs(rr.history or {}) do
+      if e.version then return true end
+    end
+  end
+  local l = app.loaded and app.loaded.race
+  local d = app.discovery
+  if not (l and type(l.values) == 'table' and d and d.setup and type(d.setup.spinners) == 'table') then return false end
+  if l.family == nil then
+    local tyres = Util.isFinite(l.values.TYRES) and l.values.TYRES or d.compoundIndex
+    l.family = signatureOf(d.setup.spinners, l.values, tyres, K.familyIgnored)
+  end
+  local family = app.inCarFamily and app.inCarFamily() or d.family
+  return family ~= nil and family == l.family
+end
+app.raceStarted = raceStarted
+
 local function raceBlocker()
   local m = raceReference()
   -- un setup de qualification de SetupLab dans la voiture (validé ou essai, d'une séance précédente comprise, réenregistré
-  -- depuis le menu d'AC compris) sert de référence (demande de Vincent du 02/11/2026)
-  local inCar = app.qualiInCar and app.qualiInCar() or nil
+  -- depuis le menu d'AC compris) sert de référence (demande de Vincent du 02/11/2026) ; course commencée : celui de la
+  -- voiture
+  local inCar = raceStarted() or (app.qualiInCar and app.qualiInCar()) or nil
   if inCar == nil then
     local files = app.qualiFiles and app.qualiFiles() or {}
     if m == nil then
-      if #files == 0 then return 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'qualif' end
+      local known = app.qualiKnown and app.qualiKnown() or 0
+      if #files == 0 and known == 0 then
+        return 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'qualif'
+      end
       return 'charger depuis le menu de setup d\'AC un de vos setups de qualification de SetupLab : la course partira de lui',
         'loadfile'
     end
@@ -1738,70 +1765,120 @@ local function setupValues(text)
   return out
 end
 
--- Setups de qualification de SetupLab du dossier de la voiture et du circuit (v1, v2, v3…, essais et noms avec meilleur
--- tour compris), relus une fois par découverte et après chaque écriture de SetupLab : nom, version, famille (valeurs des
--- crans, carburant et répartition de freinage exclus). Un fichier réenregistré depuis le menu d'AC (même nom, fichier .sp à
--- côté) reste reconnu par ses valeurs.
-local function qualiFiles()
-  local d = app.discovery
-  if not (d and d.setup and d.setup.spinners) then return {} end
+-- Dossier des setups de la voiture et du circuit, lu au plus une fois par image (relecture du 02/11/2026 : huit lectures
+-- par image, trois appels CSP chacune, onglet COURSE ouvert).
+local function folderNow()
+  local f = app.folderNow
+  if f and f.frame == app.frameNo then return f.folder end
   local folder = Exporter.targetFolder(host)
-  if folder == nil then return {} end
-  local count, length = 0, 0
-  for name in pairs(app.written) do count, length = count + 1, length + #tostring(name) end
-  local generation = count .. ':' .. length
-  local s = app.qualiScan
-  if s == nil or s.folder ~= folder then
-    s = { folder = folder, list = {} }
-    app.qualiScan = s
+  app.folderNow = { frame = app.frameNo, folder = folder }
+  return folder
+end
+
+-- Clé des fichiers écrits par SetupLab : nombre et somme des empreintes des noms (un essai remplacé par un autre de même
+-- longueur de nom, ou un renommage avec meilleur tour, la change).
+local function writtenKey()
+  local count, sum = 0, 0
+  for name in pairs(app.written) do
+    count, sum = count + 1, (sum + (tonumber(Util.hashString(tostring(name))) or 0)) % 2147483647
   end
-  if s.discovery == d and s.generation == generation then return s.list end
-  -- relecture voiture arrêtée seulement : en roulant, la liste d'avant (même dossier) reste servie
+  return count .. ':' .. sum
+end
+
+local function carStopped()
   local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
   local speed = okC and Util.get(car, 'speedMs') or nil
-  if not (Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh) then return s.list end
-  local list = {}
-  s.list, s.discovery, s.generation = list, d, generation
-  local ok, names = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
-  if not (ok and type(names) == 'table') then return list end
-  for i = 1, math.min(#names, K.scanMaxFiles) do
-    local name = names[i]
-    local version, trial = nil, false
-    for _, w in pairs(Config.fileWords) do
-      version = version or Util.versionInName(name, w.quali, w.wet)
-      trial = trial or tostring(name):find('_' .. w.trial .. '%.ini$') ~= nil
+  return Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh
+end
+
+-- Setups de qualification de SetupLab du dossier de la voiture et du circuit (v1, v2, v3…, essais et noms avec meilleur
+-- tour compris) : nom, version, famille (valeurs des crans, carburant et répartition de freinage exclus). Un fichier
+-- réenregistré depuis le menu d'AC (même nom, fichier .sp à côté) reste reconnu par ses valeurs. Relus voiture arrêtée,
+-- une fois par découverte et après chaque écriture de SetupLab : les noms d'abord (les K.raceQualiFilesMax plus récents),
+-- puis K.raceQualiReadsPerFrame fichiers par image, les plus récents en premier ; en roulant, et pendant une découverte,
+-- la liste d'avant (même dossier) reste servie (relecture du 02/11/2026).
+local function qualiFiles()
+  local d = app.discovery
+  local s = app.qualiScan
+  if d == nil then return (s and s.list) or {} end
+  if not (d.setup and type(d.setup.spinners) == 'table' and #d.setup.spinners > 0) then return {} end
+  local folder = folderNow()
+  if folder == nil then return {} end
+  if s == nil or s.folder ~= folder then
+    s = { folder = folder, list = {}, known = 0 }
+    app.qualiScan = s
+  end
+  local generation = writtenKey()
+  if s.done and s.discovery == d and s.generation == generation then return s.list end
+  if not carStopped() then return s.list end
+  local scan = s.scan
+  if not (scan and scan.discovery == d and scan.generation == generation) then
+    local candidates = {}
+    local ok, names = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
+    if ok and type(names) == 'table' then
+      for i = 1, math.min(#names, K.scanMaxFiles) do
+        local name = names[i]
+        local version, trial = nil, false
+        for _, w in pairs(Config.fileWords) do
+          version = version or Util.versionInName(name, w.quali, w.wet)
+          trial = trial or tostring(name):find('_' .. w.trial .. '%.ini$') ~= nil
+        end
+        if version then candidates[#candidates + 1] = { file = tostring(name), version = version, trial = trial } end
+      end
     end
-    if version and #list < K.raceQualiFilesMax then
-      local okL, text = Util.call(Util.get(host.io, 'load'), folder .. '/' .. name)
+    table.sort(candidates, function(x, y)
+      if x.version ~= y.version then return x.version > y.version end
+      return x.file < y.file
+    end)
+    for i = #candidates, K.raceQualiFilesMax + 1, -1 do candidates[i] = nil end
+    scan = { discovery = d, generation = generation, names = candidates, i = 1, list = {} }
+    s.scan, s.known = scan, #candidates
+  end
+  if scan.frame ~= app.frameNo then
+    scan.frame = app.frameNo
+    local reads = 0
+    while scan.i <= #scan.names and reads < K.raceQualiReadsPerFrame do
+      local f = scan.names[scan.i]
+      scan.i, reads = scan.i + 1, reads + 1
+      local okL, text = Util.call(Util.get(host.io, 'load'), folder .. '/' .. f.file)
       if okL and type(text) == 'string' and #text <= K.maxTextBytes then
         local values = setupValues(text)
         local tyres = Util.isFinite(values.TYRES) and values.TYRES or d.compoundIndex
-        list[#list + 1] = { file = name, version = version, trial = trial,
+        scan.list[#scan.list + 1] = { file = f.file, version = f.version, trial = f.trial,
           family = signatureOf(d.setup.spinners, values, tyres, K.familyIgnored) }
       end
     end
   end
-  table.sort(list, function(a, b)
-    if a.version ~= b.version then return a.version < b.version end
-    return a.file < b.file
+  local list = {}
+  for i, f in ipairs(scan.list) do list[i] = f end
+  table.sort(list, function(x, y)
+    if x.version ~= y.version then return x.version < y.version end
+    return x.file < y.file
   end)
+  if scan.i > #scan.names then
+    s.list, s.discovery, s.generation, s.done, s.scan = list, d, generation, true, nil
+  end
   return list
 end
 app.qualiFiles = qualiFiles
+-- noms de setups de qualification connus dans le dossier (le verrou « qualification d'abord » n'attend pas leur lecture)
+app.qualiKnown = function()
+  local s = app.qualiScan
+  return s and s.known or 0
+end
 
 -- Famille du setup dans la voiture (demande de Vincent du 02/11/2026 : setup chargé depuis le menu d'AC après la
 -- découverte) : relue voiture arrêtée, au plus toutes les K.inCarFamilyEvery secondes ; en roulant, ou crans illisibles,
--- la dernière lue (sinon celle de la découverte).
+-- la dernière lue (sinon celle de la découverte) ; pendant une découverte, la dernière lue.
 local function inCarFamily()
   local d = app.discovery
-  if not (d and d.family) then return nil end
   local c = app.inCar
+  if d == nil then return c and c.family or nil end
+  if not (d.family and d.setup and type(d.setup.spinners) == 'table' and #d.setup.spinners > 0) then return nil end
   local known = c and c.discovery == d
   if known and math.abs(app.now - c.at) < K.inCarFamilyEvery then return c.family end
   local family = known and c.family or d.family
-  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
-  local speed = okC and Util.get(car, 'speedMs') or nil
-  if Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh then
+  if carStopped() then
     local _, live = liveSignature()
     family = live or family
   end
@@ -2504,6 +2581,8 @@ end
 -- avant que SetupLab propose un setup ou une modification ») : tours propres et minutes de roulage avec le setup en
 -- cours dans la voiture, les deux atteints ; remis à zéro à chaque chargement.
 local function refineMinReached(r)
+  -- calcul demandé d'un clic (« Calculer le setup course », relecture du 02/11/2026) : tout de suite
+  if r.forceNext then return true end
   -- premier setup tout de suite (case cochée) : aucune version encore proposée par cet affinage
   local first = true
   for _, e in ipairs(r.history or {}) do
@@ -2687,7 +2766,7 @@ end
 
 -- Lance un calcul (ou le met en attente de la découverte) ; refus : dit, nouvel essai au prochain tour.
 local function refineCompute(r)
-  r.phase, r.due, r.laps, r.lapSignature = 'calcul', false, 0, nil
+  r.phase, r.due, r.laps, r.lapSignature, r.forceNext = 'calcul', false, 0, nil, nil
   r.waiting = 'calcul du setup en cours ; je continue d\'analyser vos tours'
   if r.kind == 'race' then
     -- course : le setup de qualification dont elle part, dit (carte d'étape, overlay)
@@ -2837,9 +2916,13 @@ local function refineTick()
     r.minTime = (r.minTime or 0) + (now - r.minClock)
   end
   r.minClock = now
-  -- progression du minimum toujours à jour (un calcul ou une calibration en cours ne la fige pas)
+  -- progression du minimum toujours à jour (un calcul ou une calibration en cours ne la fige pas) ; course : sa garde
+  -- d'abord (relecture du 02/11/2026)
+  local raceWhy = (r.phase == 'tours' and kind == 'race') and raceBlocker() or nil
   if r.phase == 'tours' and not startReady(kind) then
     r.waiting = startWaiting(kind)
+  elseif raceWhy then
+    r.waiting = 'course : ' .. raceWhy
   elseif r.phase == 'tours' and not refineMinReached(r) then
     r.waiting = refineMinText(r)
   end
@@ -2877,6 +2960,8 @@ local function refineTick()
     for _, e in ipairs(r.history) do
       if e.version and e.status == 'essai' then
         r.waiting = 'v' .. e.version .. ' en essai : gardez ou refusez ses effets puis validez (ou recommencez)'
+        -- un clic de calcul n'attend pas la fin de l'essai : la version suivante suivra le minimum de tours
+        r.forceNext = nil
         return
       end
     end
@@ -2886,16 +2971,16 @@ local function refineTick()
       r.waiting = startWaiting(kind)
       return
     end
-    if not refineMinReached(r) then
-      r.waiting = refineMinText(r)
-      return
-    end
     if kind == 'race' then
       local why = raceBlocker()
       if why then
         r.waiting = 'course : ' .. why
         return
       end
+    end
+    if not refineMinReached(r) then
+      r.waiting = refineMinText(r)
+      return
     end
     refineCompute(r)
   end
@@ -2950,7 +3035,7 @@ end
 local function refineStop()
   local r = app.refine
   if not (r and r.active) then return end
-  r.active, r.phase, r.due, r.needsDiscovery = false, 'arrêté', false, false
+  r.active, r.phase, r.due, r.needsDiscovery, r.forceNext = false, 'arrêté', false, false, nil
   app.ui.message = 'Affinage arrêté' .. (r.version > (r.base or 0) and (' : dernière version v' .. r.version .. '.') or '.')
   log('INFO', 'refine', app.ui.message)
 end
@@ -3426,10 +3511,17 @@ local function handleIntents(intents)
   -- reprise) ; le nouveau part tout de suite au lieu d'attendre derrière lui (constat de Vincent du 02/11/2026, premier
   -- setup immédiat coché : la v3 du tour rapide, 1200 évaluations, passait avant la course)
   local old = app.refine
-  if intents.refineStart and old and old.active and old.kind ~= intents.refineStart and old.phase == 'calcul' then
-    intents[old.kind .. 'Cancel'] = true
-    log('INFO', 'refine', 'Calcul ' .. COMPUTE[old.kind].label .. ' de l\'affinage interrompu : l\'affinage '
-      .. COMPUTE[intents.refineStart].label .. ' passe d\'abord (repris avec l\'affinage ' .. COMPUTE[old.kind].label .. ')')
+  if intents.refineStart == 'race' and old and old.active and old.kind ~= 'race' and old.phase == 'calcul' then
+    local rr = app.refines.race
+    local trialOpen = false
+    if rr and rr.sessionKey == app.conditionsKey then
+      for _, e in ipairs(rr.history or {}) do trialOpen = trialOpen or (e.version ~= nil and e.status == 'essai') end
+    end
+    if raceBlocker() == nil and not trialOpen then
+      intents[old.kind .. 'Cancel'] = true
+      log('INFO', 'refine', 'Calcul ' .. COMPUTE[old.kind].label .. ' de l\'affinage interrompu : l\'affinage '
+        .. COMPUTE.race.label .. ' passe d\'abord (repris avec l\'affinage ' .. COMPUTE[old.kind].label .. ')')
+    end
   end
   for _, kind in ipairs({ 'quali', 'race' }) do
     if intents[kind .. 'Start'] then startCompute(kind) end
@@ -3485,6 +3577,9 @@ local function handleIntents(intents)
     if kind ~= 'race' and app.start[kind] == nil then app.start[kind] = { mode = 'mine', ready = true } end
     app.manualKind = kind ~= sessionKind() and kind or nil
     refineStart(kind)
+    -- course demandée d'un clic : un calcul tout de suite, même en reprenant un affinage qui a déjà des versions
+    local r = app.refine
+    if kind == 'race' and r and r.kind == 'race' and r.active then r.forceNext, r.due, r.nextAt = true, true, nil end
   end
   if intents.refineJudge then refineJudge(intents.refineJudge.version, intents.refineJudge.verdict) end
   if intents.effect then effectToggle(intents.effect.version, intents.effect.key, intents.effect.keep) end

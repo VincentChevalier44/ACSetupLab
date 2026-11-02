@@ -208,4 +208,7 @@ EN = {
     "%s ; menu d'arrêt : %s": '%s; pit menu: %s',
     "calcul du setup de course en cours, à partir de %s ; je continue d'analyser vos tours":
         'computing the race setup, starting from %s; I keep analysing your laps',
+    'course commencée : elle continue depuis le setup dans la voiture': 'race started: it goes on from the setup in the car',
+    "Calcul %s de l'affinage interrompu : l'affinage %s passe d'abord (repris avec l'affinage %s)":
+        'Refinement %s computation interrupted: the %s refinement goes first (resumed with the %s refinement)',
 }
