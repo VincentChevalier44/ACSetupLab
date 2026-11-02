@@ -20,7 +20,7 @@ M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus
 -- par circuit (plus de réglage global) ; minimum avant une proposition ; langue.
 M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
   'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps',
-  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'language' }
+  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'updateCheck', 'language' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
 -- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
@@ -112,6 +112,8 @@ M.settings = {
   -- faut avant que SetupLab propose un setup ») : les deux, avec le setup en cours dans la voiture
   -- premier setup tout de suite (demande de Vincent du 29/10/2026), d'après la voiture et la piste, sans attendre le
   -- minimum ; les versions suivantes l'attendent
+  { key = 'updateCheck', kind = 'boolean', default = true,
+    label = 'Vérifier les mises à jour au lancement (GitHub)' },
   { key = 'refineInstantFirst', kind = 'boolean', default = false,
     label = 'Premier setup tout de suite, d\'après la voiture et la piste' },
   { key = 'refineMinLaps', kind = 'integer', default = 2, min = 0, max = 10,
@@ -148,6 +150,9 @@ M.help = {
     .. 'puissance, traînée, appui, freinage). À laisser coché.',
   wetAidLevels = 'Sous la pluie, nombre de crans d\'antipatinage et d\'ABS ajoutés aux aides du setup. 0 : aides inchangées.',
   refineLaps = 'Pendant l\'affinage, nombre de tours propres entre deux calculs. 0 : un nouveau calcul à chaque tour propre.',
+  updateCheck = 'Coché : une fois par lancement d\'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée. '
+    .. 'Plus récente : un bouton « Mettre à jour » apparaît ; rien n\'est téléchargé ni installé sans votre clic. Rien n\'est '
+    .. 'envoyé.',
   refineInstantFirst = 'Coché : dès que SetupLab est actif (point de départ choisi), il calcule un premier setup d\'après les '
     .. 'caractéristiques de la voiture et de la piste, sans attendre de tour. Les versions suivantes attendent le minimum '
     .. 'ci-dessous. Décoché : le premier setup attend aussi ce minimum.',
@@ -162,6 +167,7 @@ M.help = {
 M.K = {
   -- Boucle d'exécution (§5)
   dtMax = 0.25,               -- borne haute de dt (s)
+  updateCheckFrame = 300,    -- mise à jour : vérifiée après ~5 s (images), une fois par lancement
   contextPeriod = 1.0,        -- détection de contexte (s)
   fpsTarget = 60,             -- en dessous, la tranche est réduite
   slowFpsSliceFactor = 0.25,  -- fraction de tranche conservée sous fpsTarget

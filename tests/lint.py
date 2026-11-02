@@ -30,19 +30,23 @@ FORBIDDEN = {
     'collectgarbage', 'module', 'package', 'jit',
 }
 CSP_GLOBALS = {'ac', 'physics', 'io', 'ui', 'vec2', 'vec3', 'rgbm', 'script', '_G'}
+# Réseau (demande de Vincent du 02/11/2026, mise à jour en jeu) : la globale web lue par la colle seulement, passée à
+# src/updater.lua dans l'hôte ; aucun autre module ne la voit.
+GLUE_NETWORK = {'web'}
 
 # Rôles (D5). Le noyau pur ne lit aucune API ; les modules d'E/S reçoivent l'hôte injecté.
 CORE = {'util', 'config', 'track_model', 'car_model', 'setup_space', 'laptime_sim', 'stint_sim', 'ers', 'ers_plan', 'explain',
         'optimizer', 'calibration', 'i18n', 'lang_en'}
-IO = {'caps', 'datasource', 'recorder', 'exporter', 'store'}
+IO = {'caps', 'datasource', 'recorder', 'exporter', 'store', 'updater'}
 UI = {'ui', 'skin'}
 
 # Fonctions d'écriture : seulement là où le PDR les place. D8 amendé le 22/10/2026 (décision de Vincent) : Corbeille
 # et renommage des fichiers écrits par SetupLab, depuis l'exporteur seulement ; suppression définitive jamais.
 WRITE_API = {
-    'save': {'exporter', 'store'}, 'saveAsync': {'exporter', 'store'}, 'createDir': {'exporter'},
+    'save': {'exporter', 'store'}, 'saveAsync': {'exporter', 'store'}, 'createDir': {'exporter', 'updater'},
     'createFileDir': {'exporter'}, 'deleteFile': set(), 'deleteDir': set(), 'move': {'exporter'},
-    'copyFile': set(), 'replaceFile': set(), 'recycle': {'exporter'}, 'setAndSave': set(),
+    'copyFile': {'updater'}, 'replaceFile': set(), 'recycle': {'exporter', 'updater'}, 'setAndSave': set(),
+    'extractFromZipAsync': {'updater'},
     'setClipboardText': {'SetupLab', 'exporter'}, 'setActiveSetupName': set(), 'refreshSetups': {'exporter'},
 }
 # D8 : ne jamais modifier le setup en cours par cran ni l'enregistrer par-dessus un fichier.
@@ -96,7 +100,7 @@ class Checker:
         self.errors = []
         self.allowed = set(STANDARD)
         if self.role == 'glue':
-            self.allowed |= CSP_GLOBALS | {'SETUPLAB'}
+            self.allowed |= CSP_GLOBALS | GLUE_NETWORK | {'SETUPLAB'}
 
     def report(self, node, message):
         token = getattr(node, '_first_token', None)
@@ -114,7 +118,7 @@ class Checker:
                 if not write:
                     scope[node.id][1] += 1
                 return
-        if node.id in FORBIDDEN:
+        if node.id in FORBIDDEN and not (self.role == 'glue' and node.id in GLUE_NETWORK and not write):
             self.report(node, 'forbidden global: ' + node.id)
         elif write and not (self.role == 'glue' and node.id == 'SETUPLAB'):
             self.report(node, 'global write: ' + node.id)

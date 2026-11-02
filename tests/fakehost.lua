@@ -1070,6 +1070,8 @@ end
 -- Installe l'hôte comme globales CSP (pour charger SetupLab.lua tel quel).
 function F.install(h)
   rawset(_G, 'ac', h.ac)
+  -- réseau : seulement si le test en donne un (mise à jour en jeu) ; sinon absent, comme hors ligne
+  rawset(_G, 'web', h.web)
   rawset(_G, 'physics', h.physics)
   rawset(_G, 'io', h.io)
   rawset(_G, 'ui', h.ui)

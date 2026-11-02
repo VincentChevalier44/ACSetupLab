@@ -18,6 +18,7 @@ local Recorder = require('src/recorder')
 local Store = require('src/store')
 local Calibration = require('src/calibration')
 local L = require('src/i18n')
+local Updater = require('src/updater')
 
 local K = Config.K
 
@@ -29,12 +30,15 @@ local okFfi, ffi = pcall(require, 'ffi')
 -- horloge officielle de CSP, seule fonction os.* utilisée (accord de Vincent du 29/10/2026, A2 amendé) ; absente
 -- (CSP 0.2.11) ou os indisponible : nil
 local okClock, preciseClock = pcall(function() return os.preciseClock end)
+-- réseau : seulement pour la mise à jour en jeu (demande de Vincent du 02/11/2026), depuis src/updater.lua
+local okWeb, webLib = pcall(function() return web end)
 
 local host = {
   ac = ac, physics = physics, io = io, ui = ui,
   vec2 = vec2, vec3 = vec3, rgbm = rgbm,
   ffi = okFfi and ffi or nil,
   preciseClock = okClock and preciseClock or nil,
+  web = okWeb and type(webLib) == 'table' and webLib or nil,
 }
 
 local app = {
@@ -55,6 +59,8 @@ local app = {
   loadTest = nil,            -- issue du dernier appel à ac.loadSetup : vérifié, écart, refus, non concluant
   loadVerified = nil,        -- dernier chargement vérifié (capacité setup_load)
   pendingComputes = {},      -- genres de calcul demandés pendant une découverte (lancés à sa fin)
+  updater = Updater.new(),   -- mise à jour en jeu (1.5.3) : idle, checking, current, available, downloading…
+  updaterSeen = nil,
   saved = {},                -- genre -> dernier setup enregistré : chemin, texte, signature, voiture (chargement)
   refine = nil,              -- mode affinage : genre, phase, tours comptés, versions enregistrées (historique)
   auto = false,              -- SetupLab actif (case à cocher, décision de Vincent du 21/10/2026) : affinage automatique du
@@ -1263,6 +1269,21 @@ local function update(dt)
   end
   if app.auto and app.autoTick then app.autoTick() end
   if app.refine and app.refine.active then app.refineTick() end
+  -- mise à jour : une seule vérification par lancement d'AC, quelques secondes après le démarrage (hors ligne)
+  if app.updater.state == 'idle' and app.settings.updateCheck and app.frameNo >= K.updateCheckFrame and not app.inert then
+    if Updater.check(app.updater, host, Config.version) then log('INFO', 'update', 'Recherche d\'une mise à jour (GitHub)') end
+  end
+  if app.updater.state ~= app.updaterSeen then
+    app.updaterSeen = app.updater.state
+    local u = app.updater
+    if u.state == 'available' then
+      log('INFO', 'update', 'Mise à jour disponible : ' .. tostring(u.latest))
+    elseif u.state == 'current' then
+      log('INFO', 'update', 'SetupLab est à jour (' .. tostring(Config.version) .. ')')
+    elseif u.state == 'unreachable' then
+      log('INFO', 'update', 'Mise à jour non vérifiée : ' .. tostring(u.why))
+    end
+  end
   if #app.fileOps > 0 and app.fileOpsTick then
     local okF, errF = pcall(app.fileOpsTick)
     if not okF then
@@ -3829,6 +3850,25 @@ local function handleIntents(intents)
     app.ui.message = 'Calibration impossible : aucun tour valide avec un setup connu.'
   end
   if intents.copyLap then copyLap() end
+  if intents.updateApply and app.updater.state == 'available' then
+    local okA, appDir = Util.call(Util.get(host.ac, 'getFolder'), Util.get(Util.get(host.ac, 'FolderID'), 'ScriptOrigin'))
+    local okT, tempDir = Util.call(Util.get(host.ac, 'getFolder'), Util.get(Util.get(host.ac, 'FolderID'), 'AppDataTemp'))
+    local version = app.updater.info and app.updater.info.version
+    log('INFO', 'update', 'Mise à jour vers ' .. tostring(version) .. ' : téléchargement')
+    Updater.apply(app.updater, host, { app = okA and appDir or nil, temp = okT and tempDir or nil }, function(ok, why)
+      if ok then
+        app.ui.message = 'Mise à jour ' .. tostring(version) .. ' installée : CSP recharge SetupLab, qui revient en veille.'
+        log('INFO', 'update', app.ui.message)
+      else
+        app.ui.message = 'Mise à jour impossible : ' .. tostring(why) .. '.'
+        log('WARN', 'update', app.ui.message)
+      end
+    end)
+  end
+  if intents.updateCopyLink and app.updater.info then
+    local okC = Util.call(Util.get(host.ac, 'setClipboardText'), app.updater.info.page)
+    app.ui.message = okC and 'Lien de la page de la mise à jour copié.' or 'Copie du lien impossible.'
+  end
   if intents.pinsClear then
     app.pins[intents.pinsClear] = {}
     app.ui.message = 'Retouches libérées : le prochain calcul peut de nouveau changer tous les réglages.'

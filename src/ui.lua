@@ -2425,6 +2425,32 @@ local function skinHeader(host, app, intents, palette)
 end
 
 -- État : SetupLab actif, découverte, données et calculs (en tête du contenu).
+-- Mise à jour en jeu (1.5.3) : une ligne en tête quand une version plus récente est publiée, l'état pendant
+-- l'installation, la raison d'un échec (avec le lien de la page).
+local function updateLine(host, app, intents, palette)
+  local u = app.updater
+  if not u then return end
+  if u.state == 'available' and u.info then
+    colored(host, 'Mise à jour disponible : ' .. tostring(u.info.version) .. ' (installée : ' .. tostring(Config.version)
+      .. ')', palette.available)
+    if actionButton(host, app.ui, palette, 'Mettre à jour###update_apply', 'go', false) then intents.updateApply = true end
+    tip(host, 'Télécharge l\'archive de la version ' .. tostring(u.info.version) .. ' sur GitHub, vérifie sa taille et son '
+      .. 'empreinte SHA-256, puis remplace les fichiers de l\'app (les fichiers d\'avant sont remis en cas d\'échec). CSP '
+      .. 'recharge alors SetupLab, qui revient en veille ; vos réglages, votre mémoire et vos setups sont gardés.')
+  elseif u.state == 'downloading' or u.state == 'extracting' then
+    colored(host, 'Mise à jour en cours : ' .. (u.state == 'downloading' and 'téléchargement' or 'installation') .. '…',
+      palette.pending)
+  elseif u.state == 'done' then
+    colored(host, 'Mise à jour installée : CSP recharge SetupLab.', palette.available)
+  elseif u.state == 'failed' then
+    colored(host, 'Mise à jour impossible : ' .. tostring(u.why) .. '.', palette.pending)
+    if u.info then
+      small(host, 'Installez-la à la main depuis ' .. u.info.page, palette.muted)
+      if host.ui.button('Copier le lien###update_link') then intents.updateCopyLink = true end
+    end
+  end
+end
+
 local function statusLines(host, app, palette)
   local d = app.discovery
   local autoText, autoColor = M.autoLine(app)
@@ -2532,6 +2558,7 @@ function M.main(host, app, intents)
       local selected = skinTabs(host, app, tabs)
       Util.call(ui.unindent, 16)
       local function body()
+        updateLine(host, app, intents, palette)
         statusLines(host, app, palette)
         stepCard(host, app, intents, palette, selected)
         if app.ui.message then small(host, app.ui.message, palette.accent) end
@@ -2559,6 +2586,7 @@ function M.main(host, app, intents)
       Util.call(ui.drawRectFilled, a0, b0, palette.bg, 0)
     end
     header(host, app, intents, palette)
+    updateLine(host, app, intents, palette)
     local tabBar = ui.tabBar and ui.tabItem
     -- avec onglets : la carte d'étape dans l'onglet de son genre seulement (dessinée dans l'onglet affiché)
     if not tabBar then stepCard(host, app, intents, palette) end

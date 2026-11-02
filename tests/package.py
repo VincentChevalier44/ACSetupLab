@@ -20,7 +20,11 @@ DIST = APP / 'dist'
 FILES = ['SetupLab.lua', 'manifest.ini', 'icon.png', 'README.md', 'CHANGELOG.md']
 DIRS = {'src': ('.lua',), 'docs': ('.md', '.html')}
 # os.preciseClock (horloge officielle de CSP) : seule exception, accord de Vincent du 29/10/2026
-FORBIDDEN = re.compile(r'\b(os\.(?!preciseClock\b)\w+|loadstring|dofile|web\.\w+)\s*\(')
+FORBIDDEN = re.compile(r'\b(os\.(?!preciseClock\b)\w+|loadstring|dofile)\s*\(')
+# réseau : mise à jour en jeu seulement (demande de Vincent du 02/11/2026), lecture et téléchargement depuis
+# src/updater.lua ; aucun envoi (post, request, socket)
+NETWORK = re.compile(r'\bweb\.(\w+)\s*\(')
+NETWORK_ALLOWED = {'src/updater.lua': {'get', 'timeouts'}}
 
 
 def version_of_config():
@@ -72,13 +76,19 @@ def main():
             hit = FORBIDDEN.search(code)
             if hit:
                 sys.exit(f'appel interdit (§16.2) dans {rel} : {hit.group(0)}')
+            for net in NETWORK.finditer(code):
+                if net.group(1) not in NETWORK_ALLOWED.get(rel, set()):
+                    sys.exit(f'appel réseau interdit dans {rel} : {net.group(0)}')
     DIST.mkdir(exist_ok=True)
     target = DIST / f'SetupLab-{version}.zip'
     if target.exists():
         sys.exit(f'{target.name} existe déjà : jamais d\'écrasement (changer de version)')
+    rels = [path.relative_to(APP).as_posix() for path in files]
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as z:
-        for path in files:
-            z.write(path, 'SetupLab/' + path.relative_to(APP).as_posix())
+        for path, rel in zip(files, rels):
+            z.write(path, 'SetupLab/' + rel)
+        # liste des fichiers de la version : la mise à jour en jeu suivante retire ceux qui n'existent plus
+        z.writestr('SetupLab/files.txt', '\n'.join(sorted(rels + ['files.txt'])) + '\n')
     with zipfile.ZipFile(target) as z:
         names = z.namelist()
     if any('/tests/' in n or n.endswith('.py') for n in names):
