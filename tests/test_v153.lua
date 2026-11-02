@@ -162,4 +162,57 @@ tests['TR04 Valider sans essai : la version reste à charger, rien n\'est charg�
   T.eq(app.perf.errors, 0)
 end
 
+-- Tranche 3 (décision de Vincent du 02/11/2026) : après chaque validation, on demande « Continuer l'affinage » ou
+-- « Figer » ; rien de nouveau n'est calculé avant la réponse.
+tests['CH01 après la validation : question posée, aucun calcul ; « Continuer » : la version suivante se calcule'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(r.choice, e.version, 'question posée')
+  T.contains(r.waiting, 'continuer l\'affinage ou la figer')
+  local computed, version = app.quali, r.version
+  r.due, r.nextAt, r.forceNext = true, nil, true
+  frames(h, 600)
+  -- la découverte relancée après le chargement efface le résultat d'avant ; aucun calcul nouveau
+  T.ok(app.quali == nil or app.quali == computed, 'aucun calcul avant la réponse')
+  T.eq(r.version, version, 'aucune version nouvelle')
+  T.ok(r.active, 'affinage toujours actif (en attente de la réponse)')
+  app.handleIntents({ refineChoice = { version = e.version } })
+  T.eq(r.choice, nil)
+  T.contains(app.ui.message, 'il continue à partir de v' .. e.version)
+  r.forceNext = true
+  T.ok(waitFor(h, function() return app.quali ~= nil and app.quali ~= computed end, 6000), 'nouveau calcul après « Continuer »')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['CH02 après la validation : « Figer » verrouille la version et arrête l\'affinage'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(r.choice, e.version)
+  app.handleIntents({ refineChoice = { version = e.version, lock = true } })
+  local m = app.memory[e.group .. '|' .. e.bucket]
+  T.ok(m and m.locked and m.signature == e.signature, 'version figée en mémoire')
+  T.no(r.active, 'affinage arrêté')
+  T.eq(r.choice, nil)
+  frames(h, 120)
+  T.no(app.refine.active, 'pas de reprise tant que figé')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['CH03 « Relancer l\'affinage » vaut « Continuer » ; une réponse pour une autre version ne fait rien'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  app.handleIntents({ refineChoice = { version = e.version + 5 } })
+  T.eq(r.choice, e.version, 'réponse pour une autre version : ignorée')
+  app.handleIntents({ refineStop = true })
+  T.no(r.active)
+  app.handleIntents({ refineStart = 'quali' })
+  T.ok(app.refine == r and r.active, 'affinage repris')
+  T.eq(r.choice, nil, 'relancer : continuer')
+  frames(h, 2)
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

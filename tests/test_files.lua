@@ -292,6 +292,8 @@ tests['RG04 copies « Avant chargement » : seulement si utiles ; à la validati
   local dupName = Config.exportBackupPrefix .. 'double.ini'
   h.written[folder .. '/' .. dupName] = v1.text
   app.backups[#app.backups + 1] = { name = dupName, hash = Util.hashString(v1.text), values = app.setupValues(v1.text) }
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   -- v2 : autre base, un tour propre, validée en roulant : rien tant que la voiture roule
   toe(h)
   local profile = drivenProfile(h, app)
@@ -356,6 +358,8 @@ tests['RG05 sûreté : fichier modifié, gardé ou étranger jamais touché ; un
   T.eq(#h.recycled, recycled + 1, 'une seule par image')
   script.SETUPLAB__UPDATE(1 / 60)
   T.eq(#h.recycled, recycled + 2)
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   -- version non gardée, modifiée entre-temps (enregistrée par-dessus dans le menu d'AC) : laissée telle quelle
   toe(h)
   local profile = drivenProfile(h, app)
@@ -378,6 +382,8 @@ tests['RG06 io.recycle absente : rien ne part, aucune erreur'] = function()
   local h, app = ready({ missing = { 'io.recycle' } })
   local folder = folderOf(h)
   local r = v1Loaded(h, app)
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   toe(h)
   local profile = drivenProfile(h, app)
   T.ok(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end, nil, profile), 'v2')

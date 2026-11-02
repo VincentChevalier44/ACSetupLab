@@ -219,6 +219,20 @@ EN = {
     "v%s est le setup figé (%s) : le déverrouiller d'abord.": 'v%s is the locked setup (%s): unlock it first.',
     'essai de v%s non gardé': 'v%s trial not kept',
     'essai de v%s chargé dans la voiture': 'v%s trial loaded into the car',
+    "v%s validée : continuer l'affinage ou la figer ?": 'v%s validated: carry on refining, or lock it?',
+    'Étape 4/4 · %s validée': 'Step 4/4 · %s validated',
+    "Enregistrée : %s. Continuer l'affinage (une nouvelle version avec vos prochains tours), ou la figer ?":
+        'Saved: %s. Carry on refining (a new version with your next laps), or lock it?',
+    "Enregistrée : %s. Elle n'est pas encore dans la voiture (bouton vert « Charger »). Continuer l'affinage, ou la figer ?":
+        'Saved: %s. It is not in the car yet (green "Load" button). Carry on refining, or lock it?',
+    "Continuer l'affinage": 'Carry on refining',
+    'SetupLab propose une nouvelle version à partir de %s avec vos prochains tours.':
+        'SetupLab proposes a new version from %s with your next laps.',
+    "Verrouille %s : gardée en mémoire pour ce circuit, proposée à chaque visite ; l'affinage s'arrête. Déverrouillable (onglet Mémoire).":
+        'Locks %s: kept in memory for this track, offered on every visit; refinement stops. Can be unlocked (MEMORY tab).',
+    'Affinage %s : il continue à partir de v%s ; nouvelle version avec vos prochains tours.':
+        '%s refinement: carrying on from v%s; a new version with your next laps.',
+    "Rien à figer : v%s n'est plus la référence de cette séance.": "Nothing to lock: v%s is no longer this session's reference.",
     'v%s non gardée': 'v%s not kept',
     ' (son fichier %s part à la Corbeille dès que la voiture est arrêtée).':
         ' (its file %s goes to the Recycle Bin as soon as the car is stopped).',

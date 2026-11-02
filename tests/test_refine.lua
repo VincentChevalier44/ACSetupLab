@@ -155,6 +155,9 @@ tests['AF01 boucle : v1 annoncée sans fichier, validée (un fichier), chargée,
   T.ok(waitFor(h, function() return not r.needsDiscovery and app.discoveryState == 'done' end), 'découverte après chargement')
   T.eq(app.discovery.signature, app.saved.quali.signature, 'découverte sur v1')
   T.eq(r.driven, 1)
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  T.ok(shown(h, 'Continuer l\'affinage'), 'question posée après la validation')
+  app.handleIntents({ refineChoice = { version = 1 } })
   T.ok(waitFor(h, function()
     return r.phase == 'tours' and app.quali and app.quali.discovery.signature == app.saved.quali.signature
   end), 'calcul sur v1, sans attendre de tour')

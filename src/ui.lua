@@ -2154,6 +2154,24 @@ local function stepCard(host, app, intents, palette, selected)
     title, text, color = 'v' .. rejectedInCar.version .. ' non gardée · encore dans la voiture', 'Au stand, menu de setup '
       .. 'd\'AC : chargez votre setup d\'avant' .. (backup and (' (' .. backup .. ')') or '') .. ', ou changez de départ '
       .. 'ci-dessous. SetupLab repart du setup qui sera dans la voiture.', palette.pending
+  elseif r and r.choice then
+    -- 1.5.3 (décision de Vincent du 02/11/2026) : après chaque validation, continuer l'affinage ou figer
+    local v, chosen = 'v' .. r.choice, nil
+    for _, e in ipairs(r.history) do
+      if e.version == r.choice then chosen = e end
+    end
+    local file = tostring(chosen and chosen.file or v)
+    title, text, color = 'Étape 4/4 · ' .. v .. ' validée', 'Enregistrée : ' .. file .. '. Continuer l\'affinage (une '
+      .. 'nouvelle version avec vos prochains tours), ou la figer ?', palette.available
+    if r.driven ~= r.choice then
+      text = 'Enregistrée : ' .. file .. '. Elle n\'est pas encore dans la voiture (bouton vert « Charger »). Continuer '
+        .. 'l\'affinage, ou la figer ?'
+    end
+    actions[1] = { label = 'Continuer l\'affinage###step_continue', intent = { refineChoice = { version = r.choice } },
+      style = 'primary', tip = 'SetupLab propose une nouvelle version à partir de ' .. v .. ' avec vos prochains tours.' }
+    actions[2] = { label = 'Figer ' .. v .. ' (cadenas)###step_lock', intent = { refineChoice = { version = r.choice,
+      lock = true } }, tip = 'Verrouille ' .. v .. ' : gardée en mémoire pour ce circuit, proposée à chaque visite ; '
+      .. 'l\'affinage s\'arrête. Déverrouillable (onglet Mémoire).' }
   elseif trial then
     local v = 'v' .. trial.version
     local f = realLaps(app, trial.family, trial.bucket)

@@ -277,6 +277,8 @@ tests['AU03 valider : enregistrée, référence en mémoire ; écarter : jamais 
   local m = app.memory['qualif|sec']
   T.ok(m and m.file == v1.file and not m.locked, 'référence en mémoire (qualification, sec)')
   T.eq(#storedKeys(app, ':qualif:sec'), 1, 'gardée dans le stockage')
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   -- autre base (pincement changé à la main, non optimisé) et un tour propre : autre proposition, v2
   toe(h)
   local profile = drivenProfile(h, app)
@@ -440,6 +442,8 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient, rem
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.eq(r.driven, 1)
   T.ok(waitFor(h, function() return not r.needsDiscovery and app.discoveryState == 'done' and r.phase == 'tours' end))
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   -- autre base (pincement) et un tour propre : v2 proposée, v1 en piste
   toe(h)
   local profile = drivenProfile(h, app)
@@ -686,6 +690,8 @@ tests['AU13 en piste : « en préparation » une fois, analyse continue ; au sta
   frames(h, 1)
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.ok(waitFor(h, function() return not r.needsDiscovery and app.discoveryState == 'done' and r.phase == 'tours' end))
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   -- en piste avec v1 (autre base : pincement) : v2 en préparation, une seule annonce
   toe(h)
   local profile = drivenProfile(h, app)

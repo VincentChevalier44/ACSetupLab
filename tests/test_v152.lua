@@ -119,6 +119,8 @@ local function raceGoesOn(withMemory)
   T.eq(why, nil, 'garde après le chargement de la v1 de course : ' .. tostring(action))
   app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
   T.eq(e.status, 'validée', tostring(app.ui.message))
+  -- 1.5.3 : après la validation, on répond « Continuer l'affinage » (question posée à chaque fois)
+  if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
   local before = app.race
   r.due, r.nextAt = true, nil
   T.ok(waitFor(h, function() return app.race ~= before end, 600), 'v2 de course calculée : ' .. tostring(r.waiting))

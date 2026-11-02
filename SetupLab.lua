@@ -2946,7 +2946,9 @@ local function refineTick()
   -- progression du minimum toujours à jour (un calcul ou une calibration en cours ne la fige pas) ; course : sa garde
   -- d'abord (relecture du 02/11/2026)
   local raceWhy = (r.phase == 'tours' and kind == 'race') and raceBlocker() or nil
-  if r.phase == 'tours' and not startReady(kind) then
+  if r.choice then
+    r.waiting = 'v' .. r.choice .. ' validée : continuer l\'affinage ou la figer ?'
+  elseif r.phase == 'tours' and not startReady(kind) then
     r.waiting = startWaiting(kind)
   elseif raceWhy then
     r.waiting = 'course : ' .. raceWhy
@@ -2983,6 +2985,9 @@ local function refineTick()
         or Util.schedulerBusy(app.scheduler) then
       return
     end
+    -- 1.5.3 (décision de Vincent du 02/11/2026) : après chaque validation, on demande : continuer l'affinage ou figer ;
+    -- rien de nouveau avant la réponse (les tours restent enregistrés)
+    if r.choice then return end
     -- version en essai : rien de nouveau avant son tri (une seule version ouverte à la fois)
     for _, e in ipairs(r.history) do
       if e.version and e.status == 'essai' then
@@ -3073,6 +3078,8 @@ local function refineStart(kind)
     if app.refine and app.refine.active and app.refine ~= prev then refineStop() end
     app.refine = prev
     prev.active, prev.phase, prev.due, prev.nextAt = true, 'tours', true, nil
+    -- relancer l'affinage, c'est répondre « continuer » à la question posée après une validation (1.5.3)
+    prev.choice = nil
     app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' repris' .. (prev.version > (prev.base or 0)
       and (' : v' .. prev.version .. ' et les versions précédentes sont gardées.') or '.')
     log('INFO', 'refine', app.ui.message)
@@ -3340,7 +3347,10 @@ local function refineJudge(version, verdict)
       app.ui.message = 'v' .. e.version .. ' : aucun réglage gardé ; « Recommencer » pour ne pas la garder.'
       return
     end
-    refineValidate(r, e)
+    if refineValidate(r, e) then
+      r.choice = e.version
+      r.waiting = 'v' .. e.version .. ' validée : continuer l\'affinage ou la figer ?'
+    end
   elseif verdict == 'essayer' then
     refineTry(r, e)
   else
@@ -3378,6 +3388,29 @@ local function refineLock(version)
   end
   local m = refineValidate(r, e)
   if m then lockEntry(m, r.kind) end
+end
+
+-- Réponse à la question posée après une validation (1.5.3) : continuer l'affinage à partir de la version validée,
+-- ou la figer (cadenas : la référence de la séance est verrouillée, l'affinage s'arrête).
+local function refineChoose(version, lock)
+  local r = app.refine
+  if not (r and r.choice ~= nil and r.choice == version) then return end
+  local e = refineEntry(r, version)
+  if lock then
+    local m = e and app.memory[e.group .. '|' .. e.bucket]
+    if not (m and m.signature == e.signature) then
+      app.ui.message = 'Rien à figer : v' .. version .. ' n\'est plus la référence de cette séance.'
+      return
+    end
+    r.choice = nil
+    lockEntry(m, r.kind)
+    return
+  end
+  r.choice = nil
+  r.due, r.nextAt = true, nil
+  app.ui.message = 'Affinage ' .. COMPUTE[r.kind].label .. ' : il continue à partir de v' .. version
+    .. ' ; nouvelle version avec vos prochains tours.'
+  log('INFO', 'refine', app.ui.message)
 end
 
 local function memoryLock(key, locked)
@@ -3644,6 +3677,7 @@ local function handleIntents(intents)
     if key then memoryLoad(key) end
   end
   if intents.refineLock then refineLock(intents.refineLock) end
+  if intents.refineChoice then refineChoose(intents.refineChoice.version, intents.refineChoice.lock) end
   if intents.memoryLock then memoryLock(intents.memoryLock.key, intents.memoryLock.locked) end
   if intents.memoryLoad then memoryLoad(intents.memoryLoad) end
   if intents.calibrate and not startCalibration() then

@@ -6,6 +6,7 @@
 - **"Try" puts the version in the car**: "Try vN" loads the proposed setup at once, in the pits. Its trial file goes to the Recycle Bin as soon as the load is checked, so only the versions you validate stay in your setups folder.
 - **"Start over" puts your previous setup back**: refusing the version that is in the car loads the setup you had before (your reference, or the backup copy made before the trial).
 - **Validate after "Modify..."**: when you refused some settings after the trial, the kept version replaces the trial in the car. A version validated without a trial stays to be loaded.
+- **After each validation, SetupLab asks**: "Carry on refining" (a new version with your next laps) or "Lock vN". Nothing new is computed until you answer; restarting the refinement counts as carrying on.
 - New app logo.
 
 ## 1.0.0-beta.1.5.2 — 2026-11-02 — beta 1.5.2: race setup from your qualifying setup, pit strategy, window back
