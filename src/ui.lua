@@ -2335,19 +2335,21 @@ local HELP = {
   } },
   { 'Les 4 étapes', {
     '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par '
-      .. 'défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab.',
+      .. 'défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab et '
+      .. 'met ce setup dans la voiture.',
     '2. Rouler : après le nombre de tours propres choisi (onglet RÉGLAGES, 0 pour tout de suite ; ou premier setup tout de '
       .. 'suite, d\'après la voiture et la piste), SetupLab propose une version. En piste, il annonce '
       .. 'qu\'il a le minimum d\'informations et continue d\'analyser vos tours ; elle est prête à votre retour au stand.',
-    '3. Essayer : « Essayer vN » écrit la version dans un fichier d\'essai ; « Charger » la met dans la voiture. Roulez avec.',
+    '3. Essayer : « Essayer vN » met la version dans la voiture, en un clic, au stand ; son fichier d\'essai part à la '
+      .. 'Corbeille. Roulez avec. « Recommencer » remet le setup d\'avant.',
     '4. Valider : « Valider vN » la garde telle quelle ; « Modifier… » pour refuser un réglage précis (par exemple l\'aileron '
-      .. 'arrière) et garder le reste. Elle devient votre référence pour ce circuit ; chargez-la et continuez : SetupLab '
-      .. 'repart d\'elle.',
+      .. 'arrière) et garder le reste, la version gardée allant dans la voiture. Elle devient votre référence pour ce circuit. '
+      .. 'SetupLab demande ensuite, à chaque fois : continuer l\'affinage (à partir d\'elle) ou la figer.',
   } },
   { 'Course', {
-    'Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à l\'essai) : il '
-      .. 'part de lui, monté dans la voiture, et vos tours avec lui donnent votre rythme. Saisissez seulement le nombre de '
-      .. 'tours de la course (onglet COURSE).',
+    'Le setup de course part d\'une de vos qualifs validées sur ce circuit (v1, v2…, même d\'un lancement d\'AC précédent) : '
+      .. '« Partir de la qualif vN » la met dans la voiture et lance l\'affinage de la course, en un clic ; « Reprendre ma '
+      .. 'course vN » reprend une course validée. Saisissez le nombre de tours de la course (onglet COURSE).',
   } },
   { 'Overlay en jeu', {
     'La fenêtre « SetupLab Overlay » (barre d\'apps de CSP) montre en roulant si le setup en piste est mieux ou moins bien que '
@@ -2357,6 +2359,11 @@ local HELP = {
     'Noms clairs : SetupLab_Qualif_v1.ini, SetupLab_Course_Pluie_v3.ini… ; votre meilleur tour s\'ajoute au nom d\'une version '
       .. 'de qualification. Les fichiers d\'essai, les versions non gardées et les copies inutiles partent à la Corbeille, '
       .. 'voiture arrêtée. Vos propres fichiers ne sont jamais touchés.',
+  } },
+  { 'Mise à jour', {
+    'Une fois par lancement d\'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans '
+      .. 'l\'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l\'installe en un clic, après avoir vérifié '
+      .. 'l\'archive ; CSP recharge alors SetupLab. Rien n\'est envoyé.',
   } },
   { 'Notice complète', {
     'Notice d\'utilisation, dans le dossier de l\'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en '

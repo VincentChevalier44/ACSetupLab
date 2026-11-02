@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (beta 1.5.3, in progress)
+## 1.0.0-beta.1.5.3 — 2026-11-02 — beta 1.5.3: one click everywhere, a guided flow, race start of your choice, in-game update
+
+Why this update: loading took two clicks, trial files piled up in the setups folder, and the race could not resume after an AC restart. Now each step is one click, only the versions you validate stay, the race starts from the qualifying version you choose, and SetupLab can update itself.
 
 - **Loading in one click**: "Load" puts the setup in the car at once, in the pits; the "Confirm" step is gone. A backup copy of the current setup is still saved just before, when it is useful (not when the car holds a setup SetupLab put in it, unchanged). A double click does not load twice.
 - **Choosing your start loads it**: "Resume my reference" or "Car's default setup" puts that setup in the car in the same click.
@@ -11,6 +13,7 @@
 - **Race start of your choice**: the RACE tab lists your validated qualifying versions on this track (v1, v2, v3...), including those validated during an earlier AC launch. "Start from qualifying vN" puts it in the car and starts the race refinement in one click. Other SetupLab qualifying files are still recognised when you load them from AC's setup menu.
 - **"Resume my race vN"**: a race setup validated earlier goes back into the car and its refinement carries on from it (numbering continues).
 - **A SetupLab setup loaded from AC's menu becomes the reference**: when the car holds exactly one of your kept SetupLab files (memory reference or validated version), its differences with the previous setup are no longer taken as your own tweaks. Setting a tweaked value back by hand releases it too.
+- **In-game update**: once per AC launch, SetupLab reads the latest version number on GitHub (setting "Check for updates at launch", ticked by default). If it is newer, an "Update" button appears at the top of the window; nothing is downloaded without your click. SetupLab then downloads the release archive, checks its size, SHA-256 fingerprint and content, and replaces the app's files in one go (the previous ones are put back if anything fails). Files of the old version that no longer exist go to the Recycle Bin. CSP then reloads the app, which comes back on standby. Nothing is ever sent. To go from 1.5.2 to 1.5.3, install by hand one last time.
 - New app logo.
 
 ## 1.0.0-beta.1.5.2 — 2026-11-02 — beta 1.5.2: race setup from your qualifying setup, pit strategy, window back

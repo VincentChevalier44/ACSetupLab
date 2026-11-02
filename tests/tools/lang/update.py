@@ -44,4 +44,16 @@ EN = {
     'empreinte SHA-256 illisible': 'unreadable SHA-256 fingerprint',
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
+    # aide intégrée (onglet AIDE)
+    '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab et met ce setup dans la voiture.':
+        "1. Start: choose which setup to start from: your current setup (the one in the car, yours or the default one), the car's default setup, or your validated reference on this track. Choosing activates SetupLab and puts that setup in the car.",
+    "3. Essayer : « Essayer vN » met la version dans la voiture, en un clic, au stand ; son fichier d'essai part à la Corbeille. Roulez avec. « Recommencer » remet le setup d'avant.":
+        '3. Try: "Try vN" puts the version in the car, in one click, in the pits; its trial file goes to the Recycle Bin. Drive with it. "Start over" puts the previous setup back.',
+    "4. Valider : « Valider vN » la garde telle quelle ; « Modifier… » pour refuser un réglage précis (par exemple l'aileron arrière) et garder le reste, la version gardée allant dans la voiture. Elle devient votre référence pour ce circuit. SetupLab demande ensuite, à chaque fois : continuer l'affinage (à partir d'elle) ou la figer.":
+        '4. Validate: "Validate vN" keeps it as it is; "Modify…" to refuse one particular setting (for example the rear wing) and keep the rest, the kept version going into the car. It becomes your reference for this track. SetupLab then asks, every time: carry on refining (from it) or lock it.',
+    "Le setup de course part d'une de vos qualifs validées sur ce circuit (v1, v2…, même d'un lancement d'AC précédent) : « Partir de la qualif vN » la met dans la voiture et lance l'affinage de la course, en un clic ; « Reprendre ma course vN » reprend une course validée. Saisissez le nombre de tours de la course (onglet COURSE).":
+        'The race setup starts from one of your validated qualifying versions on this track (v1, v2…, including from an earlier AC launch): "Start from qualifying vN" puts it in the car and starts the race refinement, in one click; "Resume my race vN" resumes a validated race. Enter the number of race laps (RACE tab).',
+    'Mise à jour': 'Update',
+    "Une fois par lancement d'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans l'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l'installe en un clic, après avoir vérifié l'archive ; CSP recharge alors SetupLab. Rien n'est envoyé.":
+        'Once per AC launch, SetupLab checks on GitHub whether a newer version is published (setting in the SETTINGS tab). If so, "Update", at the top of the window, installs it in one click, after checking the archive; CSP then reloads SetupLab. Nothing is sent.',
 }

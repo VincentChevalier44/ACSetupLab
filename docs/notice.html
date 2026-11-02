@@ -202,7 +202,7 @@
 
 <header class="top">
   <div class="inner">
-    <span class="badge">Version 1.0 — beta 1.5.2</span>
+    <span class="badge">Version 1.0 — beta 1.5.3</span>
     <p class="switch"><a href="notice.fr.html" hreflang="fr">Version française</a></p>
     <h1>SetupLab — user guide</h1>
     <p class="lead">The Custom Shaders Patch app that computes, explains and refines your Assetto Corsa setups, fitted to your own laps.</p>
@@ -249,16 +249,18 @@
     <li>a <strong>race</strong> setup: full stint, fuel, tyre wear, traffic. It starts from one of your SetupLab qualifying setups.</li>
   </ul>
   <p>It reads the car files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line, simulates the lap, searches for the best setup and <strong>explains every setting</strong> it proposes. It records your laps to <strong>fit its model to your driving</strong>, and refines the setup while you drive.</p>
-  <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed effect yourself, and the car setup only changes when you confirm it, in the pits.</div>
+  <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed effect yourself, and the car setup only changes on your click, in the pits.</div>
 </section>
 
 <section id="install">
   <h2>2. Installation</h2>
   <ol>
     <li>Requirements: Assetto Corsa with <strong>Custom Shaders Patch 0.2.11</strong> (the free version installed by Content Manager) or newer, paid previews included.</li>
-    <li>Extract <code>SetupLab-1.0.0-beta.1.5.2.zip</code> into <code>assettocorsa/apps/lua/</code>: it already contains the <code>SetupLab/</code> folder. In the end, <code>assettocorsa/apps/lua/SetupLab/</code> holds <code>SetupLab.lua</code> and <code>manifest.ini</code> (no <code>SetupLab</code> folder inside another <code>SetupLab</code>). To update: close Assetto Corsa, <strong>delete the old <code>apps/lua/SetupLab</code> folder</strong>, then extract the new archive. Your settings, track memory and saved setups are kept: they are stored outside this folder.</li>
+    <li>Extract <code>SetupLab-1.0.0-beta.1.5.3.zip</code> into <code>assettocorsa/apps/lua/</code>: it already contains the <code>SetupLab/</code> folder. In the end, <code>assettocorsa/apps/lua/SetupLab/</code> holds <code>SetupLab.lua</code> and <code>manifest.ini</code> (no <code>SetupLab</code> folder inside another <code>SetupLab</code>). To update: close Assetto Corsa, <strong>delete the old <code>apps/lua/SetupLab</code> folder</strong>, then extract the new archive. Your settings, track memory and saved setups are kept: they are stored outside this folder. Since 1.5.3, SetupLab can also update itself (see below).</li>
     <li>In game, open <strong>SetupLab</strong> from the app bar or the setup screen. Two more windows exist: <strong>SetupLab Overlay</strong> (on track) and <strong>SetupLab Debug</strong> (diagnostics).</li>
   </ol>
+    <h3>In-game update</h3>
+  <p>Since beta 1.5.3, once per AC launch, SetupLab reads the number of the latest published version on GitHub (setting <strong>Check for updates at launch</strong>, SETTINGS tab, ticked by default). If it is newer, an "Update available" line appears at the top of the window with <span class="btn go">Update</span>. Nothing is downloaded without that click. SetupLab then downloads the release archive, checks its size and SHA-256 fingerprint, checks its content, then replaces the app's files in one go (the previous ones are put back if anything fails); files of the old version that no longer exist go to the Recycle Bin. CSP then reloads SetupLab, which comes back on standby. Nothing is sent.</p>
   <p>SetupLab works <strong>offline</strong> only: it pauses online and in replays.</p>
 </section>
 
@@ -286,12 +288,12 @@
   <p>SetupLab refines the session setup: <strong>qualifying</strong> in practice, track day, hotlap, time attack and qualifying; <strong>race</strong> in a race session. The same four steps, with the same names, appear in the step card, the versions, the HELP tab and this guide; done in green, the next one in blue.</p>
   <ol class="steps">
     <li><b>Start</b><span>Choose the setup SetupLab starts from:
-      <span class="btn primary">My current setup</span> (the one in the car: yours, loaded from AC's setup menu, or the default one),
-      <span class="btn plain">Car's default setup</span> (each setting at the car's default value, written to <code>SetupLab_Default.ini</code> and loaded in the pits; fuel, compound and the car script's own settings stay as they are), or
-      <span class="btn primary">Resume my reference vN</span> (your validated setup on this track). Choosing activates SetupLab. A setup to load first is waited for: nothing is proposed before it is in the car.</span></li>
+      <span class="btn primary">My current setup</span> (the one in the car: your own, loaded from AC's setup menu, or the default one),
+      <span class="btn plain">Car's default setup</span> (every setting at the car's default value, written to <code>SetupLab_Default.ini</code>; fuel, compound and settings specific to the car's script stay as they are), or
+      <span class="btn primary">Resume my reference vN</span> (your validated setup on this track). The choice activates SetupLab and puts that setup in the car, in the same click.</span></li>
     <li><b>Drive</b><span>After the minimum clean laps (see <a href="#minimum">Minimum</a>), SetupLab has the minimum information: it announces it once at the top of the screen ("v2 in preparation") and <strong>keeps analysing your laps</strong> while you stay on track. When you <strong>return to the pits</strong>, the version is announced as ready.</span></li>
-    <li><b>Try</b><span><span class="btn primary">Try v2</span> writes the proposed setup into a trial file (<code>…_v2_trial.ini</code>). In the pits: <span class="btn go">Load</span> then <span class="btn go">Confirm</span>, and drive at least one clean lap with it.</span></li>
-    <li><b>Validate</b><span><span class="btn primary">Validate v2</span> keeps it as it is. To refuse one particular setting (for example the rear wing) and keep the rest: <span class="btn plain">Modify…</span> (see <a href="#effects">Validate or modify</a>). The validated version becomes your reference for this track; load it and carry on: the refinement continues from it (step 2).</span></li>
+    <li><b>Try</b><span><span class="btn primary">Try v2</span> puts the proposed setup in the car, in one click, in the pits. Its trial file goes to the Recycle Bin as soon as the load is checked: nothing is kept before validation. Drive at least one clean lap with it. <span class="btn plain">Start over</span> puts the previous setup back in the car.</span></li>
+    <li><b>Validate</b><span><span class="btn primary">Validate v2</span> keeps it as it is, in a new <code>…_v2.ini</code> file. To refuse a particular setting (for example the rear wing) and keep the rest: <span class="btn plain">Modify…</span> (see <a href="#effects">Validate or modify</a>); the kept version then replaces the trial in the car. It becomes your reference on this track. SetupLab then asks, after every validation: <span class="btn primary">Carry on refining</span> (a new version with your next laps, starting from it) or <span class="btn plain">Lock v2</span>.</span></li>
   </ol>
   <div class="tip">While a version is on trial, SetupLab proposes nothing else: validate it or start over first. A setup is only proposed if it gains at least 0.05 s per lap. <span class="btn plain">Change the starting point</span>, under the step card, starts again from another setup.</div>
   <p>The <strong>SetupLab active</strong> box applies to this Assetto Corsa launch: at start-up, SetupLab is always on standby and writes nothing. On standby, it still analyses your laps. The starting point is chosen again at each new session.</p>
@@ -303,9 +305,10 @@
   <ul>
     <li><span class="btn plain">Modify…</span> opens the list, <strong>setting by setting</strong>, under the title of its family (aero, tyres, geometry, suspension, transmission, brakes, engine, aids). One click on <span class="btn go">Kept</span> makes it <span class="btn danger">Refused</span>, and back. <span class="btn plain">Keep everything</span> cancels the refusals.</li>
     <li>A <strong>refused</strong> setting keeps its old value in the validated version <strong>and in the next computations</strong>: it appears under "Your changes kept" and returns to the computation with <span class="btn plain">Release your changes</span>. The other settings of its family keep their new value.</li>
-    <li>Everything kept: the trial file becomes the version (renamed). Only some settings: a new file is written with the kept settings, and the trial file goes to the Recycle Bin once the car is stopped.</li>
+    <li><span class="btn primary">Validate vN</span> writes the version, with the kept settings, to a new file. With some settings refused, this kept version replaces the trial in the car.</li>
     <li>No setting kept: validation is refused; "Start over" to not keep the version.</li>
-    <li><span class="btn plain">Validate without trying</span> saves the version right away, without the trial file.</li>
+    <li><span class="btn plain">Validate without trying · puts it in the car</span> saves the version right away and puts it in the car.</li>
+    <li>After every validation, SetupLab asks: <span class="btn primary">Carry on refining</span> or <span class="btn plain">Lock vN</span>. Nothing new is computed until you answer.</li>
   </ul>
 </section>
 
@@ -326,15 +329,17 @@
   <table>
     <thead><tr><th>Button</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td><span class="btn primary">Try vN</span></td><td>Writes the whole proposed setup into a trial file, to load in the pits and drive with. Nothing is kept before validation.</td></tr>
+      <tr><td><span class="btn primary">Try vN</span></td><td>Puts the proposed setup in the car, in one click, in the pits. Its trial file goes to the Recycle Bin once the load is checked: nothing is kept before validation.</td></tr>
       <tr><td><span class="btn primary">My current setup</span> / <span class="btn plain">Car's default setup</span> / <span class="btn primary">Resume my reference</span></td><td>Step 1: the setup SetupLab starts from (see <a href="#steps">The 4 steps</a>). <span class="btn plain">Change the starting point</span> chooses again.</td></tr>
       <tr><td><span class="btn primary">Validate vN</span></td><td>Saves the version with the kept settings and makes it the session's reference setup, kept in the track memory.</td></tr>
       <tr><td><span class="btn plain">Modify…</span> then <span class="btn go">Kept</span> / <span class="btn danger">Refused</span></td><td>Refuses one particular setting of the version (see <a href="#effects">Validate or modify</a>).</td></tr>
-      <tr><td><span class="btn plain">Validate without trying</span></td><td>The same, without the trial file.</td></tr>
-      <tr><td><span class="btn plain">Start over (do not keep vN)</span></td><td>The version is neither kept nor reused, and is never proposed again. SetupLab starts again from your current setup. An already validated version gives its place back to your previous reference; its file goes to the Windows Recycle Bin as soon as the car is stopped. The button turns red when the version is actually slower.</td></tr>
+      <tr><td><span class="btn plain">Validate without trying</span></td><td>The same without trying it: the version is saved and put in the car.</td></tr>
+      <tr><td><span class="btn plain">Start over (do not keep vN)</span></td><td>The version is neither kept nor reused, and is never proposed again. If it is in the car, the previous setup (your reference, or the backup copy made before the trial) is put back. An already validated version gives its place back to your previous reference; its file goes to the Windows Recycle Bin as soon as the car is stopped. The button turns red when the version is actually slower.</td></tr>
       <tr><td><span class="btn plain">Lock vN</span></td><td>Validates (kept settings) and locks: it is the final setup of this session for this track. Refinement stops; "Unlock", in the MEMORY tab or in the step card, restarts it.</td></tr>
-      <tr><td><span class="btn go">Load the … setup into the car</span></td><td>Arms the load of the saved setup (see <a href="#loading">Loading a setup</a>).</td></tr>
-      <tr><td><span class="btn go">Confirm the load</span></td><td>Second click, within the time shown: the setup is loaded into the car, after a backup copy of the current setup.</td></tr>
+      <tr><td><span class="btn go">Load the … setup into the car</span></td><td>Puts the saved setup in the car, in one click (see <a href="#loading">Loading a setup</a>).</td></tr>
+      <tr><td><span class="btn primary">Carry on refining</span> / <span class="btn plain">Lock vN</span></td><td>The question asked after every validation: a new version with your next laps, or the locked version.</td></tr>
+      <tr><td><span class="btn primary">Start from qualifying vN</span> / <span class="btn plain">Resume my race vN</span></td><td>RACE tab: the race start, in one click (see Race setup).</td></tr>
+      <tr><td><span class="btn go">Update</span></td><td>Installs the newly published version (see <a href="#installation">Installation</a>).</td></tr>
       <tr><td><span class="btn plain">Stop the refinement</span></td><td>Stops the refinement; if SetupLab is active, it also goes on standby.</td></tr>
       <tr><td><span class="btn plain">Release your changes</span></td><td>Gives the settings you changed by hand, and the refused settings, back to the computation.</td></tr>
       <tr><td><span class="btn plain">Measure the real gain</span></td><td>Compares the predicted gain with the measured gain: a clean lap with the original setup, then one with the proposed setup loaded.</td></tr>
@@ -348,9 +353,8 @@
   <h2>9. Loading a setup into the car</h2>
   <p>Loading happens <strong>in the pits, car stopped, setup menu open</strong>. Next to the green button, SetupLab shows the file to load, the pit state (<em>in the pits</em>, <em>car stopped</em>, <em>setup menu open</em>, each in green or orange) and the reason for a refusal.</p>
   <ol>
-    <li>Click <span class="btn go">Load the … setup into the car</span>.</li>
-    <li>Read the warning, then click <span class="btn go">Confirm the load</span> before the time shown runs out.</li>
-    <li>SetupLab first copies the current setup (<code>SetupLab_Before_load_….ini</code>, <code>SetupLab_Avant_chargement_….ini</code> in French), loads the file, then checks that the car has the expected setup. No copy is made when the car already has an intact setup kept by SetupLab.</li>
+    <li>Click <span class="btn go">Load the … setup into the car</span>: one click is enough.</li>
+    <li>SetupLab first copies the current setup when that copy is useful (<code>SetupLab_Before_load_….ini</code>, <code>SetupLab_Avant_chargement_….ini</code> in French), loads the file, then checks that the car has the expected setup. No copy is made when the car holds, untouched, a SetupLab setup.</li>
   </ol>
   <div class="note">Only a file written by SetupLab can be loaded: it recognises it by its name and the fingerprint of its content. A file changed since then is refused.</div>
 </section>
@@ -385,18 +389,18 @@
 
 <section id="memory">
   <h2>13. Track memory and lock</h2>
-  <p>The setup you validate is kept, from one AC launch to the next, for this car on this track (layout included), per <strong>session</strong> (practice or track day, qualifying, race) and per <strong>track state</strong> (dry or wet). The <strong>MEMORY</strong> tab lists them and offers to load them, in two clicks, in the pits. A <strong>locked</strong> setup is no longer changed by the refinement; "Unlock" gives it back to the refinement.</p>
+  <p>The setup you validate is kept, from one AC launch to the next, for this car on this track (layout included), per <strong>session</strong> (practice or track day, qualifying, race) and per <strong>track state</strong> (dry or wet). The <strong>MEMORY</strong> tab lists them and offers to load them, in one click, in the pits. A <strong>locked</strong> setup is no longer changed by the refinement; "Unlock" gives it back to the refinement.</p>
 </section>
 
 <section id="race">
   <h2>14. Race setup</h2>
-  <p>The race setup comes <strong>after a SetupLab qualifying setup</strong> (at least a v1): it starts from it, and your laps with it give your pace. Any of your numbered SetupLab qualifying setups on this track works (v1, v2, v3…, trials included), even from an earlier session: load it from AC's setup menu and SetupLab recognises it by its values. Until there is one, the <strong>RACE</strong> tab is locked and offers <span class="btn primary">Go to the QUALIFYING tab</span>. Then it shows three conditions, each with what fulfils it:</p>
+  <p>The race setup comes <strong>after a validated SetupLab qualifying setup</strong> (at least a v1): it starts from it, and your laps with it give your pace. Until there is one, the <strong>RACE</strong> tab offers <span class="btn primary">Go to the QUALIFYING tab</span>. Then:</p>
   <ol>
-    <li><strong>Qualifying setup</strong>: your validated one on this track (otherwise the one validated in practice), or any other SetupLab qualifying setup;</li>
-    <li><strong>in the car</strong>: <span class="btn go">Load the validated qualifying setup</span> button, or load another one from AC's setup menu;</li>
-    <li><strong>number of race laps</strong>, with the slider (Ctrl + click to type it), kept for this car on this track. The lap count planned by the session is shown as a reminder.</li>
+    <li><strong>Race start</strong>: the tab lists your validated qualifying versions on this track (v1, v2, v3…), including those from an earlier AC launch. <span class="btn primary">Start from qualifying vN</span> puts it in the car and starts the race refinement, in one click. Your other SetupLab qualifying setups are still recognised if you load them from AC's setup menu.</li>
+    <li><span class="btn plain">Resume my race vN</span>: a validated race setup goes back into the car and its refinement carries on from it (numbering continues).</li>
+    <li><strong>Race lap count</strong>, with the slider (Ctrl + click to type it), kept for this car on this track. The lap count planned by the session is shown.</li>
   </ol>
-  <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured. With SetupLab active, the first race version is computed straight away, without extra laps: your laps with this setup were driven in qualifying. This also holds while qualifying is being refined: the race then becomes the active refinement and starts from the qualifying setup in the car (v1, v2…), without waiting for a next qualifying version; qualifying keeps its versions and can be resumed from the QUALIFYING tab. A qualifying computation in progress is interrupted so the race starts at once; it is redone when qualifying is resumed. The next race versions wait for the minimum of clean laps. When SetupLab loads the race setup (two clicks in the pits), the selected quick pit preset gets its pressures and tyres, so a tyre change is planned at the stop; fuel and repairs stay yours.</p>
+  <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured. With SetupLab active, the first race version is computed straight away, without extra laps: your laps with this setup were driven in qualifying. This also holds while qualifying is being refined: the race then becomes the active refinement and starts from the qualifying setup in the car (v1, v2…), without waiting for a next qualifying version; qualifying keeps its versions and can be resumed from the QUALIFYING tab. A qualifying computation in progress is interrupted so the race starts at once; it is redone when qualifying is resumed. The next race versions wait for the minimum of clean laps. When SetupLab loads the race setup (one click in the pits), the selected quick pit preset gets its pressures and tyres, so a tyre change is planned at the stop; fuel and repairs stay yours.</p>
 </section>
 
 <section id="manual">
@@ -449,7 +453,7 @@
     <li>Never overwritten: a name already taken gets <code>-2</code>, <code>-3</code>…</li>
   </ul>
   <h3>Automatic tidying</h3>
-  <p>With the car stopped, one file at a time, SetupLab sends to the <strong>Windows Recycle Bin</strong> the sorted trial files, the versions not kept, and the "before load" copies identical to a kept file.</p>
+  <p>With the car stopped, one file at a time, SetupLab sends to the <strong>Windows Recycle Bin</strong> the trial files as soon as their version is in the car, the versions not kept, and the "before load" copies identical to a kept file.</p>
   <div class="note">SetupLab never touches your own files or the game's: only files it wrote during the session, intact. With CSP 0.2.11, the Recycle Bin is not yet available to apps: these files are then deleted permanently.</div>
 </section>
 
@@ -459,8 +463,8 @@
     <li>Change the content of a file, or the game physics.</li>
     <li>Touch your own files.</li>
     <li>Write without your click: only "Car's default setup" (step 1), "Try", "Save", "Validate", "Lock" and the backup copy before a load write a file.</li>
-    <li>Change the car setup without your confirmation in the pits. When it loads a race setup this way, the selected quick pit preset gets its tyre pressures and tyres (a tyre change is then planned at the stop); fuel and repairs stay yours.</li>
-    <li>Access the network, run online or in replays.</li>
+    <li>Change the car setup without your click in the pits. When it loads a race setup this way, the selected quick pit preset gets its tyre pressures and tyres (a tyre change is then planned at the stop); fuel and repairs stay yours.</li>
+    <li>Send anything over the Internet, run online or in replays. Its only connection reads, once per launch, the number of the latest version on GitHub (setting can be unticked); an update is only downloaded on your click.</li>
   </ul>
 </section>
 
@@ -503,7 +507,7 @@
 
 <footer>
   <div class="inner">
-    SetupLab 1.0 — beta 1.5.2 (<code>1.0.0-beta.1.5.2</code>) · MIT licence ·
+    SetupLab 1.0 — beta 1.5.3 (<code>1.0.0-beta.1.5.3</code>) · MIT licence ·
     <a href="https://github.com/VincentChevalier44/ACSetupLab">github.com/VincentChevalier44/ACSetupLab</a><br>
     Assetto Corsa is a trademark of Kunos Simulazioni. SetupLab is an independent project.
   </div>

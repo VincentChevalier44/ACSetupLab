@@ -1,8 +1,10 @@
+<p align="center"><img src="https://raw.githubusercontent.com/VincentChevalier44/ACSetupLab/main/assets/banner.png" alt="SetupLab, race engineering for Assetto Corsa" width="100%"></p>
+
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5.2** (`1.0.0-beta.1.5.2`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.3** (`1.0.0-beta.1.5.3`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
-SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits, keep or refuse each of its effects, and validate it.
+SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits in one click, keep or refuse each of its settings, and validate it.
 
 The app is in **English by default**, with a full **French** translation (one click on the EN/FR badge).
 
@@ -26,12 +28,13 @@ The app is in **English by default**, with a full **French** translation (one cl
 - **Qualifying and race setups** computed from the car's data files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line (curvature, slope, camber, DRS zones).
 - **Every setting explained**: one sentence per proposed setting, its gain, the balance per corner; every untouched setting with its reason. Help on hover for every button and every app setting.
 - **Start from the setup you want**: your current setup (your own, loaded from AC's menu, or the default one), the car's default setup, or your validated reference on the track; SetupLab evolves it version after version.
-- **Built up step by step**: each proposed version is tried in the pits, then validated in one click. "Modify…" refuses one particular setting (for example the rear wing) and keeps the rest; a refused setting keeps its old value in the next computations.
+- **Built up step by step**: "Try" puts each proposed version in the car in one click, in the pits; "Validate" keeps it, then SetupLab asks whether to carry on refining or lock it. "Modify…" refuses one particular setting (for example the rear wing) and keeps the rest; a refused setting keeps its old value in the next computations.
 - **A guided flow**: a "Step N/4" card always at the top (Start, Drive, Try, Validate) with one main button for the next step.
 - **Everything it takes into account, shown**: weather, air and track temperature, track grip, wet track, slow/medium/fast corners, chicanes, longest straight, share of full throttle and braking (SETTINGS tab); every setup setting is optimised or kept with its reason.
 - **Your times first**: your best lap (or average lap for the race), the estimated target and the real gain of each version. The model is calibrated on your laps.
 - **Refinement while you drive**: tick **SetupLab active** and drive. A proposal only comes after a minimum of clean laps and minutes with the current setup (both adjustable). On track, SetupLab says once that it has the minimum information and keeps analysing; the version is ready when you return to the pits.
-- **Race setup after qualifying**: the RACE tab unlocks once a qualifying version is validated (at least a v1); the race computation starts from it, loaded in the car, for the number of laps you enter.
+- **Race setup after qualifying**: the RACE tab lists your validated qualifying versions on the track (v1, v2, v3…, including those from an earlier AC launch); "Start from qualifying vN" puts it in the car and starts the race refinement in one click, for the number of laps you enter. "Resume my race vN" carries on from a validated race setup.
+- **In-game update**: once per AC launch, SetupLab checks on GitHub whether a newer version is published; "Update" installs it in one click, after checking the archive's SHA-256 fingerprint (setting can be unticked).
 - **In-game overlay**: while driving, whether the setup on track is better or worse than the previous one on your laps, the settings that changed most with their predicted gain, and what is left before the next proposal.
 - **Track memory**: the validated or locked setup is kept per car, track, session (practice, qualifying, race) and track state (dry, wet), and offered on the next visit.
 - **Rain** (CSP weather, Pure included): compound choice (slicks, intermediates, wets), pressures, wing, stricter driving aids; separate wet calibration.
@@ -47,15 +50,17 @@ Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free versi
 
 ### Updating
 
-**Delete the old `SetupLab` folder first.** Close Assetto Corsa completely (CSP reloads apps while the game runs), delete `assettocorsa/apps/lua/SetupLab`, then extract the new archive into `assettocorsa/apps/lua/`. This also removes files from older betas that are no longer used. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside that folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French.
+From beta 1.5.3 on, SetupLab can update itself: when a newer version is published, an **Update** button appears at the top of its window. It downloads the release archive from GitHub, checks its size and SHA-256 fingerprint and its content, then replaces the app's files in one go (the previous files are put back if anything fails); CSP then reloads the app, which comes back on standby.
+
+To install by hand (and to go from 1.5.2 or older to 1.5.3): **delete the old `SetupLab` folder first.** Close Assetto Corsa completely (CSP reloads apps while the game runs), delete `assettocorsa/apps/lua/SetupLab`, then extract the new archive into `assettocorsa/apps/lua/`. This also removes files from older betas that are no longer used. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside that folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French.
 
 ## Quick start
 
 1. Start an offline session (practice, track day, qualifying or race). Open SetupLab **with the car in the pits** and wait for "Discovery finished".
 2. Step 1, **Start**: choose **My current setup**, **Car's default setup** or **Resume my reference**. This activates SetupLab. Drive clean laps.
-3. When a version is ready, it is announced at the top of the screen. In the pits: **Try v1** writes the trial file, then **Load** and **Confirm** put it in the car.
-4. Drive with it, then click **Validate v1** (or **Modify…** to refuse a particular setting first). Load the validated version and carry on: the refinement continues from it.
-5. For the race: once a qualifying version is validated, the RACE tab asks for that setup in the car and the race lap count.
+3. When a version is ready, it is announced at the top of the screen. In the pits, **Try v1** puts it in the car in one click (its trial file then goes to the Recycle Bin). **Start over** puts the previous setup back.
+4. Drive with it, then click **Validate v1** (or **Modify…** to refuse a particular setting first). SetupLab then asks: **Carry on refining** (a new version with your next laps, starting from it) or **Lock v1**.
+5. For the race: the RACE tab lists your validated qualifying versions. **Start from qualifying vN** puts it in the car and starts the race refinement; enter the race lap count.
 
 Every button, tab and setting is described in the [user guide](docs/notice.html).
 
@@ -64,18 +69,18 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 - It never changes the content of a file or the game physics, and never overwrites a setup: each save is a **new file** in the car and track setups folder.
 - It only writes **on your click**: "Car's default setup" (step 1), "Try", "Save", "Validate", "Lock", plus a backup copy of the current setup just before a load, when useful.
 - It never touches your own files. It only tidies files it wrote, intact (recognised by name and content fingerprint), with the car stopped: to the **Windows Recycle Bin** for sorted trial files, versions you do not keep and redundant backup copies; it **renames** a kept qualifying version to add your best lap. With CSP 0.2.11, the Recycle Bin is not yet available to apps: these files are deleted permanently.
-- The car setup only changes on your explicit request: in the pits, car stopped, setup menu open, in two clicks, after a backup copy; only a file written by SetupLab can be loaded. When SetupLab loads a **race** setup this way, the selected quick pit preset also gets its tyre pressures and tyres, so a tyre change is planned at the stop (fuel and repairs are left as you set them).
-- No network access, no `loadstring` or `dofile`, and no `os.*` except CSP's precise clock (`os.preciseClock`), used to time its computation slices.
+- The car setup only changes on your explicit request: in the pits, car stopped, setup menu open, in one click, after a backup copy when useful; only a file written by SetupLab can be loaded. When SetupLab loads a **race** setup this way, the selected quick pit preset also gets its tyre pressures and tyres, so a tyre change is planned at the stop (fuel and repairs are left as you set them).
+- Nothing is ever sent over the Internet. The only connection reads, once per AC launch, the latest version number in this repository (`update.txt`; setting **Check for updates at launch** can be unticked); an update is only downloaded on your click, and checked before anything is replaced. No `loadstring` or `dofile`, and no `os.*` except CSP's precise clock (`os.preciseClock`), used to time its computation slices.
 - It is inactive online and in replays.
 - It trusts no data it reads (car files, game state, storage): everything is bounded and validated.
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (349 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (366 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
-- the new 1.5 interface (tabs, step card, starting point, "Modify…").
+- the 1.5.3 flow (one-click loading, race start of your choice) and the in-game update, which can only be tried end to end once a newer release exists.
 - with cars whose data is packed (`data.acd`): gear ratio files are read through CSP (see the J0 report, DIAGNOSTICS tab); with layout tracks: the layout's own `data` folder (surfaces, DRS zones).
 
 Some settings are deliberately kept, with their reason shown: toe, coast and preload differential (transient effects outside the model), packers and bump stops (reference to confirm), springs and dampers until a valid dry lap has measured the track roughness, ride height until a load in the pits has verified the height reference, settings defined by a car's script (unknown effect).
@@ -136,7 +141,7 @@ python -I tests/tools/extract_keys.py --missing   # French texts of the code wit
 
 - only the glue (`SetupLab.lua`) reads CSP globals; modules receive the host as a parameter;
 - the pure core only depends on the pure core;
-- `os`, `load`, `loadstring` and `dofile` are forbidden;
+- `os`, `load`, `loadstring` and `dofile` are forbidden; the `web` global is read by the glue only and passed to `src/updater.lua` (the packager only allows `web.get` and `web.timeouts` there);
 - `ac.setSetupSpinnerValue` and `ac.saveCurrentSetup` are forbidden everywhere, `ac.loadSetup` everywhere except in `src/exporter.lua`;
 - no unused local variable, no TODO, lines of at most 140 characters.
 
@@ -165,6 +170,7 @@ src/recorder.lua     lap recorder, your times per setup, export
 src/calibration.lua  calibration, "measure only" mode
 src/exporter.lua     writing new files, loading into the car
 src/store.lua        validated persistence (settings, calibrations, track memory)
+src/updater.lua      in-game update: version check, download, checks, file replacement
 src/ui.lua           windows (read-only view of the state)
 docs/                user guide (English and French)
 tests/               offline bench, linter, dictionary, data set generator (never distributed)
