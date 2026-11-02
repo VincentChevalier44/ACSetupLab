@@ -65,7 +65,9 @@ local function loadTry(h, app, kind)
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
   frames(h, 1)
   app.handleIntents({ loadArm = kind })
-  T.ok(app.loadCheck and app.loadCheck.kind == kind, 'chargement demandé : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok((app.loadCheck and app.loadCheck.kind == kind) or (app.loadTest and app.loadTest.ok and app.loadTest.kind == kind),
+    'chargement demandé : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement terminé')
 end
 
@@ -74,7 +76,9 @@ local function loadVia(h, app, kind)
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
   frames(h, 1)
   app.handleIntents({ loadArm = kind })
-  T.ok(app.loadCheck and app.loadCheck.kind == kind, 'chargement demandé : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok((app.loadCheck and app.loadCheck.kind == kind) or (app.loadTest and app.loadTest.ok and app.loadTest.kind == kind),
+    'chargement demandé : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason) .. ' / ' .. tostring(app.ui.message))
 end

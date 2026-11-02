@@ -560,7 +560,8 @@ local function loadByButton(h, app, label)
   frames(h, 1)
   h.click = 'Charger le setup ' .. label .. ' dans la voiture'
   frames(h, 1)
-  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok(app.loadCheck or (app.loadTest and app.loadTest.ok), 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
 end

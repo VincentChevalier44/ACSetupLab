@@ -2269,7 +2269,7 @@ local function requestLoad(kind, where)
   -- dernier setup que SetupLab y a mis, sans retouche
   local kept = liveKeptFile()
   local last = kept == nil and liveLastLoaded() or nil
-  local backupNote
+  local backupNote, backupRec
   if kept or last then
     backupNote = kept and ('setup précédent déjà enregistré : ' .. kept) or ('setup précédent mis par SetupLab : ' .. last)
     app.backupsSkipped = (app.backupsSkipped or 0) + 1
@@ -2285,6 +2285,8 @@ local function requestLoad(kind, where)
     if #app.backups >= K.backupsMax then table.remove(app.backups, 1) end
     app.backups[#app.backups + 1] = { name = backup.name, hash = Util.hashString(backup.text), values = setupValues(backup.text) }
     backupNote = 'setup précédent sauvegardé : ' .. backup.name
+    backupRec = { file = backup.name, path = backup.path, text = backup.text, hash = Util.hashString(backup.text),
+      signature = 'avant:' .. backup.name }
   end
   local r = Exporter.loadIntoCar(host, saved.path, saved.text, app.written)
   if not r.ok then
@@ -2297,7 +2299,7 @@ local function requestLoad(kind, where)
     return
   end
   app.loadCheck = { kind = kind, path = saved.path, target = target, already = already, frames = K.loadVerifyFrames,
-    backup = backupNote }
+    backup = backupNote, backupFile = backupRec }
   app.ui.message = 'Chargement demandé : vérification du setup en cours…'
   log('INFO', 'load', 'ac.loadSetup accepté : ' .. saved.path .. ' ; ' .. backupNote)
 end
@@ -2444,10 +2446,20 @@ local function loadTick()
         r.needsDiscovery, r.laps, r.lapSignature, r.due, r.nextAt = true, 0, nil, true, nil
         -- minimum avant une proposition : compté de nouveau avec le setup chargé
         r.minLaps, r.minTime, r.minFamily = 0, 0, nil
+        r.driven = nil
         for _, entry in ipairs(r.history) do
           if entry.version and app.saved[check.kind] and entry.signature == app.saved[check.kind].signature then
             r.driven = entry.version
             entry.trialInCar = nil
+            -- 1.5.3 (décision de Vincent du 02/11/2026 : « on n'enregistre que ce qui est validé ») : l'essai est dans la
+            -- voiture, son fichier part à la Corbeille ; le setup d'avant (copie de sauvegarde) est noté pour « Recommencer »
+            local trial = entry.trial
+            if trial and trial.path == check.path and app.written[trial.file] == trial.hash then
+              entry.before = check.backupFile or entry.before
+              app.saved[check.kind] = nil
+              queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash,
+                why = 'essai de v' .. entry.version .. ' chargé dans la voiture' })
+            end
           end
         end
         app.ui.message = app.ui.message .. ' Affinage : nouvelle découverte au stand, puis nouveau calcul sur ce setup.'
@@ -3194,10 +3206,14 @@ local function refineValidate(r, e)
     origin = e.origin, carId = e.carId, family = e.family }
   memoryPut(entry)
   queueBackupCleanup()
+  -- 1.5.3 (décision de Vincent du 02/11/2026) : validée après son essai, avec des effets refusés, la version gardée
+  -- remplace l'essai dans la voiture ; validée sans essai, elle reste à charger (« Charger »)
+  local loadIt = r.driven == e.version and not liveHasValues(setupValues(e.text))
   app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
     .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
       or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
   log('INFO', 'memory', app.ui.message)
+  if loadIt then requestLoad(r.kind) end
   return entry
 end
 
@@ -3247,6 +3263,15 @@ local function refineReject(r, e)
     .. (r.driven == e.version and ' Elle est encore dans la voiture.'
       or ' SetupLab repart de votre setup actuel : nouvelle proposition avec vos prochains tours.')
   log('INFO', 'memory', app.ui.message)
+  -- 1.5.3 (décision de Vincent du 02/11/2026) : la version refusée est dans la voiture : le setup d'avant y revient (la
+  -- référence, sinon la copie de sauvegarde faite avant l'essai)
+  if r.driven == e.version then
+    if back == nil and e.before then
+      app.written[e.before.file] = e.before.hash
+      setLoadTarget(r.kind, e.before)
+    end
+    if app.saved[r.kind] then requestLoad(r.kind) end
+  end
 end
 
 -- Essayer (décision de Vincent du 26/10/2026 : « il propose un setup, l'utilisateur essaye ce setup ») : le setup
@@ -3257,7 +3282,7 @@ local function refineTry(r, e)
     app.ui.message = 'v' .. e.version .. ' : déjà ' .. tostring(e.status) .. '.'
     return
   end
-  if e.trial == nil then
+  if e.trial == nil or app.written[e.trial.file] ~= e.trial.hash then
     if app.inert then
       app.ui.message = 'Essai impossible : ' .. app.inert
       return
@@ -3275,9 +3300,12 @@ local function refineTry(r, e)
   end
   e.status = 'essai'
   setLoadTarget(r.kind, e.trial)
-  app.ui.message = 'v' .. e.version .. ' en essai : ' .. e.trial.file .. '. Au stand, menu de setup ouvert : « Charger » ; '
-    .. 'roulez, puis gardez ou refusez chaque effet et validez.'
+  app.ui.message = 'v' .. e.version .. ' en essai : ' .. e.trial.file .. ' ; roulez avec elle, puis gardez ou refusez chaque '
+    .. 'effet et validez.'
   log('INFO', 'refine', app.ui.message)
+  -- 1.5.3 (décision de Vincent du 02/11/2026) : « Essayer » met la version dans la voiture, en un clic ; refusé (hors
+  -- du stand…) : la raison est dite et le bouton « Charger » reste
+  requestLoad(r.kind)
 end
 
 -- Garder ou refuser un réglage (clé d'item) ou un groupe entier (clé de groupe) d'une version en attente ou en essai ;

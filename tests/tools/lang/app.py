@@ -218,6 +218,7 @@ EN = {
         'v%s validated and saved: %s; reference setup (%s) kept in memory for this track. %s',
     "v%s est le setup figé (%s) : le déverrouiller d'abord.": 'v%s is the locked setup (%s): unlock it first.',
     'essai de v%s non gardé': 'v%s trial not kept',
+    'essai de v%s chargé dans la voiture': 'v%s trial loaded into the car',
     'v%s non gardée': 'v%s not kept',
     ' (son fichier %s part à la Corbeille dès que la voiture est arrêtée).':
         ' (its file %s goes to the Recycle Bin as soon as the car is stopped).',

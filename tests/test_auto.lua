@@ -143,7 +143,8 @@ local function loadAtPit(h, app, click)
   frames(h, 1)
   h.click = click
   frames(h, 1)
-  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok(app.loadCheck or (app.loadTest and app.loadTest.ok), 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason) .. ' / ' .. tostring(app.ui.message))
 end
@@ -427,7 +428,7 @@ end
 -- La boucle réelle : proposée, validée (enregistrée), chargée au stand, roulée, puis écartée après l'essai :
 -- la référence d'avant revient (son fichier reste, D8) ; rien n'est proposé à partir d'une version écartée
 -- encore dans la voiture.
-tests['AU06 validée, essayée, écartée : la référence d\'avant revient ; rien à partir d\'elle tant qu\'elle est montée'] = function()
+tests['AU06 validée, essayée, écartée : la référence d\'avant revient, remise dans la voiture'] = function()
   local h, app = ready()
   h.click = 'Affinage automatique (tour rapide)'
   frames(h, 1)
@@ -452,36 +453,26 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient ; ri
   T.eq(app.memory['qualif|sec'].signature, v2.signature, 'v2 référence')
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.eq(r.driven, 2)
-  -- essayée, écartée : v1 redevient la référence et le setup à charger ; le fichier de v2 part à la Corbeille,
-  -- voiture arrêtée (réponse de Vincent du 22/10/2026), et plus rien ne le désigne
+  -- essayée, écartée : v1 redevient la référence ; 1.5.3 (décision de Vincent du 02/11/2026) : v2 étant dans la voiture,
+  -- la référence d'avant y est remise aussitôt ; le fichier de v2 part à la Corbeille, voiture arrêtée (réponse de
+  -- Vincent du 22/10/2026), et plus rien ne le désigne
   local writes = h.writeCalls
   local v2file = v2.file
   h.click = 'Recommencer (ne pas garder v2)'
   frames(h, 1)
   T.eq(v2.status, 'écartée', tostring(app.ui.message))
-  T.contains(app.ui.message, 'encore dans la voiture')
-  T.contains(app.ui.message, 'son fichier ' .. v2file .. ' part à la Corbeille')
+  T.eq(app.memory['qualif|sec'].signature, v1.signature, 'la référence d\'avant revient')
+  T.eq(#storedKeys(app, ':qualif:sec'), 1)
+  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. v1.file, 'la référence remise dans la voiture')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  T.eq(r.driven, 1, 'l\'affinage repart de la référence')
   T.ok(waitFor(h, function() return h.written[folderOf(h) .. '/' .. v2file] == nil end, 10), 'à la Corbeille, voiture arrêtée')
   T.eq(h.recycled[#h.recycled], folderOf(h) .. '/' .. v2file)
   T.eq(app.written[v2file], nil, 'plus rien ne le désigne')
   T.eq(v2.file, nil)
   T.ok(h.written[folderOf(h) .. '/' .. v1.file], 'la référence reste')
-  T.eq(app.memory['qualif|sec'].signature, v1.signature, 'la référence d\'avant revient')
-  T.eq(#storedKeys(app, ':qualif:sec'), 1)
-  T.eq(app.saved.quali.signature, v1.signature, 'repli sur la référence')
-  -- calcul sur v2 (chargée) : rien de proposé
-  T.ok(waitFor(h, function()
-    local last = r.history[#r.history]
-    return r.phase == 'tours' and last.note ~= nil and last.note:find('version non gardée', 1, true) ~= nil
-  end), 'calcul parti de v2 : rien de proposé')
-  T.eq(h.writeCalls, writes, 'aucun nouveau fichier')
-  T.contains(r.waiting, 'charger au stand le setup validé')
-  frames(h, 1)
-  T.ok(shown(h, 'v2 non gardée : pas reproposée. Encore dans la voiture'))
-  -- la référence se charge : l'affinage repart d'elle
-  loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
-  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. v1.file)
-  T.eq(r.driven, 1)
+  T.eq(h.writeCalls, writes, 'aucune copie : la voiture avait v2, mise par SetupLab, sans retouche')
   T.eq(app.perf.errors, 0)
 end
 

@@ -13,8 +13,8 @@ EN = {
         'I have the minimum information; I keep analysing your laps. The setup will be ready when you return to the pits.',
     "parti d'une version non gardée : rien de proposé": 'started from a version not kept: nothing proposed',
     'v%s non validée : écriture impossible (%s).': 'v%s not validated: cannot write (%s).',
-    'v%s en essai : %s. Au stand, menu de setup ouvert : « Charger » ; roulez, puis gardez ou refusez chaque effet et validez.':
-        'v%s on trial: %s. In the pits, setup menu open: "Load"; drive, then keep or refuse each effect and validate.',
+    'v%s en essai : %s ; roulez avec elle, puis gardez ou refusez chaque effet et validez.':
+        'v%s on trial: %s; drive with it, then keep or refuse each effect and validate.',
     'Setup figé : %s (%s), gardé en mémoire pour ce circuit et proposé à chaque visite. Affinage arrêté pour cette séance ; « Déverrouiller » pour reprendre.':
         'Setup locked: %s (%s), kept in memory for this track and offered on every visit. Refinement stopped for this session; "Unlock" to resume.',
     'SetupLab mis en veille : erreur interne (%s).': 'SetupLab put on standby: internal error (%s).',

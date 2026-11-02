@@ -104,7 +104,8 @@ local function loadAtPit(h, app, kind)
   frames(h, 1)
   h.click = 'Charger le setup ' .. (kind == 'race' and 'course' or 'tour rapide') .. ' dans la voiture'
   frames(h, 1)
-  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok(app.loadCheck or (app.loadTest and app.loadTest.ok), 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason) .. ' / ' .. tostring(app.ui.message))
 end
@@ -161,7 +162,8 @@ tests['NV02 setup de course : qualification validée, montée dans la voiture, n
   T.contains(app.ui.message, 'charger d\'abord le setup de qualification validé')
   -- chargée au stand : il manque le nombre de tours
   app.handleIntents({ raceRefLoad = true })
-  T.ok(app.loadCheck, 'chargement demandé en un clic : ' .. tostring(app.ui.message))
+  -- 1.5.3 : « Essayer » a peut-être déjà chargé l'essai (chargement en cours, ou fait)
+  T.ok(app.loadCheck or (app.loadTest and app.loadTest.ok), 'chargement demandé en un clic : ' .. tostring(app.ui.message))
   T.ok(waitFor(h, function() return app.loadCheck == nil end))
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
   local why, action = app.raceBlocker()
