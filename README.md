@@ -71,7 +71,7 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (over 320 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game with the **Ferrari 488 GT3** (Kunos) at Spa, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (349 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;

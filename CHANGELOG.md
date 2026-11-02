@@ -15,7 +15,7 @@ Why this update: some players closed the SetupLab window with its X and could no
 - **Step card in its own tab**: the step card (Start, Drive, Try, Validate) only shows in the tab it is about (QUALIFYING or RACE), no longer in the other tabs; in a race session the window opens on the RACE tab.
 - **Buttons easier to see**: buttons without a colour (Lock, Start over, Validate vN, Validate without trying, Modify...) now have a lighter fill and a thin blue outline, so they no longer look like plain text inside the cards.
 - **Journal in CSP's log**: each line of SetupLab's journal is also written to CSP's log (`Documents\Assetto Corsa\logs\custom_shaders_patch.log`, lines `[Lua: App: SetupLab]`), on one line and at the same rate, so a session can still be checked after AC is closed (CSP replaces that file when AC starts again). The lines are in French, like the J0 report.
-- Tried in game with the WHK Killer One 2026 at Imola and Monza (CSP 0.3.2-preview2): qualifying versions, race setup from the qualifying setup in the car, pit strategy. 349 offline tests.
+- Tried in game on CSP 0.3.2-preview2: qualifying versions, race setup from the qualifying setup in the car, pit strategy. 349 offline tests.
 
 ## 1.0.0-beta.1.5.1 — 2026-10-29 — beta 1.5.1: clear feedback after each lap, CSP 0.3.1 compatibility
 
@@ -25,7 +25,7 @@ Why this update: in game, after a clean lap, SetupLab looked as if it had not se
 - **CSP 0.3.1-preview2: precise clock**: this CSP blocks the Windows clock SetupLab used to time its computation, which fell back to a fixed amount of work per frame (slower computations, possible small stutters, frame cost shown as 0 ms). SetupLab now uses CSP's own precise clock (`os.preciseClock`) instead; the DIAGNOSTICS tab and the J0 report say which clock is in use.
 - **CSP 0.3.1-preview2: wing heights in millimetres**: CSP now reports wing ground heights in millimetres, so the ride-height reference was refused and ride height was never optimised. They are now read correctly, and ride height is optimised again (reduced search).
 - With CSP 0.3.1-preview2, local time is not available to apps: saved file names use UTC time (`..._13h31m42sUTC.ini`).
-- Tried in game with the WHK Killer One 2026 at Spa (CSP 0.3.1-preview2). Over 320 offline tests.
+- Tried in game on CSP 0.3.1-preview2. Over 320 offline tests.
 
 ## 1.0.0-beta.1.5 — 2026-10-26 — beta 1.5: guided flow, settings one by one, race after qualifying, new interface, English
 
@@ -44,7 +44,7 @@ Why this update: in game, after a clean lap, SetupLab looked as if it had not se
 - **English and French**: English by default, French with one click. Everything is translated: menus, buttons, messages, on-screen announcements, hover help, overlay and debug window. Help on hover for every app setting. Setting explanations are written in both languages.
 - **File names follow the language**: `SetupLab_Quali_v1.ini`, `_Race`, `_Wet`, `_trial`, `SetupLab_Before_load_…` in English; the French names are unchanged. Version numbers continue across both languages; existing files are still recognised.
 - **Documentation**: user guide in English (`docs/notice.html`) and French (`docs/notice.fr.html`), both in the archive; README and changelog in English.
-- **Tried in game** with the Ferrari 488 GT3 (Kunos) at Spa.
+- **Tried in game.**
 - **Tests**: over 320, including the full flow replayed in English with every tooltip open (no French text may remain), the cost of the English interface, the effect buttons, the race panel, the language badge and the English file names.
 
 ## 1.0.0-beta.1.4 — 2026-10-22 — beta 1.4: analysis until you return to the pits
