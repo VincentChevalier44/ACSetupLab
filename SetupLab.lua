@@ -198,6 +198,9 @@ app.fileBase = fileBase
 
 -- Clés stockées de la voiture et du circuit (disposition comprise) de la découverte.
 local function storeKey(kind, d, ...)
+  -- pendant une découverte (app.discovery à nil) : la dernière terminée ; sans elle, un « Valider » ou un « Figer » cliqué
+  -- pendant la découverte relancée après un chargement n'était pas gardé (relecture du 02/11/2026)
+  d = d or app.lastDiscovery
   if not (d and d.car and d.trackFiles and type(d.trackFiles.fullId) == 'string') then return nil end
   -- identifiant complet « circuit/disposition » : la disposition est une partie de la clé (§13), « - » sans
   local track, layout = d.trackFiles.fullId:match('^([^/]+)/([^/]+)$')
@@ -707,7 +710,7 @@ end
 local function onDiscovered(ok, result, cpuMs)
   if ok then
     result.durationMs = cpuMs
-    app.discovery = result
+    app.discovery, app.lastDiscovery = result, result
     app.discoveryState = 'done'
     -- setup physique de la découverte, conservé pour la calibration (même voiture, même circuit)
     if result.space and result.carBase and #result.carBaseMissing == 0 then
@@ -718,7 +721,7 @@ local function onDiscovered(ok, result, cpuMs)
       rememberSetup(result.signature, known)
     end
     app.recorder.protected = protectedSignatures()
-    if app.detectPins then app.detectPins(result) end
+    if app.detectPins and (app.discoverySeq or 0) == (app.loadSeq or 0) then app.detectPins(result) end
     restoreStored(result)
     scheduleReport(result)
     local counts = Caps.countByStatus(result.caps)
@@ -740,6 +743,7 @@ local function startDiscovery()
   Util.schedulerCancel(app.scheduler)
   app.discovery, app.report, app.discoveryError, app.quali, app.race = nil, nil, nil, nil, nil
   app.discoveryState = 'running'
+  app.discoverySeq = app.loadSeq or 0
   app.conditionsKey = app.context and app.context.conditionsKey or nil
   app.pendingSessionKey = nil
   Util.schedulerAdd(app.scheduler, 'discovery', discover, onDiscovered)
@@ -2311,6 +2315,17 @@ local function liveLastLoaded()
   return nil
 end
 
+-- Fichier écrit par SetupLab, intact, en enregistrement chargeable (setup d'avant un essai), ou nil (absent, modifié, à la
+-- Corbeille).
+local function ownRecord(name)
+  local hash = name and app.written[name]
+  local folder = hash and Exporter.targetFolder(host)
+  if not folder then return nil end
+  local ok, text = Util.call(Util.get(host.io, 'load'), folder .. '/' .. name)
+  if not (ok and type(text) == 'string' and Util.hashString(text) == hash) then return nil end
+  return { file = name, path = folder .. '/' .. name, text = text, hash = hash, signature = 'avant:' .. name }
+end
+
 -- Chargement en un clic (décision de Vincent du 02/11/2026, 1.5.3 : « est-ce qu'on a vraiment besoin de confirmation
 -- de chargement ? ») : la fenêtre n'existe que sur l'écran de setup, au stand ; gardes, copie de sauvegarde du setup en
 -- cours quand elle sert, ac.loadSetup, puis constat du setup chargé (loadTick). Un clic de plus pendant ce constat ne
@@ -2346,6 +2361,7 @@ local function requestLoad(kind, where)
   if kept or last then
     backupNote = kept and ('setup précédent déjà enregistré : ' .. kept) or ('setup précédent mis par SetupLab : ' .. last)
     app.backupsSkipped = (app.backupsSkipped or 0) + 1
+    backupRec = ownRecord(kept or last)
   else
     local backup = Exporter.saveCopy(host, app.context and app.context.systemTime or 0, fileWords().backup, fileStamp())
     app.writeTest = backup
@@ -2401,16 +2417,18 @@ local function adoptMenuLoad(d)
       end
       local values = setupValues(f.text)
       if sameSetup(live, values) then
-        -- la voiture a exactement ce fichier : aucune retouche (même revenue à la main à sa valeur)
+        -- le dernier setup chargé par SetupLab : rien à adopter (detectPins libère les retouches revenues à sa valeur)
         local current = app.loaded[f.kind]
-        local same = current and current.name == f.name and app.lastLoadKind == f.kind
-        local had = next(app.pins[f.kind] or {}) ~= nil
-        if same and not had then return true end
+        if current and current.name == f.name and app.lastLoadKind == f.kind then return false end
         app.loaded[f.kind] = { values = values, name = f.name }
         app.lastLoadKind = f.kind
-        app.pins[f.kind] = {}
-        log('INFO', 'pins', (same and ('Setup revenu à ' .. f.name) or ('Setup de SetupLab chargé depuis le menu d\'AC : '
-          .. f.name .. ' devient la référence')) .. (had and ', retouches libérées' or '') .. '.')
+        local pins, kept, had = app.pins[f.kind] or {}, {}, false
+        for name, pin in pairs(pins) do
+          if pin.refused then kept[name] = pin else had = true end
+        end
+        app.pins[f.kind] = kept
+        log('INFO', 'pins', 'Setup de SetupLab chargé depuis le menu d\'AC : ' .. f.name .. ' devient la référence'
+          .. (had and ', retouches libérées' or '') .. '.')
         return true
       end
     end
@@ -2428,8 +2446,13 @@ local function detectPins(d)
   for _, sp in ipairs(d.setup.spinners) do
     if d.space.members[sp.name] and not K.signatureIgnored[sp.name] then
       local want = loaded.values[sp.name]
-      if pins[sp.name] then
-        pins[sp.name].value = sp.value
+      local pin = pins[sp.name]
+      if pin and not pin.refused and type(want) == 'number' and math.abs(sp.value - want) <= K.setupValueTol then
+        -- retouche revenue à la main à la valeur du setup chargé : libérée
+        pins[sp.name] = nil
+        log('INFO', 'pins', 'Retouche libérée (' .. kind .. ') : ' .. sp.name .. ' revenu à ' .. tostring(want))
+      elseif pin then
+        pin.value = sp.value
       elseif type(want) == 'number' and math.abs(sp.value - want) > K.setupValueTol then
         pins[sp.name] = { value = sp.value, from = want }
         log('INFO', 'pins', 'Retouche gardée (' .. kind .. ') : ' .. sp.name .. ' ' .. tostring(want) .. ' -> ' .. tostring(sp.value))
@@ -2524,51 +2547,50 @@ local function loadTick()
   local same, section = liveHasValues(check.target)
   if same then
     app.loadCheck = nil
+    -- setup chargé (ou déjà en place, valeurs constatées) : vos retouches se mesurent à partir de lui (celles d'avant
+    -- restent gardées) ; setup de course : le preset d'arrêt rapide sélectionné prend ses pressions et son composé
+    -- (demande de Vincent du 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 »)
+    app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
+    app.lastLoadKind = check.kind
+    applyPit(check)
+    local s = app.start[check.kind]
+    if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
     if check.already then
       app.loadTest = { ok = false, kind = check.kind, path = check.path,
         reason = 'non concluant : le setup en cours était déjà celui du fichier' }
-      local s = app.start[check.kind]
-      if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.ui.message = 'Setup ' .. label .. ' en place, mais le chargement n\'est pas constaté : la voiture avait déjà ce '
         .. 'setup (' .. check.backup .. ').'
-      -- setup de course en place (valeurs constatées) : la stratégie d'arrêt est posée quand même (relecture du 02/11/2026)
-      applyPit(check)
     else
       app.loadTest = { ok = true, kind = check.kind, path = check.path }
-      -- setup chargé : vos retouches se mesurent à partir de lui (celles d'avant restent gardées)
-      app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
-      app.lastLoadKind = check.kind
-      -- setup de course : le preset d'arrêt rapide sélectionné prend ses pressions et son composé (demande de Vincent du
-      -- 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 ») ; note sur sa ligne dans l'onglet COURSE
-      applyPit(check)
-      local s = app.start[check.kind]
-      if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
       app.loadVerified = app.loadTest
+      app.loadSeq = (app.loadSeq or 0) + 1
       app.ui.message = 'Setup ' .. label .. ' chargé et vérifié dans la voiture (' .. check.backup
         .. '). Le prochain calcul relancera la découverte sur ce setup ; ses tours servent à la validation.'
-      -- affinage : nouvelle découverte tout de suite, voiture au stand ; tours comptés avec ce setup
-      local r = app.refine
-      if r and r.active and r.kind == check.kind then
-        r.needsDiscovery, r.laps, r.lapSignature, r.due, r.nextAt = true, 0, nil, true, nil
-        -- minimum avant une proposition : compté de nouveau avec le setup chargé
-        r.minLaps, r.minTime, r.minFamily = 0, 0, nil
-        r.driven = nil
-        for _, entry in ipairs(r.history) do
-          if entry.version and app.saved[check.kind] and entry.signature == app.saved[check.kind].signature then
-            r.driven = entry.version
-            entry.trialInCar = nil
-            -- 1.5.3 (décision de Vincent du 02/11/2026 : « on n'enregistre que ce qui est validé ») : l'essai est dans la
-            -- voiture, son fichier part à la Corbeille ; le setup d'avant (copie de sauvegarde) est noté pour « Recommencer »
-            local trial = entry.trial
-            if trial and trial.path == check.path and app.written[trial.file] == trial.hash then
-              entry.before = check.backupFile or entry.before
-              app.saved[check.kind] = nil
-              queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash,
-                why = 'essai de v' .. entry.version .. ' chargé dans la voiture' })
-            end
+    end
+    -- affinage de ce genre (actif ou non) : version dans la voiture ; l'essai chargé part à la Corbeille (1.5.3, décision
+    -- de Vincent du 02/11/2026 : « on n'enregistre que ce qui est validé »), le setup d'avant est noté pour « Recommencer »
+    local r = app.refines[check.kind]
+    local saved = app.saved[check.kind]
+    if r then
+      r.driven = nil
+      for _, entry in ipairs(r.history) do
+        if entry.version and saved and entry.signature == saved.signature then
+          r.driven = entry.version
+          entry.trialInCar = nil
+          local trial = entry.trial
+          if trial and trial.path == check.path and app.written[trial.file] == trial.hash then
+            entry.before = check.backupFile or entry.before
+            app.saved[check.kind] = nil
+            queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash,
+              why = 'essai de v' .. entry.version .. ' chargé dans la voiture' })
           end
         end
-        app.ui.message = app.ui.message .. ' Affinage : nouvelle découverte au stand, puis nouveau calcul sur ce setup.'
+      end
+      -- setup changé : nouvelle découverte tout de suite, voiture au stand ; tours comptés de nouveau avec lui
+      if r.active and r == app.refine and not check.already then
+        r.needsDiscovery, r.laps, r.lapSignature, r.due, r.nextAt = true, 0, nil, true, nil
+        r.minLaps, r.minTime, r.minFamily = 0, 0, nil
+        app.ui.message = app.ui.message .. ' Affinage : nouvelle découverte au stand.'
       end
     end
     log('INFO', 'load', app.ui.message)
@@ -2937,6 +2959,10 @@ local function refineFinish(r, q)
     return
   end
   r.retry, r.waiting, r.nextAt = false, nil, nil
+  if r.choice then
+    r.waiting = 'v' .. r.choice .. ' validée : continuer l\'affinage ou la figer ?'
+    return
+  end
   local result = q.result
   local gain = (result.timeCurrent or 0) - (result.timeProposed or 0)
   local note = { bucket = q.conditions and q.conditions.bucket or 'sec', timeCurrent = result.timeCurrent,
@@ -3255,6 +3281,7 @@ local function writeVersion(r, e)
   local kept, why = keptSetup(e)
   if kept == nil then return false, why end
   if e.file and kept.all then
+    if r.kind == 'quali' and e.hash then validatedPut(e.file, e.hash, e.version) end
     setLoadTarget(r.kind, e)
     return true
   end
@@ -3323,7 +3350,8 @@ local function refineValidate(r, e)
   queueBackupCleanup()
   -- 1.5.3 (décisions de Vincent du 02/11/2026) : « Valider » met toujours la version gardée dans la voiture (après l'essai
   -- avec des effets refusés, ou validée sans essai) : l'affinage repart d'elle et vos tours la jugent
-  local loadIt = not liveHasValues(setupValues(e.text))
+  local okL, liveText = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+  local loadIt = not (okL and type(liveText) == 'string' and sameSetup(setupValues(liveText), setupValues(e.text)))
   app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
     .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
       or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
@@ -3348,6 +3376,7 @@ local function refineReject(r, e)
   e.status = 'écartée'
   r.waiting = nil
   r.rejected[e.signature] = true
+  if r.choice == e.version then r.choice = nil end
   -- son fichier, écrit à sa validation, part à la Corbeille voiture arrêtée (réponse de Vincent du 22/10/2026) ;
   -- un fichier enregistré à la main reste
   -- fichier d'essai (version essayée puis refusée en entier) : à la Corbeille aussi
@@ -3386,10 +3415,9 @@ local function refineReject(r, e)
   -- 1.5.3 (décision de Vincent du 02/11/2026) : la version refusée est dans la voiture : le setup d'avant y revient (la
   -- référence, sinon la copie de sauvegarde faite avant l'essai)
   if r.driven == e.version then
-    if back == nil and e.before then
-      app.written[e.before.file] = e.before.hash
-      setLoadTarget(r.kind, e.before)
-    end
+    local before = e.before
+    if before and app.written[before.file] == nil then app.written[before.file] = before.hash end
+    if before and app.written[before.file] == before.hash then setLoadTarget(r.kind, before) end
     if app.saved[r.kind] then requestLoad(r.kind) end
   end
 end
@@ -3574,6 +3602,10 @@ app.raceChoices = raceChoices
 -- « Partir de la qualif vN » : elle va dans la voiture (un clic) et l'affinage de la course démarre ; déjà dans la voiture :
 -- l'affinage démarre. Renvoie vrai si l'affinage de la course doit démarrer.
 local function raceFrom(file)
+  if app.discoveryState ~= 'done' or app.discovery == nil then
+    app.ui.message = 'Départ de la course impossible : découverte en cours.'
+    return false
+  end
   local choice
   for _, c in ipairs(raceChoices()) do
     if c.file == file then choice = c end
@@ -3602,7 +3634,7 @@ local function raceFrom(file)
   setLoadTarget('quali', { file = file, path = path, text = text, hash = choice.hash, origin = 'memory',
     bucket = app.wet and app.wet.state or 'sec', signature = signatureOf(d.setup.spinners, values, tyres) })
   requestLoad('quali', 'memory')
-  return app.loadCheck ~= nil
+  return app.loadCheck ~= nil and app.loadCheck.path == path
 end
 
 local function startChoose(kind, mode)
@@ -3759,7 +3791,9 @@ local function handleIntents(intents)
   if intents.raceResume and not app.inert then
     local m = app.memory[intents.raceResume]
     memoryLoad(intents.raceResume)
-    if app.loadCheck ~= nil or (m and m.text and liveHasValues(setupValues(m.text))) then intents.refineStart = 'race' end
+    if (app.loadCheck ~= nil and m and app.loadCheck.path == m.path) or (m and m.text and liveHasValues(setupValues(m.text))) then
+      intents.refineStart = 'race'
+    end
   end
   if intents.raceStart and app.refine and app.refine.active and app.refine.kind ~= 'race' then
     intents.raceStart, intents.refineStart = nil, 'race'

@@ -151,8 +151,8 @@ EN = {
         '%s setup in place, but the load could not be confirmed: the car already had this setup (%s).',
     'Setup %s chargé et vérifié dans la voiture (%s). Le prochain calcul relancera la découverte sur ce setup ; ses tours servent à la validation.':
         '%s setup loaded and checked in the car (%s). The next computation will run the discovery again on this setup; its laps are used for validation.',
-    '%s Affinage : nouvelle découverte au stand, puis nouveau calcul sur ce setup.':
-        '%s Refinement: new discovery in the pits, then a new computation on this setup.',
+    '%s Affinage : nouvelle découverte au stand.':
+        '%s Refinement: new discovery in the pits.',
     'setup illisible': 'setup unreadable',
     'écart : setup en cours différent du fichier chargé (%s)': 'mismatch: setup in the car differs from the loaded file (%s)',
     'Écart : le jeu a accepté le chargement, mais le setup en cours diffère du setup %s (%s) : vérifier dans le menu de setup (%s':

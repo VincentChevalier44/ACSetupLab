@@ -60,11 +60,19 @@ local function sameValues(a, b)
 end
 
 -- Affinage du tour rapide parti du setup de la voiture, v1 proposée, voiture au stand (menu de setup ouvert).
-local function v1Ready()
+local function v1Ready(mode)
   local h, app = boot()
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
   app.settings.compoundChoice = app.discovery.compoundIndex
-  app.handleIntents({ start = { kind = 'quali', mode = 'mine' } })
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  if mode == 'default' then
+    -- la voiture du banc a déjà son setup par défaut : un réglage changé, pour que le départ par défaut se charge
+    local sp = h.spinners[1]
+    sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+    app.handleIntents({ rediscover = true })
+    T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  end
+  app.handleIntents({ start = { kind = 'quali', mode = mode or 'mine' } })
   local r = app.refine
   T.ok(waitFor(h, function() return r and r.version >= 1 and r.phase == 'tours' end), 'v1')
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
@@ -339,6 +347,76 @@ tests['RC03 « Reprendre ma course vN » : la course validée revient dans la vo
   T.ok(waitFor(h, function() return app.raceStarted() and app.discoveryState == 'done' end, 1200),
     'course commencée : elle continue depuis la voiture')
   T.eq(app.raceBlocker(), nil, 'rien ne bloque')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Relecture adversariale du 02/11/2026 (nuit) : défauts du parcours corrigés.
+tests['FL01 « Figer » cliqué pendant la découverte relancée par le chargement : gardé (stockage), affinage arrêté'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  -- validée sans retouche : déjà dans la voiture ; une découverte tourne (relancée après l'essai)
+  app.handleIntents({ rediscover = true })
+  T.eq(app.discoveryState, 'running')
+  app.handleIntents({ refineChoice = { version = e.version, lock = true } })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  local m = app.memory[e.group .. '|' .. e.bucket]
+  T.ok(m and m.locked and m.signature == e.signature, 'figée après la découverte : ' .. tostring(m and m.file))
+  frames(h, 120)
+  T.no(app.refine.active, 'pas de reprise toute seule')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL02 « Recommencer » après un départ par défaut : le setup par défaut revient (copie de sauvegarde inutile)'] = function()
+  local h, app, r, e = v1Ready('default')
+  T.ok(waitFor(h, function()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end))
+  T.ok(app.loaded.quali and app.loaded.quali.name:find('SetupLab_Defaut', 1, true), 'départ par défaut chargé')
+  local before = liveValues(app, h)
+  local skipped = app.backupsSkipped or 0
+  tryLoaded(h, app, r, e)
+  T.eq(app.backupsSkipped, skipped + 1, 'copie inutile : la voiture avait le setup par défaut mis par SetupLab')
+  local loads = #h.loadCalls
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'écarter' } })
+  T.eq(e.status, 'écartée', tostring(app.ui.message))
+  T.eq(#h.loadCalls, loads + 1, 'un setup remis dans la voiture')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  local same, name = sameValues(liveValues(app, h), before)
+  T.ok(same, 'le setup par défaut revient, réglage ' .. tostring(name))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL03 réglage refusé puis version gardée chargée : le refus reste gardé pour les calculs suivants'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  local refused
+  for _, g in ipairs(e.groups or {}) do
+    for _, item in ipairs(g.items) do
+      if refused == nil and app.keptCount(e) > 1 then
+        refused = item
+        app.handleIntents({ effect = { version = e.version, key = item.key, keep = false } })
+      end
+    end
+  end
+  T.ok(refused, 'au moins deux réglages changés')
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.ok(waitFor(h, function()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end))
+  local any = false
+  for _, pin in pairs(app.pins.quali) do any = any or pin.refused == true end
+  T.ok(any, 'réglage refusé toujours gardé')
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL04 version validée puis « Recommencer » : plus de question « continuer ou figer » en suspens'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(r.choice, e.version)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'écarter' } })
+  T.eq(r.choice, nil, 'question levée')
   T.eq(app.perf.errors, 0)
 end
 
