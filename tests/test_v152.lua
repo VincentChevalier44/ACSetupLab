@@ -542,6 +542,43 @@ tests['PN01 setup de course chargé après un setup de qualification : aucune «
   T.eq(app.perf.errors, 0)
 end
 
+-- Carte d'étape dans l'onglet de son genre seulement (constat de Vincent du 02/11/2026 : « Étape 3/4 · Essayer v3 » de
+-- la qualification apparaissait aussi dans les onglets COURSE et MÉMOIRE).
+local function shown(h, fragment)
+  for _, s in ipairs(h.texts) do
+    if tostring(s):find(fragment, 1, true) then return true end
+  end
+  return false
+end
+
+local function onTab(h, id)
+  h.tab = id
+  frames(h, 1)
+  h.tab = nil
+  frames(h, 1)
+end
+
+tests['UI02 carte d\'étape : dans l\'onglet de son genre seulement ; en séance de course, COURSE d\'abord'] = function()
+  local h, app = ready({ skin = true })
+  frames(h, 1)
+  T.eq(app.ui.tab, 'Tour rapide', 'essai : QUALIF d\'abord')
+  T.ok(shown(h, 'Étape 1/4 · Départ'), 'QUALIF : carte de départ')
+  for _, id in ipairs({ 'Course', 'Mémoire', 'Mesure', 'Réglages', 'Capacités', 'Aide' }) do
+    onTab(h, id)
+    T.eq(app.ui.tab, id)
+    T.no(shown(h, 'Étape 1/4'), 'pas de carte d\'étape de la qualification dans l\'onglet ' .. id)
+  end
+  onTab(h, 'Tour rapide')
+  T.ok(shown(h, 'Étape 1/4 · Départ'), 'de retour dans QUALIF')
+  local h2, app2 = ready({ session = 3, skin = true })
+  frames(h2, 1)
+  T.eq(app2.ui.tab, 'Course', 'course : COURSE d\'abord')
+  T.ok(shown(h2, 'Course · avant le calcul'), 'carte de la course dans COURSE')
+  onTab(h2, 'Tour rapide')
+  T.no(shown(h2, 'Course · avant le calcul'), 'pas dans QUALIF')
+  T.eq(app.perf.errors + app2.perf.errors, 0)
+end
+
 -- Boutons neutres lisibles (constat de Vincent du 02/11/2026 : Figer, Recommencer, Valider vN « on les confond avec les
 -- textes normaux ») : au fond des cartes (field), l'aplat field du bouton ne se voyait pas.
 tests['UI01 bouton neutre du thème : aplat plus clair que les cartes, trait bleu ; boutons de couleur inchangés'] = function()

@@ -9,6 +9,7 @@
 - **Main window back on the setup screen**: its close button is removed, and its internal name changes so CSP shows it again for players who had closed it (it was saved as closed outside the app folder, so reinstalling did not help). Its position and size reset once.
 - Overlay: says where the "SetupLab active" checkbox is (SetupLab window, setup screen).
 - **Your tweaks are measured from the last setup SetupLab loaded**: loading the race setup after a qualifying setup no longer turns every difference between the two into a "tweak" kept by the next qualifying versions.
+- **Step card in its own tab**: the step card (Start, Drive, Try, Validate) only shows in the tab it is about (QUALIFYING or RACE), no longer in the other tabs; in a race session the window opens on the RACE tab.
 - **Buttons easier to see**: buttons without a colour (Lock, Start over, Validate vN, Validate without trying, Modify...) now have a lighter fill and a thin blue outline, so they no longer look like plain text inside the cards.
 - **Journal in CSP's log**: each line of SetupLab's journal is also written to CSP's log (`Documents\Assetto Corsa\logs\custom_shaders_patch.log`, lines `[Lua: App: SetupLab]`), on one line and at the same rate, so a session can still be checked after AC is closed (CSP replaces that file when AC starts again). The lines are in French, like the J0 report.
 

@@ -2077,13 +2077,16 @@ end
 -- Étape en cours (décision de Vincent du 26/10/2026 : « qu'on comprenne mieux le déroulement du principe de création de
 -- setup, de continuation de setup ») : toujours en tête, ce qu'il faut faire maintenant et son bouton.
 local START_NAMES = { mine = 'votre setup actuel', default = 'setup par défaut de la voiture', reference = 'votre référence' }
-local function stepCard(host, app, intents, palette)
+-- selected : onglet affiché ; la carte ne se montre que dans l'onglet de son genre (constat de Vincent du 02/11/2026 :
+-- « Étape 3/4 · Essayer v3 » de la qualification apparaissait aussi dans les onglets COURSE et MÉMOIRE) ; nil : partout.
+local function stepCard(host, app, intents, palette, selected)
   if app.inert then return end
   local r = app.refine
   local kind = (r and r.active and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
   if r and r.kind ~= kind then r = nil end
   local tabName = kind == 'race' and 'COURSE' or 'QUALIF'
   local tabId = kind == 'race' and 'Course' or 'Tour rapide'
+  if selected ~= nil and selected ~= tabId then return end
   local start = app.start and app.start[kind]
   local title, text, color, actions = nil, nil, palette.accent, {}
   local pending, trial, validated, keptInCar, rejectedInCar = nil, nil, nil, nil, nil
@@ -2221,7 +2224,6 @@ local function stepCard(host, app, intents, palette)
       tip(host, 'Repartir d\'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.')
     end
   end)
-  local _ = tabId
 end
 
 -- Thème (palette de SuperHUD) : couleurs des boutons, champs, en-têtes de section et onglets (onglet actif en bleu).
@@ -2469,7 +2471,8 @@ function M.main(host, app, intents)
     if ui.skin then
       -- thème SuperHUD : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
       -- qui défile dans une fenêtre enfant
-      app.ui.tab = app.ui.tab or 'Tour rapide'
+      -- premier onglet : celui du genre de la séance (en course, COURSE), où se trouve la carte d'étape
+      app.ui.tab = app.ui.tab or ((app.autoKind and app.autoKind() == 'race') and 'Course' or 'Tour rapide')
       local okC, origin = Util.call(ui.getCursor)
       local okS, size = Util.call(ui.windowSize)
       local p, q = vec(host, app.ui, 'bgA'), vec(host, app.ui, 'bgB')
@@ -2487,7 +2490,7 @@ function M.main(host, app, intents)
       Util.call(ui.unindent, 16)
       local function body()
         statusLines(host, app, palette)
-        stepCard(host, app, intents, palette)
+        stepCard(host, app, intents, palette, selected)
         if app.ui.message then small(host, app.ui.message, palette.accent) end
         for _, tab in ipairs(tabs) do
           if select(2, Skin.split(tab[1])) == selected then tab[2]() end
@@ -2513,15 +2516,18 @@ function M.main(host, app, intents)
       Util.call(ui.drawRectFilled, a0, b0, palette.bg, 0)
     end
     header(host, app, intents, palette)
-    stepCard(host, app, intents, palette)
+    local tabBar = ui.tabBar and ui.tabItem
+    -- avec onglets : la carte d'étape dans l'onglet de son genre seulement (dessinée dans l'onglet affiché)
+    if not tabBar then stepCard(host, app, intents, palette) end
     if app.ui.message then small(host, app.ui.message, palette.accent) end
     -- sans ui.tabBar, sections les unes sous les autres (une erreur dans un onglet n'est pas rattrapée ici : la colle
     -- la compte, sans redessiner les sections en double)
-    if ui.tabBar and ui.tabItem then
+    if tabBar then
       ui.tabBar('setuplab_tabs', function()
         for _, tab in ipairs(tabs) do
           ui.tabItem(tab[1], function()
             tabUnderline(host, app.ui, palette)
+            stepCard(host, app, intents, palette, select(2, Skin.split(tab[1])))
             tab[2]()
           end)
         end

@@ -458,6 +458,9 @@ tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
   h.tab = 'Capacités'
   frames(h, 1)
   T.ok(shownText(h, 'Thème SuperHUD : actif'), 'thème actif')
+  -- la carte d'étape se montre dans l'onglet de son genre seulement (02/11/2026)
+  h.tab = 'Tour rapide'
+  frames(h, 1)
   h.tab = nil
   app.handleIntents({ setting = { key = 'language', value = 'en' } })
   frames(h, 1)
@@ -604,6 +607,10 @@ tests['NV16 premier setup tout de suite, ou après les tours choisis (0 à 10)']
   frames(h, 1)
   h.tab = nil
   T.ok(shownText(h, 'Premier setup tout de suite'), 'case en tête de l\'onglet RÉGLAGES')
+  -- la carte d'étape se montre dans l'onglet de son genre seulement (02/11/2026)
+  h.tab = 'Tour rapide'
+  frames(h, 1)
+  h.tab = nil
   T.eq(app.settings.refineInstantFirst, false, 'décochée par défaut')
   app.handleIntents({ setting = { key = 'refineMinLaps', value = 2 } })
   app.handleIntents({ start = 'mine' })
