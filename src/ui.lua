@@ -330,7 +330,11 @@ local function tiles(host, state, list, palette)
     ui.dummy(q)
     tip(host, t.tip)
     q.x, q.y = x + width, y + height
-    Util.call(ui.drawRectFilled, p, q, palette.tile, 4)
+    if ui.skin then
+      ui.skin.panel(x, y, x + width, y + height, palette.tile, 6)
+    else
+      Util.call(ui.drawRectFilled, p, q, palette.tile, 4)
+    end
     p.x, p.y = x + 8, y + 4
     withFont(host, 'Small', function() ui.drawText(t.label, p, palette.muted) end)
     p.x, p.y = x + 8, y + 19
@@ -1348,6 +1352,7 @@ local function resultTiles(host, app, kind, q, r, palette)
   local simulated = 'Temps simulés par le modèle (calé sur vos tours) : ' .. summary
   tiles(host, app.ui, {
     { label = kind == 'race' and 'Votre tour moyen' or 'Votre meilleur tour', value = mine and M.lapTime(mine) or '—',
+      color = kind ~= 'race' and mine and palette.best or nil,
       tip = (mine and ('Avec le setup actuel : ' .. stats.count .. ' tour(s) valide(s).') or 'Roulez un tour propre avec ce setup.')
         .. '\n' .. simulated },
     { label = 'Objectif estimé', value = mine and M.lapTime(mine - gain) or '—', color = palette.available,
@@ -1680,7 +1685,7 @@ local function kindSection(host, app, intents, kind, palette)
       local model = M.modelState(app)
       local mine = realTime(realLaps(app, d.family, app.wet and app.wet.state or 'sec'), kind)
       tiles(host, app.ui, {
-        { label = 'Votre meilleur tour', value = mine and M.lapTime(mine) or '—',
+        { label = 'Votre meilleur tour', value = mine and M.lapTime(mine) or '—', color = mine and palette.best or nil,
           tip = (mine and 'Votre meilleur tour valide avec le setup actuel.' or 'Roulez un tour propre avec ce setup.')
             .. '\nTour simulé avec le setup actuel : ' .. M.lapTime(sim.time) .. ' ; vitesse maxi '
             .. Util.fmt(sim.vMax * 3.6, 0) .. ' km/h' },
