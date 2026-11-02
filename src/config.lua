@@ -151,8 +151,8 @@ M.help = {
   wetAidLevels = 'Sous la pluie, nombre de crans d\'antipatinage et d\'ABS ajoutés aux aides du setup. 0 : aides inchangées.',
   refineLaps = 'Pendant l\'affinage, nombre de tours propres entre deux calculs. 0 : un nouveau calcul à chaque tour propre.',
   updateCheck = 'Coché : une fois par lancement d\'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée. '
-    .. 'Plus récente : un bouton « Mettre à jour » apparaît ; rien n\'est téléchargé ni installé sans votre clic. Rien n\'est '
-    .. 'envoyé.',
+    .. 'Plus récente : un bouton « Mettre à jour » apparaît ; rien n\'est téléchargé ni installé sans votre clic. Aucune '
+    .. 'donnée de jeu ni personnelle n\'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.',
   refineInstantFirst = 'Coché : dès que SetupLab est actif (point de départ choisi), il calcule un premier setup d\'après les '
     .. 'caractéristiques de la voiture et de la piste, sans attendre de tour. Les versions suivantes attendent le minimum '
     .. 'ci-dessous. Décoché : le premier setup attend aussi ce minimum.',

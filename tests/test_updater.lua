@@ -144,6 +144,14 @@ tests['UP01 versions comparées segment par segment ; update.txt contrôlé'] = 
   local files = Updater.checkZip({ 'SetupLab/', 'SetupLab/SetupLab.lua', 'SetupLab/manifest.ini', 'SetupLab/src/a.lua' }, NEXT,
     '[ABOUT]\nVERSION=' .. NEXT .. '\n')
   T.eq(files and #files, 3, 'fichiers de l\'archive')
+  local raw = ''
+  for i = 0, 31 do raw = raw .. string.char(i * 7 % 256) end
+  T.eq(#Updater.hexOf(raw), 64, 'octets bruts convertis')
+  T.eq(Updater.hexOf(raw):sub(1, 6), '00070e', 'octets bruts en hexadécimal')
+  T.eq(Updater.hexOf(Updater.ABC:upper():gsub('(..)', '%1 ')), Updater.ABC, 'majuscules et séparateurs')
+  T.eq(Updater.hexOf('abc'), nil, 'trop court')
+  T.ok(Updater.selfTest({ checksumSHA256 = function() return Updater.ABC end }), 'auto-test : ok')
+  T.no(Updater.selfTest({ checksumSHA256 = function() return string.rep('0', 64) end }), 'auto-test : valeur fausse dite')
   local stale = Updater.staleFiles('SetupLab.lua\nsrc/a.lua\nsrc/b.lua\n../x\n', files)
   T.eq(#stale, 1)
   T.eq(stale[1], 'src/b.lua', 'seul le fichier retiré, chemin sûr')

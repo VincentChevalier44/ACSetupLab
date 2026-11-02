@@ -5,7 +5,8 @@
 -- de l'app, copie de sauvegarde des fichiers actuels, puis remplacement de tous les fichiers dans la même image
 -- (SetupLab.lua en dernier) : CSP recharge l'app une seule fois, sur des fichiers complets. Un échec avant le
 -- remplacement ne touche à rien ; pendant, les fichiers d'avant sont remis. Les fichiers de l'ancienne version absents de
--- la nouvelle (liste files.txt de chaque archive) partent à la Corbeille. Rien n'est envoyé : une lecture, un téléchargement.
+-- la nouvelle (liste files.txt de chaque archive) partent à la Corbeille. Aucune donnée n'est envoyée : une lecture, un
+-- téléchargement (GitHub voit l'adresse IP, comme pour toute page web).
 -- Hôte injecté (D5) : host.web, host.io, host.ac.
 local M = {}
 
@@ -119,6 +120,25 @@ function M.staleFiles(oldList, newFiles)
     end
   end
   return out
+end
+
+-- Empreinte rendue par ac.checksumSHA256 en hexadécimal minuscule : 32 octets bruts convertis, sinon séparateurs retirés.
+function M.hexOf(sha)
+  if type(sha) ~= 'string' then return nil end
+  if #sha == 32 then
+    return (sha:gsub('.', function(c) return string.format('%02x', c:byte()) end))
+  end
+  local hex = sha:lower():gsub('[^0-9a-f]', '')
+  if #hex ~= 64 then return nil end
+  return hex
+end
+
+-- Auto-test de l'empreinte de CSP (SHA-256 de « abc ») : vrai, ou faux et la valeur obtenue (dite au journal).
+M.ABC = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+function M.selfTest(ac)
+  local ok, sha = call(ac and ac.checksumSHA256, 'abc')
+  local hex = ok and M.hexOf(sha) or nil
+  return hex == M.ABC, tostring(hex or sha)
 end
 
 function M.new()
@@ -242,7 +262,7 @@ function M.apply(u, host, paths, onDone)
       return
     end
     local okH, sha = call(ac.checksumSHA256, body)
-    if not (okH and type(sha) == 'string' and sha:lower() == info.sha256) then
+    if not (okH and M.hexOf(sha) == info.sha256) then
       finish(false, 'empreinte SHA-256 différente, rien n\'est installé')
       return
     end

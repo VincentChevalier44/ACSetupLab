@@ -11,8 +11,8 @@ EN = {
     'Installez-la à la main depuis %s': 'Install it by hand from %s',
     'Copier le lien': 'Copy the link',
     'Vérifier les mises à jour au lancement (GitHub)': 'Check for updates at launch (GitHub)',
-    "Coché : une fois par lancement d'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée. Plus récente : un bouton « Mettre à jour » apparaît ; rien n'est téléchargé ni installé sans votre clic. Rien n'est envoyé.":
-        'Ticked: once per AC launch, SetupLab reads the number of the latest published version on GitHub. If it is newer, an "Update" button appears; nothing is downloaded or installed without your click. Nothing is sent.',
+    "Coché : une fois par lancement d'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée. Plus récente : un bouton « Mettre à jour » apparaît ; rien n'est téléchargé ni installé sans votre clic. Aucune donnée de jeu ni personnelle n'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.":
+        'Ticked: once per AC launch, SetupLab reads the number of the latest published version on GitHub. If it is newer, an "Update" button appears; nothing is downloaded or installed without your click. No game or personal data is sent; GitHub only sees your IP address, as for any web page.',
     'Mise à jour %s installée : CSP recharge SetupLab, qui revient en veille.':
         'Update %s installed: CSP reloads SetupLab, which comes back on standby.',
     'Lien de la page de la mise à jour copié.': 'Link to the update page copied.',
@@ -44,6 +44,8 @@ EN = {
     'empreinte SHA-256 illisible': 'unreadable SHA-256 fingerprint',
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
+    'Empreinte SHA-256 de CSP : ok': 'CSP SHA-256 fingerprint: ok',
+    'Empreinte SHA-256 de CSP : valeur inattendue (%s)': 'CSP SHA-256 fingerprint: unexpected value (%s)',
     # aide intégrée (onglet AIDE)
     '1. Départ : choisissez de quel setup partir : votre setup actuel (celui qui est dans la voiture, le vôtre ou celui par défaut), le setup par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix active SetupLab et met ce setup dans la voiture.':
         "1. Start: choose which setup to start from: your current setup (the one in the car, yours or the default one), the car's default setup, or your validated reference on this track. Choosing activates SetupLab and puts that setup in the car.",
@@ -54,6 +56,6 @@ EN = {
     "Le setup de course part d'une de vos qualifs validées sur ce circuit (v1, v2…, même d'un lancement d'AC précédent) : « Partir de la qualif vN » la met dans la voiture et lance l'affinage de la course, en un clic ; « Reprendre ma course vN » reprend une course validée. Saisissez le nombre de tours de la course (onglet COURSE).":
         'The race setup starts from one of your validated qualifying versions on this track (v1, v2…, including from an earlier AC launch): "Start from qualifying vN" puts it in the car and starts the race refinement, in one click; "Resume my race vN" resumes a validated race. Enter the number of race laps (RACE tab).',
     'Mise à jour': 'Update',
-    "Une fois par lancement d'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans l'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l'installe en un clic, après avoir vérifié l'archive ; CSP recharge alors SetupLab. Rien n'est envoyé.":
-        'Once per AC launch, SetupLab checks on GitHub whether a newer version is published (setting in the SETTINGS tab). If so, "Update", at the top of the window, installs it in one click, after checking the archive; CSP then reloads SetupLab. Nothing is sent.',
+    "Une fois par lancement d'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans l'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l'installe en un clic, après avoir vérifié l'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.":
+        'Once per AC launch, SetupLab checks on GitHub whether a newer version is published (setting in the SETTINGS tab). If so, "Update", at the top of the window, installs it in one click, after checking the archive; CSP then reloads SetupLab. No game or personal data is sent; GitHub only sees your IP address, as for any web page.',
 }

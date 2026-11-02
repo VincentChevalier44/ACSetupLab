@@ -1271,7 +1271,12 @@ local function update(dt)
   if app.refine and app.refine.active then app.refineTick() end
   -- mise à jour : une seule vérification par lancement d'AC, quelques secondes après le démarrage (hors ligne)
   if app.updater.state == 'idle' and app.settings.updateCheck and app.frameNo >= K.updateCheckFrame and not app.inert then
-    if Updater.check(app.updater, host, Config.version) then log('INFO', 'update', 'Recherche d\'une mise à jour (GitHub)') end
+    if Updater.check(app.updater, host, Config.version) then
+      log('INFO', 'update', 'Recherche d\'une mise à jour (GitHub)')
+      local okSha, got = Updater.selfTest(host.ac)
+      log('INFO', 'update', okSha and 'Empreinte SHA-256 de CSP : ok' or ('Empreinte SHA-256 de CSP : valeur inattendue ('
+        .. got:sub(1, 80) .. ')'))
+    end
   end
   if app.updater.state ~= app.updaterSeen then
     app.updaterSeen = app.updater.state

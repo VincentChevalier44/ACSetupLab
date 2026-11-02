@@ -2363,7 +2363,8 @@ local HELP = {
   { 'Mise à jour', {
     'Une fois par lancement d\'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans '
       .. 'l\'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l\'installe en un clic, après avoir vérifié '
-      .. 'l\'archive ; CSP recharge alors SetupLab. Rien n\'est envoyé.',
+      .. 'l\'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n\'est envoyée ; GitHub voit seulement '
+      .. 'votre adresse IP, comme pour toute page web.',
   } },
   { 'Notice complète', {
     'Notice d\'utilisation, dans le dossier de l\'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en '
