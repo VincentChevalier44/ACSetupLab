@@ -883,7 +883,7 @@ local function refreshContext()
       app.ui.message = 'Nouvelle séance : nouvelle découverte' .. (#lost > 0 and (' (effacés : ' .. table.concat(lost, ', ')
         .. ' ; les setups enregistrés restent chargeables)') or '') .. '.'
       log('INFO', 'session', app.ui.message)
-      -- un chargement armé ne survit pas à un changement de séance ; nouveau point de départ à choisir
+      -- un chargement demandé ne survit pas à un changement de séance ; nouveau point de départ à choisir
       app.start, app.manualKind = {}, nil
       startDiscovery()
     else
@@ -2208,7 +2208,7 @@ local function runFileOp(op)
   log('INFO', 'files', app.filesNote)
 end
 
--- À chaque image : un rangement au plus, voiture arrêtée, sans chargement armé ni en cours.
+-- À chaque image : un rangement au plus, voiture arrêtée, sans chargement en cours.
 local function fileOpsTick()
   if #app.fileOps == 0 or app.inert or app.loadCheck or app.perf.skipNext then return end
   local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
@@ -3641,7 +3641,7 @@ local function startChoose(kind, mode)
     return
   end
   local label = COMPUTE[kind].label
-  -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus ; un chargement armé non
+  -- un nouveau départ : vos retouches gardées et le setup chargé d'avant ne comptent plus ; un chargement en attente non
   -- plus ; les fichiers d'essai de l'affinage d'avant (versions jamais validées) partent à la Corbeille
   app.pins[kind], app.loaded[kind] = {}, nil
   app.loadNote = nil

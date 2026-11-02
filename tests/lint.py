@@ -54,7 +54,7 @@ WRITE_API = {
 # D8 : ne jamais modifier le setup en cours par cran ni l'enregistrer par-dessus un fichier.
 NEVER = {'setSetupSpinnerValue', 'saveCurrentSetup', 'resetSetupToDefault', 'setTyresCompound', 'setCarFuel'}
 # D8 amendé le 20/10/2026 (décision de Vincent) : chargement d'un setup écrit par SetupLab, seulement
-# depuis l'exporteur (gardes, copie de sauvegarde et confirmation dans la colle).
+# depuis l'exporteur (gardes et copie de sauvegarde dans la colle ; un clic depuis la 1.5.3).
 # D8 amendé le 02/11/2026 (décision de Vincent) : stratégie d'arrêt d'un setup de course chargé, depuis l'exporteur seulement.
 LOAD_API = {'loadSetup': {'exporter'}, 'setPitstopSpinnerValue': {'exporter'}}
 # Réseau (mise à jour en jeu, 02/11/2026) : aucun envoi nulle part ; le champ web de l'hôte, colle et updater seulement.

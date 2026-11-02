@@ -1018,7 +1018,7 @@ function F.new(opts)
     end,
     setNextItemWidth = function() uiCall() end,
   }
-  -- Thème SuperHUD (src/skin.lua) : DWrite et boutons invisibles, comme CSP 0.2.11 et plus récent, avec opts.skin ;
+  -- Thème Racing 26 (src/skin.lua) : DWrite et boutons invisibles, comme CSP 0.2.11 et plus récent, avec opts.skin ;
   -- sans, l'interface garde les contrôles ImGui (tous les onglets affichés, h.tab : un seul). Le texte DWrite est vu
   -- comme un texte affiché ; avec le thème, h.tab = identifiant d'onglet : clic sur cet onglet.
   h.skin = opts.skin == true

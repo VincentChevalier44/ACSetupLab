@@ -410,10 +410,10 @@ tests['NV09 noms de fichiers en anglais, numérotés à la suite des fichiers fr
   T.eq(app.perf.errors, 0)
 end
 
--- Thème SuperHUD (demande de Vincent du 26/10/2026 : « la même interface, les mêmes couleurs, le même fond… que
--- SuperHUD ») : en-tête, onglets dessinés (un clic change d'onglet, seul l'onglet choisi est dessiné), interrupteur
+-- Thème de l'app (Racing 26 depuis la 1.5.3 ; demande de Vincent du 26/10/2026 : une interface dessinée, pas les
+-- contrôles ImGui) : en-tête, onglets dessinés (un clic change d'onglet, seul l'onglet choisi est dessiné), interrupteur
 -- « SetupLab actif », sans contrôle ImGui pour les boutons, cases et onglets.
-tests['NV10 thème SuperHUD : onglets dessinés, interrupteur, boutons plats'] = function()
+tests['NV10 thème de l\'app : onglets dessinés, interrupteur, boutons du thème'] = function()
   local h, app = ready({ skin = true })
   local imgui = { button = 0, checkbox = 0, tabItem = 0 }
   for name in pairs(imgui) do

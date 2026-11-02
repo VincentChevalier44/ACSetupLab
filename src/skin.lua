@@ -1,5 +1,5 @@
 -- SetupLab — thème « Racing 26 » (refonte de Vincent du 02/11/2026, canevas Design « SetupLab 2026 — Refonte UI »). Il
--- remplace le thème SuperHUD de la 1.5. Fond quasi noir, panneaux anthracite à coin coupé, cyan d'action, couleurs de
+-- remplace le thème de la 1.5. Fond quasi noir, panneaux anthracite à coin coupé, cyan d'action, couleurs de
 -- course (meilleur tour violet, gain vert, à confirmer ambre, perte rouge). Polices livrées avec l'app (fonts/, licence
 -- OFL) : Barlow pour le texte, Barlow Condensed (italique très gras) pour les titres, les boutons et les onglets,
 -- JetBrains Mono pour les valeurs. Boutons en parallélogramme, onglets inclinés, barre d'étapes en segments inclinés.

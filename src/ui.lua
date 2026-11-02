@@ -86,9 +86,9 @@ local TRANSLATED = {
   progressBar = function(real, f, size, overlay, ...) return real.progressBar(f, size, L.t(overlay), ...) end,
 }
 
--- Hôte qui dessine en traduisant (créé une fois par hôte) et, si l'hôte le permet, avec le thème de SuperHUD
--- (src/skin.lua) : textes Segoe UI, boutons plats, interrupteurs. ui.skin, ui.skinText, ui.skinButton et ui.skinBadge
--- n'existent qu'avec le thème ; ui.plainText : texte ImGui (infobulles, comme dans SuperHUD).
+-- Hôte qui dessine en traduisant (créé une fois par hôte) et, si l'hôte le permet, avec le thème Racing 26
+-- (src/skin.lua) : polices de l'app, boutons inclinés, interrupteurs. ui.skin, ui.skinText, ui.skinButton et ui.skinBadge
+-- n'existent qu'avec le thème ; ui.plainText : texte ImGui (infobulles).
 function M.translating(host)
   if host.translating then return host end
   local real = host.ui
@@ -403,8 +403,8 @@ local function actionButton(host, state, palette, label, style, full)
 end
 
 -- Carte : contenu en retrait, barre de couleur à gauche (dessinée après coup, sans rien recouvrir). Avec le thème :
--- fond comme le module sélectionné de SuperHUD (FIELD, trait de 2 px), dessiné avant le contenu à la hauteur de l'image
--- précédente, pour ne rien recouvrir.
+-- panneau à coin coupé et filet de 3 px en haut à la couleur de l'état (Racing 26), dessiné avant le contenu à la hauteur
+-- de l'image précédente, pour ne rien recouvrir.
 local function card(host, state, color, fn)
   local ui = host.ui
   local okA, top = Util.call(ui.getCursor)
@@ -2070,7 +2070,7 @@ function M.autoLine(app)
   return 'Actif : affinage ' .. KIND[kind].name .. ' au démarrage…', 'pending'
 end
 
--- Trait de couleur sur toute la largeur (sous l'en-tête, comme SuperHUD).
+-- Trait de couleur sur toute la largeur (sous l'en-tête).
 local function rule(host, state, color, thickness)
   local ui = host.ui
   local okC, cursor = Util.call(ui.getCursor)
@@ -2084,7 +2084,7 @@ local function rule(host, state, color, thickness)
   Util.call(ui.dummy, q)
 end
 
--- En-tête (décision de Vincent du 26/10/2026 : « comme SuperHUD ») : SETUPLAB, version, langue, SetupLab actif ;
+-- En-tête sans le thème (contrôles ImGui) : SETUPLAB, version, langue, SetupLab actif ;
 -- voiture, circuit et séance ; état de l'affinage ; état des données et des calculs.
 local function header(host, app, intents, palette)
   local ui = host.ui
@@ -2320,7 +2320,7 @@ local function stepCard(host, app, intents, palette, selected)
   end)
 end
 
--- Thème (palette de SuperHUD) : couleurs des boutons, champs, en-têtes de section et onglets (onglet actif en bleu).
+-- Couleurs ImGui du thème Racing 26 : boutons, champs, en-têtes de section et onglets (onglet actif en cyan).
 local THEME = {
   { 'Text', 'text' }, { 'TextDisabled', 'muted' }, { 'Border', 'line' }, { 'Separator', 'line' },
   { 'FrameBg', 'field' }, { 'FrameBgHovered', 'fieldHover' }, { 'FrameBgActive', 'fieldHover' },
@@ -2430,8 +2430,8 @@ local function helpSection(host, palette)
   end
 end
 
--- En-tête du thème (SuperHUD : SUPERHUD en gras, badge de langue bleu, version en gris ; interrupteur à droite),
--- voiture, circuit et séance en dessous.
+-- En-tête du thème Racing 26 : mot SETUP / LAB, badge de langue, version, état (au stand, en piste, en veille) ;
+-- interrupteur à droite ; voiture, circuit et séance en dessous.
 local function skinHeader(host, app, intents, palette)
   local ui = host.ui
   local d = app.discovery
@@ -2598,8 +2598,8 @@ local function statusLines(host, app, palette)
   end
 end
 
--- Onglets du thème (SuperHUD) : capitales, clair si actif, gris sinon, trait bleu de 2 px sous l'actif, filet gris
--- sous la rangée ; resserrés si la fenêtre est étroite. Renvoie l'identifiant de l'onglet choisi.
+-- Onglets du thème Racing 26 : inclinés, l'actif en cyan plein (texte sombre), les autres en gris, filet sous la
+-- rangée ; resserrés si la fenêtre est étroite. Renvoie l'identifiant de l'onglet choisi.
 local function skinTabs(host, app, tabs)
   local ui = host.ui
   local S = ui.skin
@@ -2680,7 +2680,7 @@ function M.main(host, app, intents)
   }
   local ok, err = pcall(function()
     if ui.skin then
-      -- thème SuperHUD : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
+      -- thème Racing 26 : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
       -- qui défile dans une fenêtre enfant
       -- premier onglet : celui du genre de la séance (en course, COURSE), où se trouve la carte d'étape
       app.ui.tab = app.ui.tab or ((app.autoKind and app.autoKind() == 'race') and 'Course' or 'Tour rapide')
