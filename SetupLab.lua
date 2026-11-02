@@ -1282,7 +1282,7 @@ local function update(dt)
     if Updater.check(app.updater, host, Config.version) then
       log('INFO', 'update', 'Recherche d\'une mise à jour (GitHub)')
       local okSha, got = Updater.selfTest(host.ac)
-      log('INFO', 'update', okSha and 'Empreinte SHA-256 de CSP : ok' or ('Empreinte SHA-256 de CSP : valeur inattendue ('
+      log('INFO', 'update_sha', okSha and 'Empreinte SHA-256 de CSP : ok' or ('Empreinte SHA-256 de CSP : valeur inattendue ('
         .. got:sub(1, 80) .. ')'))
     end
   end
@@ -1290,11 +1290,11 @@ local function update(dt)
     app.updaterSeen = app.updater.state
     local u = app.updater
     if u.state == 'available' then
-      log('INFO', 'update', 'Mise à jour disponible : ' .. tostring(u.latest))
+      log('INFO', 'update_result', 'Mise à jour disponible : ' .. tostring(u.latest))
     elseif u.state == 'current' then
-      log('INFO', 'update', 'SetupLab est à jour (' .. tostring(Config.version) .. ')')
+      log('INFO', 'update_result', 'SetupLab est à jour (' .. tostring(Config.version) .. ')')
     elseif u.state == 'unreachable' then
-      log('INFO', 'update', 'Mise à jour non vérifiée : ' .. tostring(u.why))
+      log('INFO', 'update_result', 'Mise à jour non vérifiée : ' .. tostring(u.why))
     end
   end
   if #app.fileOps > 0 and app.fileOpsTick then
