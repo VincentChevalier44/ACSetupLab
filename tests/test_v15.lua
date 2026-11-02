@@ -151,9 +151,13 @@ tests['NV02 setup de course : qualification validée, montée dans la voiture, n
   frames(h, 1)
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  -- 1.5.3 : validée, v1 va dans la voiture ; ici menu de setup fermé : refusé, une autre base reste dans la voiture
+  h.setupEditable = false
   h.click = 'Valider v1'
   frames(h, 1)
   T.ok(app.memory['qualif|sec'], 'référence de qualification')
+  T.eq(#h.loadCalls, 0, 'menu fermé : rien chargé')
+  h.setupEditable = true
   h.click = 'Arrêter l\'affinage (tour rapide)'
   frames(h, 1)
   T.ok(waitFor(h, function() return app.quali == nil or app.quali.state ~= 'running' end))
@@ -553,6 +557,10 @@ tests['NV15 départ de la référence (figée ou non) ; setup par défaut réuti
   app.handleIntents({ refineJudge = { version = r.version, verdict = 'valider' } })
   local e = r.history[#r.history]
   T.eq(e.status, 'validée', tostring(app.ui.message))
+  -- 1.5.3 : validée, elle va dans la voiture ; la découverte relancée sur elle se termine d'abord
+  T.ok(waitFor(h, function()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end))
   -- changer de départ : la référence est proposée
   h.click = 'start_change'
   frames(h, 1)

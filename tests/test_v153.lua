@@ -152,13 +152,16 @@ tests['TR03 Valider après Modifier… : la version gardée remplace l\'essai da
   T.eq(app.perf.errors, 0)
 end
 
-tests['TR04 Valider sans essai : la version reste à charger, rien n\'est chargé tout seul'] = function()
-  local h, app, _, e = v1Ready()
+tests['TR04 Valider sans essai : la version validée va dans la voiture (accord de Vincent du 02/11/2026)'] = function()
+  local h, app, r, e = v1Ready()
   local loads = #h.loadCalls
   app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
   T.eq(e.status, 'validée', tostring(app.ui.message))
-  T.eq(#h.loadCalls, loads, 'rien chargé')
-  T.eq(app.saved.quali and app.saved.quali.name, e.file, 'à charger : la version validée')
+  T.eq(#h.loadCalls, loads + 1, 'chargée en un clic')
+  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. e.file, 'la version validée')
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  T.eq(r.driven, e.version, 'elle est dans la voiture : l\'affinage repart d\'elle')
   T.eq(app.perf.errors, 0)
 end
 

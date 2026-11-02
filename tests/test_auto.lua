@@ -242,6 +242,13 @@ tests['AU02 nom choisi : sans accent ni espace, genre ajouté, versions _v1 ; re
   frames(h, 1)
   T.ok(shown(h, 'Enregistré : Monza_qualif-2.ini'), 'nom réellement écrit affiché')
   -- chargement au stand d'un fichier nommé (reconnu à son empreinte)
+  -- 1.5.3 : la version validée est déjà dans la voiture (mise à la validation) : une retouche à la main, pour que
+  -- ce chargement soit constaté
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  do
+    local sp = h.spinners[1]
+    sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+  end
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.ok(h.loadCalls[#h.loadCalls]:find('/Monza_qualif-2.ini', 1, true))
   -- nom vide : nom horodaté
@@ -270,7 +277,8 @@ tests['AU03 valider : enregistrée, référence en mémoire ; écarter : jamais 
   h.click = 'Valider v1'
   frames(h, 1)
   T.eq(v1.status, 'validée')
-  T.contains(app.ui.message, 'v1 validée et enregistrée')
+  -- 1.5.3 : validée, v1 va dans la voiture (le message suit le chargement)
+  T.ok(app.loadCheck and app.loadCheck.path:find(v1.file, 1, true), 'v1 mise dans la voiture : ' .. tostring(app.ui.message))
   T.eq(setupFiles(h), 1, 'un fichier à la validation')
   T.ok(h.written[folder .. '/' .. v1.file])
   T.eq(app.saved.quali.signature, v1.signature, 'v1 à charger')
@@ -345,6 +353,13 @@ tests['AU04 cadenas : figé, affinage arrêté ; app relancée : proposé et cha
   T.ok(again and again.locked and again.text, tostring(again and again.problem))
   frames(h, 1)
   T.ok(shown(h, 'Mémoire du circuit'))
+  -- 1.5.3 : la version validée est déjà dans la voiture (mise à la validation) : une retouche à la main, pour que
+  -- ce chargement soit constaté
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  do
+    local sp = h.spinners[1]
+    sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+  end
   loadAtPit(h, app, 'Charger###memload_qualif_sec')
   T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. v1.file)
   -- actif : rien ne part (figé)
@@ -583,11 +598,14 @@ tests['AU10 chargement : état du stand et refus sous le bouton ; menu ouvert : 
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   frames(h, 1)
   T.ok(shown(h, 'Étape 3/4 · Essayer v1') or shown(h, 'Étape 2/4 · Rouler'), 'étape suivante dite')
-  h.click = 'Valider v1'
-  frames(h, 1)
-  -- au stand, menu de setup fermé
+  -- au stand, menu de setup fermé : validée, v1 n'entre pas dans la voiture ; le refus est dit sous le bouton
   h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
   h.setupEditable = false
+  h.click = 'Valider v1'
+  frames(h, 1)
+  T.eq(r.history[1].status, 'validée')
+  T.contains(app.ui.message, 'v1 validée et enregistrée', 'le message de la validation reste')
+  T.eq(#h.loadCalls, 0)
   frames(h, 2)
   T.ok(shown(h, 'Pour charger :'), 'état du stand')
   T.ok(shown(h, 'au stand (oui)'))

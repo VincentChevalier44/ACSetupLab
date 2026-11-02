@@ -37,9 +37,11 @@ EN = {
     ' (%s/%s réglages)': ' (%s/%s settings)',
     'Valider sans essai': 'Validate without trying',
     'Valider sans essai (%s/%s réglages)': 'Validate without trying (%s/%s settings)',
+    'Valider sans essai · la met dans la voiture': 'Validate without trying · puts it in the car',
+    'Valider sans essai (%s/%s réglages) · la met dans la voiture': 'Validate without trying (%s/%s settings) · puts it in the car',
     'Valider %s (%s/%s réglages)': 'Validate %s (%s/%s settings)',
-    "Enregistre tout de suite %s.ini (réglages gardés), sans l'essayer ; il devient le setup de référence de cette séance, gardé en mémoire pour ce circuit.":
-        'Saves %s.ini right away (kept settings), without trying it; it becomes the reference setup for this session, kept in memory for this track.',
+    "Enregistre tout de suite %s.ini (réglages gardés), sans l'essayer, et le met dans la voiture ; il devient le setup de référence de cette séance, gardé en mémoire pour ce circuit.":
+        'Saves %s.ini right away (kept settings), without trying it, and puts it in the car; it becomes the reference setup for this session, kept in memory for this track.',
     'Roulez au moins un tour propre avec elle, puis validez-la.': 'Drive at least one clean lap with it, then validate it.',
     'Enregistre %s.ini avec les réglages gardés et en fait le setup de référence de cette séance, gardé en mémoire pour ce circuit.':
         'Saves %s.ini with the kept settings and makes it the reference setup for this session, kept in memory for this track.',

@@ -3213,14 +3213,19 @@ local function refineValidate(r, e)
     origin = e.origin, carId = e.carId, family = e.family }
   memoryPut(entry)
   queueBackupCleanup()
-  -- 1.5.3 (décision de Vincent du 02/11/2026) : validée après son essai, avec des effets refusés, la version gardée
-  -- remplace l'essai dans la voiture ; validée sans essai, elle reste à charger (« Charger »)
-  local loadIt = r.driven == e.version and not liveHasValues(setupValues(e.text))
+  -- 1.5.3 (décisions de Vincent du 02/11/2026) : « Valider » met toujours la version gardée dans la voiture (après l'essai
+  -- avec des effets refusés, ou validée sans essai) : l'affinage repart d'elle et vos tours la jugent
+  local loadIt = not liveHasValues(setupValues(e.text))
   app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
     .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
       or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
   log('INFO', 'memory', app.ui.message)
-  if loadIt then requestLoad(r.kind) end
+  if loadIt then
+    -- chargement refusé (hors du stand…) : le message de la validation reste, la raison est dite sous « Charger »
+    local validated = app.ui.message
+    requestLoad(r.kind)
+    if app.loadCheck == nil then app.ui.message = validated end
+  end
   return entry
 end
 

@@ -1112,10 +1112,11 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
     tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier), à charger au stand pour rouler avec. Rien n\'est gardé avant '
       .. 'la validation.')
-    if ui.button('Valider sans essai' .. partial .. '###Valider ' .. v .. suffix) then
+    if ui.button('Valider sans essai' .. partial .. ' · la met dans la voiture###Valider ' .. v .. suffix) then
       intents.refineJudge = { version = e.version, verdict = 'valider' }
     end
-    tip(host, 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer ; il devient le setup de '
+    tip(host, 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer, et le met dans la voiture ; il '
+      .. 'devient le setup de '
       .. 'référence de cette séance, gardé en mémoire pour ce circuit.')
     nextInline(host, 'Recommencer')
   elseif e.status == 'essai' then
