@@ -173,4 +173,16 @@ EN = {
     'non valide': 'not valid',
     'horloge de CSP (os.preciseClock)': "CSP's clock (os.preciseClock)",
     'QueryPerformanceCounter introuvable ; os.preciseClock incohérente': 'QueryPerformanceCounter not found; os.preciseClock inconsistent',
+    "charger depuis le menu de setup d'AC un de vos setups de qualification de SetupLab : la course partira de lui":
+        "load one of your SetupLab qualifying setups from AC's setup menu: the race will start from it",
+    "charger d'abord le setup de qualification validé (%s) : la course part de lui ; ou un autre de vos setups de qualification depuis le menu de setup d'AC":
+        "load the validated qualifying setup first (%s): the race starts from it; or another of your qualifying setups from AC's setup menu",
+    'Le setup de course part de votre setup de qualification': 'The race setup starts from your qualifying setup',
+    "Le calcul de course part d'un de vos setups de qualification de SetupLab (v1, v2, v3…, d'une séance précédente comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi (carburant, usure, relais).":
+        'The race computation starts from one of your SetupLab qualifying setups (v1, v2, v3…, from an earlier session too), fitted to the car: your laps with it give your pace. It prepares the lap count you enter (fuel, wear, stints).',
+    '1. Setup de qualification : %s': '1. Qualifying setup: %s',
+    "1. Setup de qualification : aucun — en faire un dans l'onglet QUALIF": '1. Qualifying setup: none — make one in the QUALIFYING tab',
+    "Vos setups de qualification sur ce circuit : %s. Chargez celui de votre choix depuis le menu de setup d'AC : SetupLab le reconnaît et la course part de lui.":
+        "Your qualifying setups on this track: %s. Load the one you want from AC's setup menu: SetupLab recognises it and the race starts from it.",
+    "À faire : %s.": 'To do: %s.',
 }

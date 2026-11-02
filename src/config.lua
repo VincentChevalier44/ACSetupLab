@@ -216,6 +216,7 @@ M.K = {
   exportMaxSuffix = 99,       -- suffixes -2…-99 essayés avant de renoncer (jamais d'écrasement)
   fileOpsMax = 64,            -- rangement des fichiers (Corbeille, meilleur tour dans le nom) : opérations en attente
   backupsMax = 64,            -- copies « Avant chargement » de la séance suivies (rangement à la validation)
+  raceQualiFilesMax = 40,     -- setups de qualification de SetupLab relus pour la course (dossier de la voiture et du circuit)
   scanMaxFiles = 2000,        -- fichiers du dossier lus pour numéroter les versions à la suite
   refineRetryDelay = 10,      -- affinage en continu : délai avant un nouvel essai après un calcul refusé (s)
   refineMinGain = 0.05,       -- affinage : gain prévu (s) à partir duquel un setup est proposé (en dessous : conservé)

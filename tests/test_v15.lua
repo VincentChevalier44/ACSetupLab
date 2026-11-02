@@ -350,7 +350,7 @@ tests['NV07 interface course : conditions, chargement de la référence, nombre 
   local h, app = ready({ skin = true })
   h.tab = 'Course'
   frames(h, 1)
-  T.ok(shownText(h, '1. Qualification validée : aucune'), 'condition 1')
+  T.ok(shownText(h, '1. Setup de qualification : aucun'), 'condition 1')
   T.ok(shownText(h, 'au moins une v1'), 'course verrouillée avant une qualification validée')
   h.sliders = { race_laps = 22 }
   frames(h, 1)
@@ -708,6 +708,34 @@ tests['NV20 setup figé dans la carte ; figer à 0 refusé ; version non gardée
   frames(h, 1)
   T.no(app.memory[app.memoryGroupOf('quali') .. '|sec'].locked, 'déverrouillé depuis la carte')
   T.ok(waitFor(h, function() return app.refine.active end, 600), 'affinage repris')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Demande de Vincent du 02/11/2026 : setups de qualification faits lors d'une séance précédente (v1, v2, v3, essais
+-- compris), AC relancé : la course part de celui qui est dans la voiture, reconnu par ses valeurs (même réenregistré
+-- depuis le menu d'AC) ; sinon l'onglet COURSE les liste et dit de charger l'un d'eux depuis le menu d'AC.
+tests['NV21 course : setups de qualification d\'une séance précédente reconnus par leurs valeurs'] = function()
+  local h, app = ready({ session = 3, skin = true })
+  local folder = folderOf(h)
+  local d = app.discovery
+  local text = d.setup.text
+  -- v1 : un autre setup ; v3 d'essai : le setup de la voiture, réenregistré par AC (texte différent, mêmes valeurs)
+  local other = text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
+  h.written[folder .. '/SetupLab_Qualif_v1.ini'] = other
+  T.eq(app.raceBlocker(), 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'cache : rien encore')
+  app.discovery.qualiFiles = nil
+  local why, action = app.raceBlocker()
+  T.eq(action, 'loadfile', tostring(why))
+  h.tab = 'Course'
+  frames(h, 1)
+  T.ok(shownText(h, 'SetupLab_Qualif_v1.ini'), 'setups listés dans l\'onglet COURSE')
+  T.ok(shownText(h, 'menu de setup d\'AC'), 'dit de charger depuis le menu d\'AC')
+  h.tab = nil
+  h.written[folder .. '/SetupLab_Qualif_v3_essai.ini'] = text .. '\n; réenregistré par AC\n'
+  app.discovery.qualiFiles = nil
+  why, action = app.raceBlocker()
+  T.ok(action ~= 'qualif' and action ~= 'loadfile' and action ~= 'load', 'setup de la voiture reconnu : ' .. tostring(why))
+  T.eq(app.qualiInCar().file, 'SetupLab_Qualif_v3_essai.ini')
   T.eq(app.perf.errors, 0)
 end
 

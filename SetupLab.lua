@@ -1330,13 +1330,24 @@ end
 
 local function raceBlocker()
   local m = raceReference()
-  if m == nil then return 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'qualif' end
-  -- monté dans la voiture : setup de la découverte, ou chargé et vérifié depuis (avant la nouvelle découverte)
-  local d = app.discovery
-  local loaded = false
-  for _, l in pairs(app.loaded) do loaded = loaded or (l.name ~= nil and l.name == m.file) end
-  if not (loaded or (d and d.family and m.family and d.family == m.family)) then
-    return 'charger d\'abord le setup de qualification validé (' .. tostring(m.file) .. ') : la course part de lui', 'load'
+  -- un setup de qualification de SetupLab dans la voiture (validé ou essai, d'une séance précédente comprise, réenregistré
+  -- depuis le menu d'AC compris) sert de référence (demande de Vincent du 02/11/2026)
+  local inCar = app.qualiInCar and app.qualiInCar() or nil
+  if inCar == nil then
+    local files = app.qualiFiles and app.qualiFiles() or {}
+    if m == nil then
+      if #files == 0 then return 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'qualif' end
+      return 'charger depuis le menu de setup d\'AC un de vos setups de qualification de SetupLab : la course partira de lui',
+        'loadfile'
+    end
+    -- monté dans la voiture : setup de la découverte, ou chargé et vérifié depuis (avant la nouvelle découverte)
+    local d = app.discovery
+    local loaded = false
+    for _, l in pairs(app.loaded) do loaded = loaded or (l.name ~= nil and l.name == m.file) end
+    if not (loaded or (d and d.family and m.family and d.family == m.family)) then
+      return 'charger d\'abord le setup de qualification validé (' .. tostring(m.file) .. ') : la course part de lui'
+        .. (#files > 1 and ' ; ou un autre de vos setups de qualification depuis le menu de setup d\'AC' or ''), 'load'
+    end
   end
   if not (Util.isFinite(app.raceLaps) and app.raceLaps >= 1) then return 'saisir le nombre de tours de la course', 'laps' end
   return nil, nil
@@ -1721,6 +1732,58 @@ local function setupValues(text)
   end
   return out
 end
+
+-- Setups de qualification de SetupLab du dossier de la voiture et du circuit (v1, v2, v3…, essais et noms avec meilleur
+-- tour compris), relus une fois par découverte et après chaque écriture de SetupLab : nom, version, famille (valeurs des
+-- crans, carburant et répartition de freinage exclus). Un fichier réenregistré depuis le menu d'AC (même nom, fichier .sp à
+-- côté) reste reconnu par ses valeurs.
+local function qualiFiles()
+  local d = app.discovery
+  if not (d and d.setup and d.setup.spinners) then return {} end
+  local generation = 0
+  for _ in pairs(app.written) do generation = generation + 1 end
+  if d.qualiFiles and d.qualiFilesAt == generation then return d.qualiFiles end
+  local list = {}
+  d.qualiFiles, d.qualiFilesAt = list, generation
+  local folder = Exporter.targetFolder(host)
+  if folder == nil then return list end
+  local ok, names = Util.call(Util.get(host.io, 'scanDir'), folder, '*.ini')
+  if not (ok and type(names) == 'table') then return list end
+  for i = 1, math.min(#names, K.scanMaxFiles) do
+    local name = names[i]
+    local version, trial = nil, false
+    for _, w in pairs(Config.fileWords) do
+      version = version or Util.versionInName(name, w.quali, w.wet)
+      trial = trial or tostring(name):find('_' .. w.trial .. '%.ini$') ~= nil
+    end
+    if version and #list < K.raceQualiFilesMax then
+      local okL, text = Util.call(Util.get(host.io, 'load'), folder .. '/' .. name)
+      if okL and type(text) == 'string' and #text <= K.maxTextBytes then
+        local values = setupValues(text)
+        local tyres = Util.isFinite(values.TYRES) and values.TYRES or d.compoundIndex
+        list[#list + 1] = { file = name, version = version, trial = trial,
+          family = signatureOf(d.setup.spinners, values, tyres, K.familyIgnored) }
+      end
+    end
+  end
+  table.sort(list, function(a, b)
+    if a.version ~= b.version then return a.version < b.version end
+    return a.file < b.file
+  end)
+  return list
+end
+app.qualiFiles = qualiFiles
+
+-- Setup de qualification de SetupLab monté dans la voiture (reconnu par ses valeurs), ou nil.
+local function qualiInCar()
+  local d = app.discovery
+  if not (d and d.family) then return nil end
+  for _, f in ipairs(qualiFiles()) do
+    if f.family == d.family then return f end
+  end
+  return nil
+end
+app.qualiInCar = qualiInCar
 
 -- Le setup en cours a-t-il toutes les valeurs du fichier ? Renvoie vrai, ou faux et la première section
 -- différente (nil si le setup en cours est illisible).

@@ -1559,14 +1559,26 @@ local function racePanel(host, app, intents, palette)
   if not (app.raceBlocker and app.raceReference) then return end
   local why, action = app.raceBlocker()
   local m = app.raceReference()
+  local inCar = app.qualiInCar and app.qualiInCar() or nil
   card(host, app.ui, palette[why and 'pending' or 'available'], function()
-    colored(host, 'Le setup de course part de votre setup de qualification validé', palette.text)
-    tip(host, 'Le calcul de course part du setup de qualification validé sur ce circuit (sinon celui d\'essai), monté dans la '
-      .. 'voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi (carburant, usure, relais).')
-    colored(host, '1. Qualification validée : ' .. (m and tostring(m.file) or 'aucune — en valider une dans l\'onglet QUALIF'),
-      palette[m and 'available' or 'pending'])
-    local mounted = m ~= nil and action ~= 'load'
+    colored(host, 'Le setup de course part de votre setup de qualification', palette.text)
+    tip(host, 'Le calcul de course part d\'un de vos setups de qualification de SetupLab (v1, v2, v3…, d\'une séance précédente '
+      .. 'comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi '
+      .. '(carburant, usure, relais).')
+    local ref = inCar and inCar.file or (m and m.file)
+    colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),
+      palette[ref and 'available' or 'pending'])
+    local mounted = inCar ~= nil or (m ~= nil and action ~= 'load' and action ~= 'loadfile')
     colored(host, '2. Dans la voiture : ' .. (mounted and 'oui' or 'non'), palette[mounted and 'available' or 'pending'])
+    if not mounted and app.qualiFiles then
+      -- vos setups de qualification du dossier : à charger depuis le menu de setup d'AC
+      local names = {}
+      for _, f in ipairs(app.qualiFiles()) do names[#names + 1] = f.file end
+      if #names > 0 then
+        small(host, 'Vos setups de qualification sur ce circuit : ' .. table.concat(names, ', ') .. '. Chargez celui de votre '
+          .. 'choix depuis le menu de setup d\'AC : SetupLab le reconnaît et la course part de lui.', palette.text)
+      end
+    end
     if m and action == 'load' then
       if actionButton(host, app.ui, palette, 'Charger le setup de qualification validé', 'go', true) then intents.raceRefLoad = true end
       tip(host, 'Au stand, voiture arrêtée, menu de setup ouvert : deux clics, après une copie de sauvegarde du setup en cours.')
