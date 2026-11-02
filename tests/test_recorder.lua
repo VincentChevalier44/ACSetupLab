@@ -64,6 +64,12 @@ local function env(trackId)
   e.profile.startP = nil
   e.h.paused, e.h.lateLapTimeFrames, e.h.lapTimeError = nil, nil, nil
   e.h.lateLapCountFrames, e.h.lateTimerResetFrames = nil, nil
+  -- compteur de tours repris de zéro (hôte partagé entre les tests : R08 le remet à zéro en plein tour et doit rattraper
+  -- les tours déjà roulés)
+  e.h.car.lapCount = 0
+  -- champs d'incidents posés par un test (absents du faux hôte) : retirés
+  for _, key in ipairs({ 'localVelocity', 'resetCounter', 'damage', 'lapCutsCount' }) do rawset(e.h.car, key, nil) end
+  for w = 0, 3 do e.h.car.wheels[w].slipRatio, e.h.car.wheels[w].slipAngle = 0, 0 end
   return e
 end
 
@@ -93,6 +99,38 @@ tests['R02 tours rejetés avec leur raison'] = function()
     { 'tour invalidé par AC', function(_, h, rec) if midLap(rec) then h.car.isLapValid = false end end },
     { 'voie des stands', function(_, h, rec) if midLap(rec) then h.car.isInPitlane = true end end },
     { 'répartition de freinage', function(_, h, rec) if midLap(rec) then h.car.brakeBias = 0.58 end end },
+    -- incidents (demande de Vincent du 02/11/2026) ; champs CSP absents du faux hôte : posés par le test
+    { 'tête-à-queue', function(_, h, rec)
+      h.car.localVelocity = rawget(h.car, 'localVelocity') or { x = 0, y = 0, z = 1 }
+      local lv = h.car.localVelocity
+      lv.x, lv.z = 0, h.car.speedMs
+      if rec.state == 'enregistrement' and rec.n >= 1500 and rec.n < 1520 then lv.x, lv.z = h.car.speedMs, -1 end
+    end },
+    { 'voiture replacée', function(_, h, rec)
+      h.car.resetCounter = rawget(h.car, 'resetCounter') or 0
+      if midLap(rec) then h.car.resetCounter = h.car.resetCounter + 1 end
+    end },
+    { 'choc', function(_, h, rec)
+      h.car.damage = rawget(h.car, 'damage') or { [0] = 0, 0, 0, 0, 0 }
+      if midLap(rec) then h.car.damage[0] = h.car.damage[0] + 25 end
+    end },
+    { 'coupe de piste', function(_, h, rec)
+      if rawget(h.car, 'lapCutsCount') == nil then h.car.lapCutsCount = 0 end
+      if midLap(rec) then h.car.lapCutsCount = 1 end
+    end },
+    { 'blocage de roue', function(_, h, rec)
+      -- roue avant gauche bloquée pendant les freinages du conducteur simulé, après le début du tour
+      local w = h.car.wheels[0]
+      w.slipRatio = 0
+      if rec.state == 'enregistrement' and rec.n >= 300 and h.car.brake > 0.1 and h.car.speedMs > 15 then w.slipRatio = -1 end
+    end },
+    { 'grosse glissade', function(_, h, rec)
+      local a, b = h.car.wheels[2], h.car.wheels[3]
+      a.slipAngle, b.slipAngle = 0, 0
+      if rec.state == 'enregistrement' and rec.n >= 1500 and rec.n < 1560 and h.car.speedMs > 15 then
+        a.slipAngle, b.slipAngle = 28, 26
+      end
+    end },
   }
   for _, case in ipairs(cases) do
     local e = env('monza')
@@ -123,6 +161,31 @@ tests['R02 tours rejetés avec leur raison'] = function()
   local rec3 = Recorder.new(500)
   local laps3 = drive(e3, 1, rec3)
   T.contains(laps3[1].reason, 'mémoire pleine')
+end
+
+tests['R20 incidents : glissements normaux, compteur de coupes du tour précédent, ABS actif : aucun tour rejeté'] = function()
+  local e = env('monza')
+  local rec = Recorder.new()
+  local h = e.h
+  h.car.localVelocity = { x = 0, y = 0, z = 0 }
+  h.car.lapCutsCount, h.car.resetCounter, h.car.damage = 2, 3, { [0] = 4, 0, 0, 0, 0 }
+  h.car.absInAction = false
+  local laps = drive(e, 2, rec, function(_, hh, r)
+    local braking = hh.car.brake > 0.1
+    -- dérive et glissement d'une voiture à la limite, sans incident ; ABS qui travaille sur une roue bloquée
+    hh.car.localVelocity.x, hh.car.localVelocity.z = hh.car.speedMs * 0.08, hh.car.speedMs
+    for w = 0, 3 do
+      hh.car.wheels[w].slipRatio = braking and -0.12 or 0.04
+      hh.car.wheels[w].slipAngle = w >= 2 and 7 or 5
+    end
+    hh.car.absInAction = braking and r.n % 50 < 20
+    if braking and hh.car.absInAction then hh.car.wheels[1].slipRatio = -0.9 end
+    -- le compteur de coupes du tour d'avant se remet à zéro une image après la ligne
+    if r.state == 'enregistrement' and r.n == 2 then hh.car.lapCutsCount = 0 end
+  end)
+  rawset(h.car, 'absInAction', nil)
+  T.eq(#laps, 2)
+  for _, lap in ipairs(laps) do T.ok(lap.valid, tostring(lap.reason)) end
 end
 
 tests['R03 mémoire bornée : dernier tour et meilleur tour par setup'] = function()

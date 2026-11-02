@@ -92,7 +92,7 @@ function M.abort(rec, reason)
 end
 
 local function startLap(rec, signature, lapCount, now, family)
-  rec.n, rec.maxGap, rec.lastP, rec.invalid = 0, 0, nil, nil
+  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.inc = 0, 0, nil, nil, nil
   rec.state = 'enregistrement'
   rec.signatureStart, rec.familyStart = signature, family
   rec.lapIndex = lapCount
@@ -294,6 +294,67 @@ local function drsSample(rec, open, cd, cl, v)
   rec.drsPrev = { open = open, cd = cd, cl = cl, v = v }
 end
 
+-- Dégâts cumulés des cinq zones (km/h de choc), ou nil si illisibles.
+local function damageSum(car)
+  local d = get(car, 'damage')
+  if d == nil then return nil end
+  local sum, any = 0, false
+  for z = 0, 4 do
+    local v = num(d, z)
+    if v then sum, any = sum + v, true end
+  end
+  return any and sum or nil
+end
+
+-- Incident qui fausse la mesure du tour (demande de Vincent du 02/11/2026 : « les dérapages, les têtes à queue, les
+-- blocages de roues ») : la calibration et le minimum de tours propres ne doivent pas compter un tel tour. Le moteur de
+-- calcul n'est pas touché : seul le tour est rejeté, avec sa raison. Chaque lecture absente (CSP ancien, voiture sans
+-- physique étendue) est simplement ignorée. Renvoie la raison, ou nil.
+local function incident(rec, car, now)
+  local inc = rec.inc
+  if inc == nil then
+    -- état au début du tour : compteurs de remises en piste, de coupes et dégâts (référence)
+    rec.inc = { resets = num(car, 'resetCounter'), cuts = num(car, 'lapCutsCount'), damage = damageSum(car) }
+    return nil
+  end
+  local resets = num(car, 'resetCounter')
+  if resets and inc.resets and resets > inc.resets then return 'voiture replacée sur la piste' end
+  local damage = damageSum(car)
+  if damage and inc.damage and damage > inc.damage + K.incidentDamage then return 'choc (dégâts)' end
+  local cuts = num(car, 'lapCutsCount')
+  if cuts and inc.cuts then
+    -- le compteur du tour d'avant peut encore être lu à la première image : la référence suit sa remise à zéro
+    if cuts < inc.cuts then inc.cuts = cuts elseif cuts > inc.cuts then return 'coupe de piste' end
+  end
+  local v = num(car, 'speedMs') or 0
+  -- tête-à-queue : la voiture avance de travers ou recule (angle entre son axe et sa vitesse)
+  local lv = get(car, 'localVelocity')
+  local vx, vz = num(lv, 'x'), num(lv, 'z')
+  if vx and vz and v > K.incidentSpinSpeed and math.deg(math.atan2(abs(vx), vz)) > K.incidentSpinAngle then
+    return 'tête-à-queue'
+  end
+  -- blocage de roue (au freinage, ABS inactif) et grosse glissade du train arrière : seulement s'ils durent
+  local locked, sliding = false, false
+  if v > K.incidentMinSpeed then
+    local wheels = get(car, 'wheels')
+    local braking = (num(car, 'brake') or 0) > K.incidentBrake and bool(car, 'absInAction') ~= true
+    local rear, rearN = 0, 0
+    for w = 1, 4 do
+      local wheel = get(wheels, w - 1)
+      local ratio = num(wheel, 'slipRatio')
+      if braking and ratio and abs(ratio) > K.incidentLockRatio then locked = true end
+      local angle = w >= 3 and num(wheel, 'slipAngle') or nil
+      if angle then rear, rearN = rear + abs(angle), rearN + 1 end
+    end
+    sliding = rearN == 2 and rear / 2 > K.incidentSlideAngle
+  end
+  inc.lockSince = locked and (inc.lockSince or now) or nil
+  inc.slideSince = sliding and (inc.slideSince or now) or nil
+  if inc.lockSince and now - inc.lockSince >= K.incidentLockTime then return 'blocage de roue' end
+  if inc.slideSince and now - inc.slideSince >= K.incidentSlideTime then return 'grosse glissade' end
+  return nil
+end
+
 -- À appeler à chaque frame (lecture seule). now : temps de simulation (s). signatureFn : signature
 -- des crans de setup (nil si illisible), appelée seulement au passage de la ligne. context :
 -- { trackLength, conditions (températures, grip), keepPositions, paused }. Renvoie le tour terminé
@@ -347,6 +408,8 @@ function M.update(rec, host, now, signatureFn, context)
   if rec.nextSampleAt and now < rec.nextSampleAt - 1e-4 then return finished end
   rec.nextSampleAt = (rec.nextSampleAt or now) + 1 / K.recorderHz
   if rec.nextSampleAt < now then rec.nextSampleAt = now end
+  -- incidents lus au rythme des échantillons (30 Hz) : assez pour un blocage de 0,3 s
+  if rec.invalid == nil then rec.invalid = incident(rec, car, now) end
   if rec.n >= rec.capacity then
     rec.invalid = rec.invalid or 'mémoire pleine'
     return finished

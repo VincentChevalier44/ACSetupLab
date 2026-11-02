@@ -167,6 +167,16 @@ M.help = {
 M.K = {
   -- Boucle d'exécution (§5)
   dtMax = 0.25,               -- borne haute de dt (s)
+  -- incidents qui rejettent un tour enregistré (demande de Vincent du 02/11/2026) : seuils prudents
+  incidentMinSpeed = 12,      -- m/s : blocage et glissade ne comptent qu'au-delà
+  incidentSpinSpeed = 8,      -- m/s : tête-à-queue au-delà
+  incidentSpinAngle = 60,     -- ° entre l'axe de la voiture et sa vitesse : tête-à-queue
+  incidentBrake = 0.1,        -- pédale de frein au-delà : freinage
+  incidentLockRatio = 0.5,    -- taux de glissement d'une roue au freinage, en valeur absolue : roue bloquée
+  incidentLockTime = 0.3,     -- s de blocage continu
+  incidentSlideAngle = 20,    -- ° de dérive moyenne des roues arrière : grosse glissade
+  incidentSlideTime = 0.5,    -- s de glissade continue
+  incidentDamage = 1.0,       -- hausse des dégâts cumulés (km/h de choc) : choc
   updateCheckFrame = 300,    -- mise à jour : vérifiée après ~5 s (images), une fois par lancement
   contextPeriod = 1.0,        -- détection de contexte (s)
   fpsTarget = 60,             -- en dessous, la tranche est réduite
