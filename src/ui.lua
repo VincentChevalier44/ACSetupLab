@@ -19,27 +19,31 @@ local M = {}
 local K = Config.K
 
 local STATUS_COLOR = {
-  -- palette de SuperHUD (décision de Vincent du 26/10/2026 : « comme une autre application que j'ai faite ») : fond
-  -- anthracite, accent bleu, texte clair, secondaire gris
-  available = { 0.35, 0.85, 0.45, 1 },
-  pending = { 1.0, 0.75, 0.25, 1 },
-  unavailable = { 1.0, 0.35, 0.3, 1 },
-  na = { 0.58, 0.63, 0.65, 1 },
-  text = { 0.92, 0.94, 0.96, 1 },
-  muted = { 0.58, 0.63, 0.65, 1 },
-  accent = { 0.20, 0.59, 1.0, 1 },
-  tile = { 0.15, 0.16, 0.17, 1 },
-  line = { 0.22, 0.24, 0.26, 1 },
-  field = { 0.15, 0.16, 0.17, 1 },
-  fieldHover = { 0.22, 0.25, 0.28, 1 },
-  accentDark = { 0.12, 0.42, 0.78, 1 },
-  bg = { 0.08, 0.085, 0.087, 0.98 },
-  overlay = { 0.105, 0.111, 0.117, 0.96 }, -- fond de l'overlay en jeu : celui des panneaux de SuperHUD
+  -- kit « Racing 26 » (refonte de Vincent du 02/11/2026) : fond quasi noir, panneaux anthracite, cyan d'action,
+  -- couleurs de course (gain vert, à confirmer ambre, perte rouge, meilleur tour violet)
+  available = { 0.180, 0.878, 0.498, 1 },
+  pending = { 1.000, 0.761, 0.239, 1 },
+  unavailable = { 1.000, 0.353, 0.306, 1 },
+  na = { 0.553, 0.580, 0.627, 1 },
+  text = { 0.933, 0.941, 0.953, 1 },
+  soft = { 0.788, 0.804, 0.827, 1 },
+  muted = { 0.553, 0.580, 0.627, 1 },
+  accent = { 0.094, 0.773, 1.000, 1 },
+  accentSoft = { 0.435, 0.859, 1.000, 1 },
+  best = { 0.698, 0.424, 1.000, 1 },
+  tile = { 0.082, 0.094, 0.114, 1 },
+  line = { 0.137, 0.153, 0.180, 1 },
+  field = { 0.114, 0.125, 0.153, 1 },
+  fieldHover = { 0.165, 0.184, 0.224, 1 },
+  accentDark = { 0.024, 0.133, 0.176, 1 },
+  bg = { 0.039, 0.043, 0.055, 0.98 },
+  overlay = { 0.067, 0.075, 0.094, 0.96 }, -- fond de l'overlay en jeu : celui des panneaux
   -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles)
-  primaryButton = { 0.20, 0.59, 1.0, 1 }, primaryButtonHovered = { 0.30, 0.66, 1.0, 1 },
-  primaryButtonActive = { 0.12, 0.42, 0.78, 1 },
-  goButton = { 0.12, 0.52, 0.28, 1 }, goButtonHovered = { 0.16, 0.63, 0.35, 1 }, goButtonActive = { 0.09, 0.42, 0.22, 1 },
-  dangerButton = { 0.6, 0.18, 0.15, 1 }, dangerButtonHovered = { 0.72, 0.23, 0.2, 1 }, dangerButtonActive = { 0.48, 0.14, 0.12, 1 },
+  primaryButton = { 0.094, 0.773, 1.000, 1 }, primaryButtonHovered = { 0.435, 0.859, 1.000, 1 },
+  primaryButtonActive = { 0.055, 0.259, 0.345, 1 },
+  goButton = { 0.118, 0.620, 0.353, 1 }, goButtonHovered = { 0.180, 0.878, 0.498, 1 }, goButtonActive = { 0.086, 0.478, 0.271, 1 },
+  dangerButton = { 0.761, 0.267, 0.231, 1 }, dangerButtonHovered = { 1.000, 0.353, 0.306, 1 },
+  dangerButtonActive = { 0.561, 0.196, 0.169, 1 },
 }
 
 function M.new()
@@ -93,7 +97,7 @@ function M.translating(host)
   local okA, missing = Skin.available(real, ffi)
   M.skinStatus = okA and 'actif' or ('indisponible : ui.' .. tostring(missing) .. ' absente')
   if okA and host.rgbm and host.vec2 then
-    okS, skin = pcall(Skin.new, real, host.rgbm, host.vec2, function(s) return L.t(s) end)
+    okS, skin = pcall(Skin.new, real, host.rgbm, host.vec2, function(s) return L.t(s) end, host.fontDir)
     if not okS then M.skinStatus = 'en échec : ' .. Util.truncate(tostring(skin), 160) end
   end
   if okS and skin then
@@ -386,17 +390,17 @@ local function card(host, state, color, fn)
     local h = state.cardHeights[key]
     local okW, avail = Util.call(ui.availableSpaceX)
     if h and okW and Util.isFinite(avail) then
+      -- Racing 26 : panneau à coin coupé, filet de 3 px en haut à la couleur de l'état
+      ui.skin.panel(x, y, x + avail, y + h, ui.skin.colors.panel, Skin.CUT)
       p.x, p.y = x, y
-      q.x, q.y = x + avail, y + h
-      Util.call(ui.drawRectFilled, p, q, ui.skin.colors.field, 2)
-      q.x = x + 2
-      Util.call(ui.drawRectFilled, p, q, color, 1)
+      q.x, q.y = x + avail - Skin.CUT, y + 3
+      Util.call(ui.drawRectFilled, p, q, color, 0)
     end
-    q.x, q.y = 1, 6
+    q.x, q.y = 1, 10
     Util.call(ui.dummy, q)
-    Util.call(ui.indent, 12)
+    Util.call(ui.indent, 14)
     fn()
-    Util.call(ui.unindent, 12)
+    Util.call(ui.unindent, 14)
     q.x, q.y = 1, 4
     Util.call(ui.dummy, q)
     local okB, bottom = Util.call(ui.getCursor)
@@ -2247,6 +2251,22 @@ local function stepCard(host, app, intents, palette, selected)
   end
   card(host, app.ui, color, function()
     withFont(host, 'Title', function() colored(host, title, color) end)
+    -- Racing 26 : barre d'étapes (4 segments inclinés) ; validée ou figée : les 4 en vert
+    local n = tonumber(tostring(title):match('^Étape (%d)/4'))
+    local done = tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil
+    local S = host.ui.skin
+    if S and (n or done) then
+      local okC, at = Util.call(host.ui.getCursor)
+      local okW, avail = Util.call(host.ui.availableSpaceX)
+      if okC and at and okW and Util.isFinite(avail) and Util.isFinite(at.x) then
+        S.segments(at.x, at.y + 2, math.max(60, avail - 14), 5, 4, done and 4 or n, done and S.colors.go or S.colors.blue)
+        local gap = vec(host, app.ui, 'stepGap')
+        if gap then
+          gap.x, gap.y = 1, 12
+          Util.call(host.ui.dummy, gap)
+        end
+      end
+    end
     wrapped(host, text, palette.text)
     for i, a in ipairs(actions) do
       if i > 1 then nextInline(host, a.label) end
@@ -2384,7 +2404,22 @@ end
 local function skinHeader(host, app, intents, palette)
   local ui = host.ui
   local d = app.discovery
-  ui.skinText('SETUPLAB', palette.text, false, Skin.SIZE.header, true)
+  local S = ui.skin
+  local okP, at = Util.call(ui.getCursor)
+  ui.skinText('SETUPLAB', S.colors.bg, false, Skin.SIZE.header, true, 'display')
+  if okP and at and Util.isFinite(at.x) then
+    S.withRole('display', function()
+      local okM, m = Util.call(S.real.measureDWriteText, 'SETUP', Skin.SIZE.header)
+      local w = okM and m and m.x or 0
+      local pos = vec(host, app.ui, 'brand')
+      if pos then
+        pos.x, pos.y = at.x, at.y
+        Util.call(S.real.dwriteDrawText, 'SETUP', Skin.SIZE.header, pos, S.colors.light)
+        pos.x = at.x + w
+        Util.call(S.real.dwriteDrawText, 'LAB', Skin.SIZE.header, pos, S.colors.blue)
+      end
+    end)
+  end
   tip(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone
     .. (d and d.car and ('\nVoiture : ' .. tostring(d.car.id)) or '')
     .. (d and d.trackFiles and ('\nCircuit : ' .. tostring(d.trackFiles.fullId)) or ''))
@@ -2404,7 +2439,25 @@ local function skinHeader(host, app, intents, palette)
   end
   tip(host, 'Language / Langue : English, Français.')
   nextTo(1)
-  ui.skinText(Config.version, palette.muted, false, 10, false)
+  ui.skinText(Config.version, palette.muted, false, 10, false, 'mono')
+  -- Racing 26 : état en un mot (au stand, en piste, en veille), en petit parallélogramme
+  local where = app.auto ~= true and 'EN VEILLE' or (app.carAtPit and app.carAtPit() and 'AU STAND' or 'EN PISTE')
+  nextTo(-1)
+  local okP, at = Util.call(ui.getCursor)
+  local S = ui.skin
+  if okP and at and Util.isFinite(at.x) and p then
+    S.withRole('label', function()
+      local text = L.t(where)
+      local okM, m = Util.call(S.real.measureDWriteText, text, 10)
+      local w = (okM and m and m.x or 60) + 16
+      local color = where == 'EN VEILLE' and S.colors.raised or (where == 'AU STAND' and S.colors.select or S.colors.select)
+      S.slanted(at.x, at.y + 1, at.x + w, at.y + 19, 5, color)
+      p.x, p.y = at.x + 8, at.y + 4
+      Util.call(S.real.dwriteDrawText, text, 10, p, where == 'EN VEILLE' and S.colors.grey or S.colors.blueSoft)
+      p.x, p.y = w, 20
+      Util.call(ui.dummy, p)
+    end)
+  end
   -- SetupLab actif, à droite (décision de Vincent du 21/10/2026 : « on l'ouvre, on l'active, on roule »)
   ui.sameLine()
   local okC, cur = Util.call(ui.getCursor)
@@ -2432,7 +2485,40 @@ local function skinHeader(host, app, intents, palette)
   if #title > 0 then small(host, table.concat(title, '  ·  '), palette.muted) end
 end
 
--- État : SetupLab actif, découverte, données et calculs (en tête du contenu).
+-- Barre de message (Racing 26) : fond cyan sombre, filet cyan de 3 px à gauche, à la hauteur de l'image précédente ;
+-- sans le thème, le message en couleur d'accent.
+local function messageBar(host, app, palette)
+  local message = app.ui.message
+  if not message then return end
+  local ui, S = host.ui, host.ui.skin
+  if not S then
+    small(host, message, palette.accent)
+    return
+  end
+  local okC, at = Util.call(ui.getCursor)
+  local okW, avail = Util.call(ui.availableSpaceX)
+  local h = app.ui.messageHeight
+  local p, q = vec(host, app.ui, 'msgA'), vec(host, app.ui, 'msgB')
+  if okC and at and okW and Util.isFinite(avail) and Util.isFinite(at.y) and h and p and q then
+    p.x, p.y = at.x, at.y
+    q.x, q.y = at.x + avail, at.y + h
+    Util.call(ui.drawRectFilled, p, q, S.colors.select, 0)
+    q.x = at.x + 3
+    Util.call(ui.drawRectFilled, p, q, S.colors.blue, 0)
+  end
+  q.x, q.y = 1, 4
+  Util.call(ui.dummy, q)
+  Util.call(ui.indent, 12)
+  small(host, message, palette.text)
+  Util.call(ui.unindent, 12)
+  local okB, bottom = Util.call(ui.getCursor)
+  if okC and at and okB and bottom and Util.isFinite(bottom.y) and Util.isFinite(at.y) then
+    app.ui.messageHeight = math.max(0, bottom.y - at.y)
+  end
+  q.x, q.y = 1, 4
+  Util.call(ui.dummy, q)
+end
+
 -- Mise à jour en jeu (1.5.3) : une ligne en tête quand une version plus récente est publiée, l'état pendant
 -- l'installation, la raison d'un échec (avec le lien de la page).
 local function updateLine(host, app, intents, palette)
@@ -2459,6 +2545,7 @@ local function updateLine(host, app, intents, palette)
   end
 end
 
+-- État : SetupLab actif, découverte, données et calculs (en tête du contenu).
 local function statusLines(host, app, palette)
   local d = app.discovery
   local autoText, autoColor = M.autoLine(app)
@@ -2488,14 +2575,16 @@ local function skinTabs(host, app, tabs)
   if not (okC and origin and okW and Util.isFinite(avail) and p and q) then return app.ui.tab end
   local items, total = {}, 0
   local size, pad = Skin.SIZE.tab, 14
-  for i, tab in ipairs(tabs) do
-    local visible, id = Skin.split(tab[1])
-    visible = L.t(visible)
-    local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
-    local w = okM and m and m.x or (#visible * 8)
-    items[i] = { id = id, text = visible, w = w }
-    total = total + w + 2 * pad
-  end
+  S.withRole('tab', function()
+    for i, tab in ipairs(tabs) do
+      local visible, id = Skin.split(tab[1])
+      visible = L.t(visible)
+      local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
+      local w = okM and m and m.x or (#visible * 8)
+      items[i] = { id = id, text = visible, w = w }
+      total = total + w + 2 * pad + 2
+    end
+  end)
   local scale = total > avail and math.max(0.6, avail / total) or 1
   local fs, gap = math.max(10, size * scale), math.max(6, pad * scale)
   local x, y0 = origin.x, origin.y
@@ -2503,17 +2592,21 @@ local function skinTabs(host, app, tabs)
     local w = it.w * (fs / size) + 2 * gap
     p.x, p.y = x, y0
     Util.call(ui.setCursor, p)
-    q.x, q.y = w, 30
+    q.x, q.y = w, 28
     if ui.invisibleButton('###tab_' .. it.id, q) then app.ui.tab = it.id end
     local active = app.ui.tab == it.id
-    p.x, p.y = x + gap, y0 + 7
-    S.withWeight(active, function() ui.skin.real.dwriteDrawText(it.text, fs, p, active and S.colors.light or S.colors.grey) end)
+    local okH, hovered = Util.call(ui.itemHovered)
+    -- Racing 26 : onglet incliné, l'actif en cyan plein
     if active then
-      p.x, p.y = x, y0 + 28
-      q.x, q.y = x + w, y0 + 30
-      Util.call(ui.drawRectFilled, p, q, S.colors.blue, 0)
+      S.slanted(x, y0, x + w, y0 + 28, Skin.TAB_SLANT, S.colors.blue)
+    elseif okH and hovered then
+      S.slanted(x, y0, x + w, y0 + 28, Skin.TAB_SLANT, S.colors.raised)
     end
-    x = x + w
+    p.x, p.y = x + gap, y0 + 6
+    S.withRole('tab', function()
+      ui.skin.real.dwriteDrawText(it.text, fs, p, active and S.colors.dark or S.colors.grey)
+    end)
+    x = x + w + 2
   end
   p.x, p.y = origin.x, y0 + 31
   q.x, q.y = origin.x + avail, y0 + 32
@@ -2569,7 +2662,7 @@ function M.main(host, app, intents)
         updateLine(host, app, intents, palette)
         statusLines(host, app, palette)
         stepCard(host, app, intents, palette, selected)
-        if app.ui.message then small(host, app.ui.message, palette.accent) end
+        messageBar(host, app, palette)
         for _, tab in ipairs(tabs) do
           if select(2, Skin.split(tab[1])) == selected then tab[2]() end
         end
@@ -2598,7 +2691,7 @@ function M.main(host, app, intents)
     local tabBar = ui.tabBar and ui.tabItem
     -- avec onglets : la carte d'étape dans l'onglet de son genre seulement (dessinée dans l'onglet affiché)
     if not tabBar then stepCard(host, app, intents, palette) end
-    if app.ui.message then small(host, app.ui.message, palette.accent) end
+    messageBar(host, app, palette)
     -- sans ui.tabBar, sections les unes sous les autres (une erreur dans un onglet n'est pas rattrapée ici : la colle
     -- la compte, sans redessiner les sections en double)
     if tabBar then

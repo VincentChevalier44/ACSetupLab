@@ -44,6 +44,9 @@ EN = {
     'empreinte SHA-256 illisible': 'unreadable SHA-256 fingerprint',
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
+    'EN VEILLE': 'STANDBY',
+    'AU STAND': 'IN THE PITS',
+    'EN PISTE': 'ON TRACK',
     'Empreinte SHA-256 de CSP : ok': 'CSP SHA-256 fingerprint: ok',
     'Empreinte SHA-256 de CSP : valeur inattendue (%s)': 'CSP SHA-256 fingerprint: unexpected value (%s)',
     # aide intégrée (onglet AIDE)

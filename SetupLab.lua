@@ -40,6 +40,14 @@ local host = {
   preciseClock = okClock and preciseClock or nil,
   web = okWeb and type(webLib) == 'table' and webLib or nil,
 }
+-- Polices de la refonte Racing 26 (fonts/, licence OFL), livrées avec l'app : absentes, le thème garde Segoe UI
+do
+  local okD, scriptDir = pcall(function() return ac.getFolder(ac.FolderID.ScriptOrigin) end)
+  local okE, present = pcall(function()
+    return type(scriptDir) == 'string' and scriptDir ~= '' and io.fileExists(scriptDir .. '/fonts/barlow/Barlow-Regular.ttf')
+  end)
+  host.fontDir = okD and okE and present == true and 'fonts' or nil
+end
 
 local app = {
   settings = Config.defaults(),
@@ -2653,6 +2661,7 @@ local function carAtPit()
   if not (ok and car) then return true end
   return Util.get(car, 'isInPit') == true or Util.get(car, 'isInPitlane') == true
 end
+app.carAtPit = carAtPit
 
 -- Tours propres analysés pour une version : vos tours avec le setup dont elle part, même état de piste.
 local function lapsAnalyzed(e)

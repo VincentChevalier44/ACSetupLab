@@ -172,6 +172,8 @@ src/exporter.lua     writing new files, loading into the car
 src/store.lua        validated persistence (settings, calibrations, track memory)
 src/updater.lua      in-game update: version check, download, checks, file replacement
 src/ui.lua           windows (read-only view of the state)
+src/skin.lua         "Racing 26" theme: colours, fonts, slanted buttons and tabs, cut-corner panels
+fonts/               Barlow, Barlow Condensed, JetBrains Mono (SIL Open Font License 1.1, licence next to each family)
 docs/                user guide (English and French)
 tests/               offline bench, linter, dictionary, data set generator (never distributed)
 ```
@@ -179,5 +181,7 @@ tests/               offline bench, linter, dictionary, data set generator (neve
 ## Licence
 
 [MIT](LICENSE) © 2026 VincentChevalier44 (Vincent Chevalier).
+
+Fonts in `fonts/`: Barlow and Barlow Condensed © 2017 The Barlow Project Authors, JetBrains Mono © 2020 The JetBrains Mono Project Authors, both under the [SIL Open Font License 1.1](fonts/barlow/OFL.txt).
 
 Assetto Corsa is a trademark of Kunos Simulazioni. SetupLab is an independent project, not affiliated with Kunos Simulazioni or the authors of Custom Shaders Patch.
