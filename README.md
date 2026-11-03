@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/VincentChevalier44/ACSetupLab/main/assets/banner.png" alt="SetupLab, race engineering for Assetto Corsa" width="100%"></p>
+
 # SetupLab — setup generator for Assetto Corsa
 
 **Version 1.0 — beta 1.5.2** (`1.0.0-beta.1.5.2`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
