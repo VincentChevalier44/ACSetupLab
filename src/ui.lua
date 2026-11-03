@@ -1156,10 +1156,18 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     nextInline(host, no)
   elseif e.status == 'essai' then
     stepsLine(host, palette, (driven and laps > 0) and 3 or 2)
-    wrapped(host, v .. (driven and ' en essai : dans la voiture' or ' en essai : plus dans la voiture'),
-      palette[driven and 'available' or 'accent'])
+    local fileThere = e.trial ~= nil and app.written[e.trial.file] == e.trial.hash
+    if driven then
+      wrapped(host, v .. ' en essai : dans la voiture', palette.available)
+    elseif fileThere then
+      wrapped(host, v .. ' en essai : ' .. tostring(e.trial.file) .. ' — à charger au stand', palette.accent)
+    else
+      wrapped(host, v .. ' en essai : plus dans la voiture', palette.accent)
+    end
     timesLine()
-    if not driven then
+    if not driven and fileThere then
+      small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
+    elseif not driven then
       small(host, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).', palette.accent)
       if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', false) then
         intents.refineJudge = { version = e.version, verdict = 'essayer' }
@@ -2247,7 +2255,12 @@ local function stepCard(host, app, intents, palette, selected)
   elseif trial then
     local v = 'v' .. trial.version
     local f = realLaps(app, trial.family, trial.bucket)
-    if r.driven ~= trial.version then
+    local fileThere = trial.trial ~= nil and app.written[trial.trial.file] == trial.trial.hash
+    if r.driven ~= trial.version and not fileThere then
+      title, text = 'Étape 3/4 · Essayer ' .. v, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).'
+      actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,
+        verdict = 'essayer' } }, style = 'primary' }
+    elseif r.driven ~= trial.version then
       title, text = 'Étape 3/4 · Essayer ' .. v, 'Fichier d\'essai écrit : au stand, menu de setup ouvert, bouton vert '
         .. '« Charger » (onglet ' .. tabName .. '), puis roulez.'
     elseif f and f.count > 0 then
@@ -2288,7 +2301,8 @@ local function stepCard(host, app, intents, palette, selected)
     withFont(host, 'Title', function() colored(host, title, color) end)
     -- Racing 26 : barre d'étapes (4 segments inclinés) ; validée ou figée : les 4 en vert
     local n = tonumber(tostring(title):match('^Étape (%d)/4'))
-    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil or (r ~= nil and r.choice ~= nil and r.driven ~= r.choice)
+    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil
+      or (r ~= nil and r.choice ~= nil and r.driven ~= r.choice and tostring(title):find('validée', 1, true) ~= nil)
     local done = not pendingLoad and (tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil)
     if pendingLoad and n == nil then n = 4 end
     local S = host.ui.skin

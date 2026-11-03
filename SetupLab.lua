@@ -2550,6 +2550,14 @@ local function loadTick()
     -- (demande de Vincent du 02/11/2026 : « dans le pit-stop stratégie c'est resté à 17 »)
     app.loaded[check.kind] = { values = check.target, name = check.path:match('[^/\\]+$') }
     app.lastLoadKind = check.kind
+    -- vos retouches que ce setup n'a pas gardées (il change le réglage) : remplacées par lui, donc libérées ; les réglages
+    -- refusés restent gardés
+    for name, pin in pairs(app.pins[check.kind] or {}) do
+      local v = check.target[name]
+      if not pin.refused and type(v) == 'number' and type(pin.value) == 'number' and math.abs(v - pin.value) > K.setupValueTol then
+        app.pins[check.kind][name] = nil
+      end
+    end
     applyPit(check)
     local s = app.start[check.kind]
     if s and not s.ready and app.saved[check.kind] and app.saved[check.kind].signature == s.signature then s.ready = true end
@@ -3300,7 +3308,7 @@ local function writeVersion(r, e)
     -- version partielle : son contenu et sa famille ; l'essai, encore dans la voiture, n'est plus une base de calcul,
     -- son fichier part à la Corbeille ; effets refusés gardés à leur ancienne valeur
     if trial then
-      r.rejected[trial.signature] = true
+      if trial.signature ~= kept.signature then r.rejected[trial.signature] = true end
       queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash, why = 'essai de v' .. e.version .. ' trié' })
     end
     pinRefused(r.kind, e, kept.refused)
@@ -3353,11 +3361,18 @@ local function refineValidate(r, e)
   local live = okL and type(liveText) == 'string' and setupValues(liveText) or nil
   local keptValues = setupValues(e.text)
   local same = live ~= nil and sameSetup(live, keptValues)
-  local loaded = app.loaded[r.kind] and app.loaded[r.kind].values
-  if same and loaded and loaded.FRONT_BIAS ~= nil and live.FRONT_BIAS == loaded.FRONT_BIAS
-      and keptValues.FRONT_BIAS ~= nil and keptValues.FRONT_BIAS ~= loaded.FRONT_BIAS then
-    -- répartition de freinage refusée dans « Modifier… » : la voiture a encore celle de l'essai
-    same = false
+  -- répartition de freinage et niveaux d'aide, hors de sameSetup : comparés au setup que SetupLab a mis dans la voiture
+  -- (version dans la voiture ; les aides du jeu peuvent remplacer les niveaux lus), sinon à la voiture ; une répartition
+  -- changée en roulant n'est pas une raison de recharger
+  local inCar = r.driven == e.version
+  local loadedRec = app.lastLoadKind and app.loaded[app.lastLoadKind]
+  local ref = inCar and loadedRec and loadedRec.values or live
+  for _, name in ipairs({ 'FRONT_BIAS', 'ABS', 'TRACTION_CONTROL' }) do
+    local want, has = keptValues[name], ref and ref[name]
+    if same and want ~= nil and has ~= nil and want ~= has
+        and (name ~= 'FRONT_BIAS' or not inCar or (live and live.FRONT_BIAS == has)) then
+      same = false
+    end
   end
   local loadIt = not same
   local validated = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence ('
@@ -3370,7 +3385,8 @@ local function refineValidate(r, e)
       app.ui.message = validated .. 'Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l\'affinage '
         .. 'repartira d\'elle.'
     end
-    log('INFO', 'memory', validated .. (app.loadCheck and 'Elle va dans la voiture.' or 'Chargement refusé : « Charger » au stand.'))
+    local requested = app.loadCheck ~= nil and app.saved[r.kind] ~= nil and app.loadCheck.path == app.saved[r.kind].path
+    log('INFO', 'memory', validated .. (requested and 'Elle va dans la voiture.' or 'Chargement refusé : « Charger » au stand.'))
   else
     app.ui.message = validated .. 'Elle est dans la voiture : l\'affinage repart d\'elle.'
     log('INFO', 'memory', app.ui.message)
