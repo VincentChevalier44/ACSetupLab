@@ -66,7 +66,7 @@ EN = {
     '%s mise à jour': '%s updated',
     '%s en préparation': '%s in preparation',
     'hauteur de caisse conservée': 'ride height kept',
-    ' : l\'essayer, trier ses effets et la valider, ou recommencer': ': try it, sort its effects and validate it, or start over',
+    ' : l\'essayer, trier ses réglages et la valider, ou recommencer': ': try it, sort its settings and validate it, or start over',
     'Gain prévu %s s%s. Dans SetupLab, au stand : Essayer (la met dans la voiture), trier ses réglages et Valider ; ou Recommencer.':
         'Predicted gain %s s%s. In SetupLab, in the pits: Try (puts it in the car), sort its settings and Validate; or Start over.',
 }

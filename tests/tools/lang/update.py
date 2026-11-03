@@ -45,6 +45,24 @@ EN = {
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
     'EN VEILLE': 'STANDBY',
+    'Départ de la course impossible : découverte en cours.': 'Cannot start the race: discovery in progress.',
+    "Thème de l'interface : %s ; polices de l'app": 'Interface theme: %s; app fonts',
+    "Thème de l'interface : %s ; polices absentes : Segoe UI": 'Interface theme: %s; fonts missing: Segoe UI',
+    "Départ : votre référence %s ; elle va dans la voiture (au stand, menu de setup ouvert) et l'affinage partira d'elle.":
+        'Start: your reference %s; it goes into the car (in the pits, setup menu open) and the refinement will start from it.',
+    'Départ : votre référence %s, déjà dans la voiture.': 'Start: your reference %s, already in the car.',
+    '%s en essai : dans la voiture': '%s on trial: in the car',
+    '%s en essai : plus dans la voiture': '%s on trial: no longer in the car',
+    '« Essayer %s » la remet dans la voiture (un clic, au stand).': '"Try %s" puts it back in the car (one click, in the pits).',
+    "v%s validée et enregistrée : %s ; setup de référence (%s) gardé en mémoire pour ce circuit.":
+        'v%s validated and saved: %s; reference setup (%s) kept in memory for this track.',
+    "Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l'affinage repartira d'elle.":
+        'In the pits, setup menu open: "Load" to put it in the car; the refinement will carry on from it.',
+    "Elle est dans la voiture : l'affinage repart d'elle.": 'It is in the car: the refinement carries on from it.',
+    'Elle va dans la voiture.': 'It goes into the car.',
+    'Chargement refusé : « Charger » au stand.': 'Load refused: "Load" in the pits.',
+    "Au stand, voiture arrêtée : télécharge l'archive de la version %s sur GitHub, vérifie sa taille et son empreinte SHA-256, puis remplace les fichiers de l'app (les fichiers d'avant sont remis en cas d'échec). CSP recharge alors SetupLab, qui revient en veille ; vos réglages, votre mémoire et vos setups sont gardés.":
+        "In the pits, car stopped: downloads the version %s archive from GitHub, checks its size and SHA-256 fingerprint, then replaces the app's files (the previous files are put back if anything fails). CSP then reloads SetupLab, which comes back on standby; your settings, memory and setups are kept.",
     'voiture sortie du stand pendant le téléchargement : réessayez au stand, voiture arrêtée':
         'car left the pits during the download: try again in the pits, car stopped',
     'Mise à jour : au stand, voiture arrêtée (CSP recharge SetupLab juste après).':
@@ -79,6 +97,6 @@ EN = {
     "Le setup de course part d'une de vos qualifs validées sur ce circuit (v1, v2…, même d'un lancement d'AC précédent) : « Partir de la qualif vN » la met dans la voiture et lance l'affinage de la course, en un clic ; « Reprendre ma course vN » reprend une course validée. Saisissez le nombre de tours de la course (onglet COURSE).":
         'The race setup starts from one of your validated qualifying versions on this track (v1, v2…, including from an earlier AC launch): "Start from qualifying vN" puts it in the car and starts the race refinement, in one click; "Resume my race vN" resumes a validated race. Enter the number of race laps (RACE tab).',
     'Mise à jour': 'Update',
-    "Une fois par lancement d'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans l'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l'installe en un clic, après avoir vérifié l'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.":
-        'Once per AC launch, SetupLab checks on GitHub whether a newer version is published (setting in the SETTINGS tab). If so, "Update", at the top of the window, installs it in one click, after checking the archive; CSP then reloads SetupLab. No game or personal data is sent; GitHub only sees your IP address, as for any web page.',
+    "Une fois par lancement d'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans l'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l'installe en un clic (au stand, voiture arrêtée), après avoir vérifié l'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.":
+        'Once per AC launch, SetupLab checks on GitHub whether a newer version is published (setting in the SETTINGS tab). If so, "Update", at the top of the window, installs it in one click (in the pits, car stopped), after checking the archive; CSP then reloads SetupLab. No game or personal data is sent; GitHub only sees your IP address, as for any web page.',
 }

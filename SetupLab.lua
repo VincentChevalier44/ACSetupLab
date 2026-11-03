@@ -3035,7 +3035,7 @@ local function refineFinish(r, q)
   refineTrim(r)
   app.ui.message = 'Affinage ' .. COMPUTE[r.kind].label .. ' : ' .. (shown and ('v' .. shown.version
     .. (shown.ready and (shown.updates > 0 and ' mise à jour' or ' prête') or ' en préparation') .. ', gain prévu '
-    .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : l\'essayer, trier ses effets et la valider, ou recommencer'
+    .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : l\'essayer, trier ses réglages et la valider, ou recommencer'
       or ' (provisoire) : analyse de vos tours jusqu\'au retour au stand')) or note.note)
     .. ' ; nouveau calcul ' .. (app.settings.refineLaps > 1 and ('après ' .. app.settings.refineLaps .. ' tours propres.')
       or 'au prochain tour propre.')
@@ -3122,7 +3122,8 @@ local function refineTick()
     -- version en essai : rien de nouveau avant son tri (une seule version ouverte à la fois)
     for _, e in ipairs(r.history) do
       if e.version and e.status == 'essai' then
-        r.waiting = 'v' .. e.version .. ' en essai : gardez ou refusez ses effets puis validez (ou recommencez)'
+        r.waiting = 'v' .. e.version .. ' en essai : roulez avec elle, puis validez-la (« Modifier… » pour refuser un réglage) '
+          .. 'ou recommencez'
         -- un clic de calcul n'attend pas la fin de l'essai : la version suivante suivra le minimum de tours
         r.forceNext = nil
         return
@@ -3359,15 +3360,20 @@ local function refineValidate(r, e)
     same = false
   end
   local loadIt = not same
-  app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
-    .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
-      or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
-  log('INFO', 'memory', app.ui.message)
+  local validated = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence ('
+    .. memoryTitle(entry) .. ') gardé en mémoire pour ce circuit. '
   if loadIt then
-    -- chargement refusé (hors du stand…) : le message de la validation reste, la raison est dite sous « Charger »
-    local validated = app.ui.message
+    -- dans la voiture en un clic ; refusé (hors du stand…) : le message de la validation reste, la raison est dite sous
+    -- « Charger »
     requestLoad(r.kind)
-    if app.loadCheck == nil then app.ui.message = validated end
+    if app.loadCheck == nil then
+      app.ui.message = validated .. 'Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l\'affinage '
+        .. 'repartira d\'elle.'
+    end
+    log('INFO', 'memory', validated .. (app.loadCheck and 'Elle va dans la voiture.' or 'Chargement refusé : « Charger » au stand.'))
+  else
+    app.ui.message = validated .. 'Elle est dans la voiture : l\'affinage repart d\'elle.'
+    log('INFO', 'memory', app.ui.message)
   end
   return entry
 end
@@ -3463,8 +3469,8 @@ local function refineTry(r, e)
   end
   e.status = 'essai'
   setLoadTarget(r.kind, e.trial)
-  app.ui.message = 'v' .. e.version .. ' en essai : ' .. e.trial.file .. ' ; roulez avec elle, puis gardez ou refusez chaque '
-    .. 'effet et validez.'
+  app.ui.message = 'v' .. e.version .. ' en essai : ' .. e.trial.file .. ' ; roulez avec elle, puis validez-la (« Modifier… » '
+    .. 'pour refuser un réglage).'
   log('INFO', 'refine', app.ui.message)
   -- 1.5.3 (décision de Vincent du 02/11/2026) : « Essayer » met la version dans la voiture, en un clic ; refusé (hors
   -- du stand…) : la raison est dite et le bouton « Charger » reste

@@ -193,8 +193,8 @@ EN = {
     'après %s tours propres.': 'after %s clean laps.',
     'au prochain tour propre.': 'on the next clean lap.',
     'Affinage %s : %s ; nouveau calcul %s': '%s refinement: %s; new computation %s',
-    'v%s en essai : gardez ou refusez ses effets puis validez (ou recommencez)':
-        'v%s on trial: keep or refuse its effects, then validate (or start over)',
+    'v%s en essai : roulez avec elle, puis validez-la (« Modifier… » pour refuser un réglage) ou recommencez':
+        'v%s on trial: drive with it, then validate it ("Modify…" to refuse a setting) or start over',
     'course : %s': 'race: %s',
     'Affinage %s lancé': '%s refinement started',
     'Affinage %s lancé : %s.': '%s refinement started: %s.',
@@ -244,11 +244,11 @@ EN = {
         ' (its file %s goes to the Recycle Bin as soon as the car is stopped).',
     ' (son fichier %s reste : enregistré à la main).': ' (its file %s stays: saved by hand).',
     ' (jamais enregistrée).': ' (never saved).',
-    ' Setup de référence à charger au stand : %s.': ' Reference setup to load in the pits: %s.',
-    ' Aucun setup de référence validé.': ' No validated reference setup.',
-    ' Elle est encore dans la voiture.': ' It is still in the car.',
-    ' SetupLab repart de votre setup actuel : nouvelle proposition avec vos prochains tours.':
-        ' SetupLab starts again from your current setup: a new proposal with your next laps.',
+    'Setup de référence à charger au stand : %s.': 'Reference setup to load in the pits: %s.',
+    'Aucun setup de référence validé.': 'No validated reference setup.',
+    'Elle est encore dans la voiture.': 'It is still in the car.',
+    'SetupLab repart de votre setup actuel : nouvelle proposition avec vos prochains tours.':
+        'SetupLab starts again from your current setup: a new proposal with your next laps.',
     'v%s non gardée : ni réutilisée ni reproposée%s': 'v%s not kept: neither reused nor proposed again%s',
     'v%s : déjà %s.': 'v%s: already %s.',
     'Essai impossible : %s': 'Cannot try: %s',

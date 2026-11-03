@@ -136,8 +136,10 @@ local function hostFor(host, app)
   if L.lang == 'fr' then
     local can = skinnable[host]
     if can == nil then
-      can = Skin.available(host.ui, host.ffi) == true
+      local okA, missing = Skin.available(host.ui, host.ffi)
+      can = okA == true
       skinnable[host] = can
+      if not can then M.skinStatus = 'indisponible : ui.' .. tostring(missing) .. ' absente' end
     end
     if not can then return host end
   end
@@ -1090,6 +1092,7 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   local ui = host.ui
   local v = 'v' .. e.version
   local driven = r.driven == e.version
+  local no = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix
   -- version partielle : vos tours ont été faits avec son essai complet
   local mine, before = versionLaps(app, e), realLaps(app, e.originFamily, e.bucket)
   local tMine, tBefore = realTime(mine, kind), realTime(before, kind)
@@ -1150,14 +1153,17 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     tip(host, 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer, et le met dans la voiture ; il '
       .. 'devient le setup de '
       .. 'référence de cette séance, gardé en mémoire pour ce circuit.')
-    nextInline(host, 'Recommencer')
+    nextInline(host, no)
   elseif e.status == 'essai' then
     stepsLine(host, palette, (driven and laps > 0) and 3 or 2)
-    wrapped(host, v .. ' en essai : ' .. tostring(e.trial and e.trial.file) .. (driven and ' (en piste)' or ' — à charger au stand'),
+    wrapped(host, v .. (driven and ' en essai : dans la voiture' or ' en essai : plus dans la voiture'),
       palette[driven and 'available' or 'accent'])
     timesLine()
     if not driven then
-      small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
+      small(host, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).', palette.accent)
+      if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', false) then
+        intents.refineJudge = { version = e.version, verdict = 'essayer' }
+      end
     elseif laps == 0 then
       small(host, 'Roulez au moins un tour propre avec elle, puis validez-la.', palette.accent)
     end
@@ -1182,15 +1188,15 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
   -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») et Figer : en petit, sous le bouton
   -- principal
   local lock = 'Figer ' .. v .. suffix .. ' (cadenas)'
-  local no = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix
   if actionButton(host, app.ui, palette, no, verdict == 'slower' and 'danger' or nil, false) then
     intents.refineJudge = { version = e.version, verdict = 'écarter' }
   end
   tip(host, e.status == 'validée'
-    and ('Cette version n\'est plus réutilisée : la référence d\'avant redevient le setup à charger ; son fichier part à la '
-      .. 'Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).')
-    or ('Cette version n\'est ni gardée ni réutilisée ; SetupLab repart de votre setup actuel et propose autre chose avec vos '
-      .. 'prochains tours. Un fichier d\'essai part à la Corbeille.'))
+    and ('Cette version n\'est plus réutilisée : la référence d\'avant revient, et le setup d\'avant retourne dans la voiture si '
+      .. 'elle y est ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant '
+      .. 'CSP 0.3).')
+    or ('Cette version n\'est ni gardée ni réutilisée ; si elle est dans la voiture, le setup d\'avant y revient (un clic, au '
+      .. 'stand). SetupLab propose ensuite autre chose avec vos prochains tours. Son fichier d\'essai part à la Corbeille.'))
   nextInline(host, lock)
   padlock(host, true)
   if ui.button(lock) then intents.refineLock = e.version end
@@ -2056,7 +2062,7 @@ function M.autoLine(app)
         .. ' analysé' .. (n > 1 and 's' or '') .. ') — prête au retour au stand.', 'pending'
     end
     if pending then
-      return 'Actif : v' .. pending.version .. ' prête (' .. where .. ') — à valider ou recommencer.', 'accent'
+      return 'Actif : v' .. pending.version .. ' prête (' .. where .. ') — à essayer puis valider, ou recommencer.', 'accent'
     end
     local saved = app.saved and app.saved[kind]
     for _, e in ipairs(r.history) do
@@ -2106,7 +2112,7 @@ local function header(host, app, intents, palette)
   nextInline(host, 'SetupLab actif')
   if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
   tip(host, 'Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et '
-    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses effets et de la '
+    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses réglages et de la '
     .. 'valider. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce lancement d\'AC : jamais actif tout seul au '
     .. 'démarrage.')
   local title = {}
@@ -2282,7 +2288,7 @@ local function stepCard(host, app, intents, palette, selected)
     withFont(host, 'Title', function() colored(host, title, color) end)
     -- Racing 26 : barre d'étapes (4 segments inclinés) ; validée ou figée : les 4 en vert
     local n = tonumber(tostring(title):match('^Étape (%d)/4'))
-    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil
+    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil or (r ~= nil and r.choice ~= nil and r.driven ~= r.choice)
     local done = not pendingLoad and (tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil)
     if pendingLoad and n == nil then n = 4 end
     local S = host.ui.skin
@@ -2413,7 +2419,8 @@ local HELP = {
   } },
   { 'Mise à jour', {
     'Une fois par lancement d\'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans '
-      .. 'l\'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l\'installe en un clic, après avoir vérifié '
+      .. 'l\'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l\'installe en un clic (au stand, voiture '
+      .. 'arrêtée), après avoir vérifié '
       .. 'l\'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n\'est envoyée ; GitHub voit seulement '
       .. 'votre adresse IP, comme pour toute page web.',
   } },
@@ -2505,7 +2512,7 @@ local function skinHeader(host, app, intents, palette)
   end
   if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
   tip(host, 'Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et '
-    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses effets et de la '
+    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses réglages et de la '
     .. 'valider. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce lancement d\'AC : jamais actif tout seul au '
     .. 'démarrage.')
   local title = {}
@@ -2559,7 +2566,8 @@ local function updateLine(host, app, intents, palette)
     wrapped(host, 'Mise à jour disponible : ' .. tostring(u.info.version) .. ' (installée : ' .. tostring(Config.version)
       .. ')', palette.available)
     if actionButton(host, app.ui, palette, 'Mettre à jour###update_apply', 'go', false) then intents.updateApply = true end
-    tip(host, 'Télécharge l\'archive de la version ' .. tostring(u.info.version) .. ' sur GitHub, vérifie sa taille et son '
+    tip(host, 'Au stand, voiture arrêtée : télécharge l\'archive de la version ' .. tostring(u.info.version) .. ' sur GitHub, '
+      .. 'vérifie sa taille et son '
       .. 'empreinte SHA-256, puis remplace les fichiers de l\'app (les fichiers d\'avant sont remis en cas d\'échec). CSP '
       .. 'recharge alors SetupLab, qui revient en veille ; vos réglages, votre mémoire et vos setups sont gardés.')
   elseif u.state == 'downloading' or u.state == 'extracting' then
@@ -2627,7 +2635,7 @@ local function skinTabs(host, app, tabs)
   end
   local items, total = cached.items, cached.total
   local scale = total > avail and math.max(0.6, avail / total) or 1
-  local fs, gap = math.floor(math.max(10, size * scale) * 2 + 0.5) / 2, math.max(6, pad * scale)
+  local fs, gap = math.floor(math.max(10, size * scale) * 2) / 2, math.max(6, pad * scale)
   local x, y0 = origin.x, origin.y
   for _, it in ipairs(items) do
     local w = it.w * (fs / size) + 2 * gap

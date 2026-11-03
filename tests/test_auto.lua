@@ -171,7 +171,7 @@ tests['AU01 SetupLab actif : veille au démarrage ; coché : affinage du genre d
   T.eq(h.messages[1].title, 'SetupLab : setup tour rapide v1 prêt')
   T.eq(h.messages[1].time, Config.K.alertSeconds)
   frames(h, 1)
-  T.ok(shown(h, 'Actif : v1 prête (essai ou journée circuit, sec) — à valider ou recommencer.'), 'état de l\'affinage dit')
+  T.ok(shown(h, 'Actif : v1 prête (essai ou journée circuit, sec) — à essayer puis valider, ou recommencer.'), 'état de l\'affinage dit')
   -- nouvelle séance (course) : nouvelle découverte, puis affinage course
   h.sim.raceSessionType, h.sim.currentSessionIndex = 3, 1
   T.ok(waitFor(h, function() return app.refine and app.refine.kind == 'race' and app.refine.active end), 'course affinée')

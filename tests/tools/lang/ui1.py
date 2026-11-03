@@ -182,15 +182,15 @@ EN = {
     'Étape suivante : la charger au stand (bouton vert ci-dessous).': 'Next step: load it in the pits (green button below).',
     'Figer %s (cadenas)': 'Lock %s',
     'Recommencer (ne pas garder %s)%s': 'Start over (do not keep %s)%s',
-    "Cette version n'est plus réutilisée : la référence d'avant redevient le setup à charger ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).":
-        'This version is no longer used: the previous reference becomes the setup to load again; its file goes to the Windows Recycle Bin as soon as the car is stopped (permanent deletion before CSP 0.3).',
-    "Cette version n'est ni gardée ni réutilisée ; SetupLab repart de votre setup actuel et propose autre chose avec vos prochains tours. Un fichier d'essai part à la Corbeille.":
-        'This version is neither kept nor reused; SetupLab starts again from your current setup and proposes something else with your next laps. A trial file goes to the Recycle Bin.',
+    "Cette version n'est plus réutilisée : la référence d'avant revient, et le setup d'avant retourne dans la voiture si elle y est ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant CSP 0.3).":
+        'This version is no longer used: the previous reference comes back, and the previous setup goes back into the car if this version is in it; its file goes to the Windows Recycle Bin as soon as the car is stopped (permanent deletion before CSP 0.3).',
+    "Cette version n'est ni gardée ni réutilisée ; si elle est dans la voiture, le setup d'avant y revient (un clic, au stand). SetupLab propose ensuite autre chose avec vos prochains tours. Son fichier d'essai part à la Corbeille.":
+        'This version is neither kept nor reused; if it is in the car, the previous setup goes back in (one click, in the pits). SetupLab then proposes something else with your next laps. Its trial file goes to the Recycle Bin.',
     "Valide (effets gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, proposé à chaque visite ; l'affinage automatique s'arrête. Déverrouillable (onglet Mémoire).":
         'Validates (kept effects) and locks: kept in memory for this track, this session and this track state, offered on every visit; automatic refinement stops. Can be unlocked (MEMORY tab).',
     ' (arrêté)': ' (stopped)',
     "Un calcul %s ; chaque setup proposé est annoncé à l'écran ; rien n'est enregistré avant « Valider » ; l'essayer au stand (un clic), trier ses réglages, puis valider ; jusqu'à l'arrêt.":
-        'A computation %s; each proposed setup is announced on screen; try it, sort its effects, then validate; until you stop it.',
+        'A computation %s; each proposed setup is announced on screen; nothing is saved before "Validate"; try it in the pits (one click), sort its settings, then validate; until you stop it.',
     'Nouvelle découverte au stand, puis nouveau calcul.': 'New discovery in the pits, then a new computation.',
     'Calcul en attente de la découverte…': 'Computation waiting for the discovery…',
     'Calcul en cours…': 'Computing…',

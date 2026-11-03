@@ -249,7 +249,7 @@
     <li>a <strong>race</strong> setup: full stint, fuel, tyre wear, traffic. It starts from one of your SetupLab qualifying setups.</li>
   </ul>
   <p>It reads the car files (tyres, aero, engine, gearbox, brakes, suspension, differential, DRS, ERS) and the track's AI line, simulates the lap, searches for the best setup and <strong>explains every setting</strong> it proposes. It records your laps to <strong>fit its model to your driving</strong>, and refines the setup while you drive.</p>
-  <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed effect yourself, and the car setup only changes on your click, in the pits.</div>
+  <div class="note">You stay in control: nothing is saved without your click, you keep or refuse each proposed setting yourself, and the car setup only changes on your click, in the pits.</div>
 </section>
 
 <section id="install">
@@ -260,7 +260,7 @@
     <li>In game, open <strong>SetupLab</strong> from the app bar or the setup screen. Two more windows exist: <strong>SetupLab Overlay</strong> (on track) and <strong>SetupLab Debug</strong> (diagnostics).</li>
   </ol>
     <h3>In-game update</h3>
-  <p>Since beta 1.5.3, once per AC launch, SetupLab reads the number of the latest published version on GitHub (setting <strong>Check for updates at launch</strong>, SETTINGS tab, ticked by default). If it is newer, an "Update available" line appears at the top of the window with <span class="btn go">Update</span>. Nothing is downloaded without that click. SetupLab then downloads the release archive, checks its size and SHA-256 fingerprint, checks its content, then replaces the app's files in one go (the previous ones are put back if anything fails); files of the old version that no longer exist go to the Recycle Bin. CSP then reloads SetupLab, which comes back on standby. No game or personal data is sent; GitHub only sees your IP address, as for any web page.</p>
+  <p>Since beta 1.5.3, once per AC launch, SetupLab reads the number of the latest published version on GitHub (setting <strong>Check for updates at launch</strong>, SETTINGS tab, ticked by default). If it is newer, an "Update available" line appears at the top of the window with <span class="btn go">Update</span>, to click in the pits, car stopped. Nothing is downloaded without that click. SetupLab then downloads the release archive, checks its size and SHA-256 fingerprint, checks its content, then replaces the app's files in one go (the previous ones are put back if anything fails); files of the old version that no longer exist go to the Recycle Bin. CSP then reloads SetupLab, which comes back on standby. No game or personal data is sent; GitHub only sees your IP address, as for any web page.</p>
   <p>SetupLab works <strong>offline</strong> only: it pauses online and in replays.</p>
 </section>
 
@@ -384,7 +384,7 @@
 
 <section id="changes">
   <h2>12. Your own changes in the pits</h2>
-  <p>After a load by SetupLab, you can adjust the setup to your taste. SetupLab detects it at the next discovery and <strong>keeps each adjusted setting at your value</strong> in the next computations, like the refused effects. <span class="btn plain">Release your changes</span> gives them back to the computation. Fuel does not count as a change.</p>
+  <p>After a load by SetupLab, you can adjust the setup to your taste. SetupLab detects it at the next discovery and <strong>keeps each adjusted setting at your value</strong> in the next computations, like the refused settings. <span class="btn plain">Release your changes</span> gives them back to the computation. Fuel does not count as a change.</p>
 </section>
 
 <section id="memory">

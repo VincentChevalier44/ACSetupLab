@@ -145,15 +145,15 @@ EN = {
     "Actif : setup figé pour %s (%s) ; « Déverrouiller » pour reprendre l'affinage.": 'Active: setup locked for %s (%s); "Unlock" to resume refinement.',
     'Actif : v%s en préparation (%s, %s tour%s analysé%s) — prête au retour au stand.':
         'Active: v{1} in preparation ({2}, {3} lap{4} analysed) — ready when you return to the pits.',
-    'Actif : v%s prête (%s) — à valider ou recommencer.': 'Active: v%s ready (%s) — try it and validate it, or start over.',
+    'Actif : v%s prête (%s) — à essayer puis valider, ou recommencer.': 'Active: v%s ready (%s) — try it and validate it, or start over.',
     'Actif : v%s validée (%s) — à charger au stand.': 'Active: v%s validated (%s) — to load in the pits.',
     'Actif : affinage %s (%s)%s.': 'Active: %s refinement (%s)%s.',
     'Actif : affinage %s au démarrage…': 'Active: %s refinement starting…',
     'Voiture : %s': 'Car: %s',
     'Circuit : %s': 'Track: %s',
     'SetupLab actif': 'SetupLab active',
-    "Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et qualification ; course en course) et annonce chaque proposition ; à vous de l'essayer, de trier ses effets et de la valider. En veille : rien n'est calculé ni enregistré tout seul. Pour ce lancement d'AC : jamais actif tout seul au démarrage.":
-        'Active: SetupLab refines the session setup on its own (qualifying in practice, track day, hotlap and qualifying; race in a race) and announces each proposal; it is up to you to try it, sort its effects and validate it. On standby: nothing is computed or saved on its own. For this AC launch: never active on its own at start-up.',
+    "Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et qualification ; course en course) et annonce chaque proposition ; à vous de l'essayer, de trier ses réglages et de la valider. En veille : rien n'est calculé ni enregistré tout seul. Pour ce lancement d'AC : jamais actif tout seul au démarrage.":
+        'Active: SetupLab refines the session setup on its own (qualifying in practice, track day, hotlap and qualifying; race in a race) and announces each proposal; it is up to you to try it, sort its settings and validate it. On standby: nothing is computed or saved on its own. For this AC launch: never active on its own at start-up.',
     'fichiers de la voiture': 'car files',
     'mesure uniquement (§9.4)': 'measure only (§9.4)',
     'données incomplètes': 'incomplete data',
