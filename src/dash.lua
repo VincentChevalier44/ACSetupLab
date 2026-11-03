@@ -165,16 +165,20 @@ local function button(label, x, y, w, h, style, size, align, shown)
     bg, fg = hot and c.raisedHover or c.select, c.blueSoft
   end
   slanted(x, y, x + w, y + h, 9, bg)
-  if style == 'primary' then
-    -- rayures sombres sur la droite (kit Racing 26)
+  if style == 'primary' and w >= 120 then
+    -- rayures sombres sur la droite (kit Racing 26) : barres de 4 px inclinées, tous les 11 px
+    local lean = math.floor(h * 0.53)
     for i = 0, 4 do
-      local sx = x + w - 52 + i * 11
-      slanted(sx, y, sx + 4 + 4, y + h, 8, c.stripe)
+      local sx = x + w - 9 - lean - 4 - i * 11
+      X.S.quad(X.ox + sx + lean, X.oy + y, X.ox + sx + lean + 4, X.oy + y, X.ox + sx + 4, X.oy + y + h, X.ox + sx, X.oy + y + h,
+        c.stripe)
     end
   end
   size = size or 14
   local s = shown or up(L.t(visible))
-  s = fitted('button', size, s, w >= 60 and (w - 24) or (w - 6))
+  local room = w >= 60 and (w - 24) or (w - 6)
+  if measure('button', size, s) > room and size > 11 then size = size - 2 end
+  s = fitted('button', size, s, room)
   local tw, th = measure('button', size, s)
   local tx = align == 'left' and (x + 22) or (x + (w - tw) / 2)
   text('button', size, s, tx, y + (h - th) / 2, fg)
@@ -485,11 +489,14 @@ local function updateRow(x, y, w)
   local c = X.c
   if u.state == 'available' and u.info then
     local s = L.f('Mise à jour disponible : %s (installée : %s)', tostring(u.info.version), tostring(Config.version))
-    local h = 34
+    local beside = w >= 480
+    local th = textBox('bold', 12.5, s, 0, 0, beside and (w - 170) or (w - 24), c.light, true)
+    local h = beside and math.max(34, th + 18) or (th + 18 + 32)
     rect(x, y, x + w, y + h, c.okBg)
     rect(x, y, x + 3, y + h, c.go)
-    text('bold', 12.5, fitted('bold', 12.5, s, w - 170), x + 12, y + 9, c.light)
-    if button('Mettre à jour###update_apply', x + w - 150, y + 4, 146, 26, 'go', 13) then X.intents.updateApply = true end
+    textBox('bold', 12.5, s, x + 12, y + 9, beside and (w - 170) or (w - 24), c.light)
+    local bx, by = beside and (x + w - 150) or (x + 12), beside and (y + 4) or (y + th + 14)
+    if button('Mettre à jour###update_apply', bx, by, 146, 26, 'go', 13) then X.intents.updateApply = true end
     tip('Au stand, voiture arrêtée : télécharge l\'archive de la version ' .. tostring(u.info.version) .. ' sur GitHub, '
       .. 'vérifie sa taille et son empreinte SHA-256, puis remplace les fichiers de l\'app (les fichiers d\'avant sont remis en '
       .. 'cas d\'échec). CSP recharge alors SetupLab, qui revient en veille ; vos réglages, votre mémoire et vos setups sont '
@@ -693,14 +700,20 @@ end
 
 local VERBS = { essayer = 'Essayer', valider = 'Valider', ['écarter'] = 'Recommencer' }
 
--- conditions en pastilles : vert si remplie, ambre sinon ; renvoie la largeur
-local function conditions(parts, x, y)
-  local cx = x
+-- conditions en pastilles : vert si remplie, ambre sinon ; à la ligne au-delà de maxW ; renvoie la largeur et la hauteur
+local function conditions(parts, x, y, maxW)
+  local cx, cy, widest = x, y, 0
   for _, part in ipairs(parts) do
-    dot(cx + 3, y + 7, 3, part[2] and X.c.go or X.c.warn)
-    cx = cx + 10 + text('text', 11, part[1], cx + 10, y, part[2] and X.c.go or X.c.warn) + 10
+    local tw = measure('text', 11, part[1])
+    if maxW and cx > x and cx + 10 + tw > x + maxW then
+      cx, cy = x, cy + 15
+    end
+    dot(cx + 3, cy + 7, 3, part[2] and X.c.go or X.c.warn)
+    text('text', 11, part[1], cx + 10, cy, part[2] and X.c.go or X.c.warn)
+    cx = cx + 10 + tw + 10
+    widest = math.max(widest, cx - x)
   end
-  return cx - x
+  return widest, cy - y + 13
 end
 
 -- carte d'étape (planches QUALIF) ; dry : hauteur seule ; renvoie la hauteur
@@ -734,7 +747,7 @@ local function stepCard(model, kind, x, y, w, wide, dry)
   local mainW = main and math.min(lw, math.max(190, measure('button', 16, up(L.t((Skin.split(main.label))))) + 70)) or 0
   if main then h = h + btnH end
   if not wide and #more > 0 then h = h + 6 + 36 end
-  if main and main.intent and (main.intent.refineJudge or main.load) and parts then h = h + 18 end
+  if main and main.intent and (main.intent.refineJudge or main.load) and parts then h = h + (wide and 18 or 33) end
   if follow then h = h + 16 end
   if model.start then h = h + 18 end
   local rightH = wide and 14 + 15 + 46 + 12 + 15 + 28 + 14 + 18 or 0
@@ -810,8 +823,8 @@ local function stepCard(model, kind, x, y, w, wide, dry)
     cy = cy + 5
     local verb = main.load and 'Charger' or (VERBS[main.intent.refineJudge.verdict] or 'Charger')
     local lx = x + pad + text('text', 11, L.t(verb) .. L.t(' : '), x + pad, cy, c.grey) + 4
-    conditions(parts, lx, cy)
-    cy = cy + 13
+    local _, ch = conditions(parts, lx, cy, x + pad + lw - lx)
+    cy = cy + ch
   end
   if follow then text('text', 11, fitted('text', 11, follow, lw), x + pad, cy + 3, followColor or c.grey) end
   if picks then
@@ -912,11 +925,27 @@ local function changesPanel(kind, e, r, x, y, w, dry)
   app.ui.modify = app.ui.modify or {}
   local mkey = e and (kind .. '_' .. e.version) or nil
   local open = editable and app.ui.modify[mkey] == true
-  local rowH = open and 27 or 23
   local narrow = w < 360
+  local pw0 = w - 28
+  local groupW0 = narrow and 0 or 66
+  local toggleW0 = open and 124 or 0
+  -- une ligne si nom, « à confirmer », valeur et delta tiennent ; sinon valeur et delta sous le nom
+  local function twoLines(row)
+    if narrow then return true end
+    local tagW = row.pending and (measure('label', 9.5, up(L.t('à confirmer'))) + 6) or 0
+    return groupW0 + measure('text', 12, row.name) + tagW + measure('mono', 10.5, fromTo(row.from, row.to)) + 58 + toggleW0 + 24 > pw0
+  end
+  local function heightOf(row)
+    if twoLines(row) then return open and 42 or 38 end
+    return open and 27 or 23
+  end
   local groups = 0
-  for _, row in ipairs(rows) do if row.group ~= '' then groups = groups + 1 end end
-  local h = 11 + 18 + 6 + #rows * rowH + (narrow and groups * 18 or 0) + 8 + 26
+  local rowsH = 0
+  for _, row in ipairs(rows) do
+    if row.group ~= '' then groups = groups + 1 end
+    rowsH = rowsH + heightOf(row)
+  end
+  local h = 11 + 18 + 6 + rowsH + (narrow and groups * 18 or 0) + 8 + 26
   if dry then return h end
   panel(x, y, x + w, y + h)
   local px, pw = x + 14, w - 28
@@ -958,12 +987,15 @@ local function changesPanel(kind, e, r, x, y, w, dry)
     local vw = measure('mono', 10.5, valueS)
     local tag = row.pending and up(L.t('à confirmer')) or nil
     local tagW = tag and (measure('label', 9.5, tag) + 6) or 0
-    local nameW = math.max(40, pw - groupW - vw - deltaW - toggleW - 18 - tagW)
+    local two = twoLines(row)
+    local rowH = heightOf(row)
+    local nameW = two and (pw - groupW - toggleW - 8 - tagW) or math.max(40, pw - groupW - vw - deltaW - toggleW - 18 - tagW)
+    local vy = two and (cy + 19) or cy
     local nameS = fitted('text', 12, row.name, nameW)
     local nw = text('text', 12, nameS, px + groupW, cy + 4, ink)
     if tag then text('label', 9.5, tag, px + groupW + nw + 6, cy + 7, c.warn) end
-    local vx = px + pw - deltaW - toggleW - vw - 8
-    text('mono', 10.5, valueS, vx, cy + 5, row.keep and c.grey or c.dim)
+    local vx = two and (px + groupW) or (px + pw - deltaW - toggleW - vw - 8)
+    text('mono', 10.5, valueS, vx, vy + 5, row.keep and c.grey or c.dim)
     -- barre de gain et valeur
     local gx = px + pw - deltaW - toggleW
     local gain = row.gain or 0
@@ -971,8 +1003,8 @@ local function changesPanel(kind, e, r, x, y, w, dry)
     local gw = measure('mono', 11, gs)
     local barW = math.max(2, (deltaW - gw - 8) * math.abs(gain) / maxGain)
     local gc = (not row.keep) and c.dim or (row.pending and c.warn or (gain >= 0 and c.go or c.danger))
-    rect(gx, cy + 10, gx + barW, cy + 14, gc)
-    text('mono', 11, gs, gx + deltaW - gw, cy + 5, gc)
+    rect(gx, vy + 10, gx + barW, vy + 14, gc)
+    text('mono', 11, gs, gx + deltaW - gw, vy + 5, gc)
     if open then
       -- sélecteur Gardé | Refusé (un clic bascule ; même identifiant que le bouton ImGui)
       local tx = px + pw - toggleW + 8
@@ -1148,7 +1180,8 @@ local function versionsPanel(kind, r, x, y, w, dry)
     if e.version then table.insert(list, 1, e) end
     if #list >= 3 then break end
   end
-  local h = (#list > 0 and 54 or 0) + 46 + 14
+  local stacked = w - 28 < 470
+  local h = (#list > 0 and 54 or 0) + 46 + 14 + (stacked and 36 or 0)
   if dry then return h end
   panel(x, y, x + w, y + h)
   local px, pw = x + 14, w - 28
@@ -1183,7 +1216,7 @@ local function versionsPanel(kind, r, x, y, w, dry)
   -- nom du setup et fichier de la prochaine version, arrêt de l'affinage
   lab('Nom', px, cy + 8)
   local fx = px + 80
-  local inputW = math.min(170, pw - 80 - 150)
+  local inputW = stacked and math.min(200, pw - 80) or math.min(170, pw - 80 - 150)
   if X.ui.inputText then
     X.ui.setCursor(vec(1, X.ox + fx, X.oy + cy + 1))
     Util.call(X.ui.setNextItemWidth, inputW)
@@ -1203,9 +1236,15 @@ local function versionsPanel(kind, r, x, y, w, dry)
     local last = r.history[#r.history]
     if not (last and last.version == r.version and last.status == nil) then n = r.version + 1 end
     local s = '› ' .. base .. '_v' .. n .. '.ini · ' .. L.t('à la validation')
-    text('mono', 10.5, fitted('mono', 10.5, s, pw - 80 - inputW - stopW - 24), fx + inputW + 10, cy + 8, c.grey)
+    if stacked then
+      text('mono', 10.5, fitted('mono', 10.5, s, pw), px, cy + 36, c.grey)
+    else
+      text('mono', 10.5, fitted('mono', 10.5, s, pw - 80 - inputW - stopW - 24), fx + inputW + 10, cy + 8, c.grey)
+    end
   end
-  if button(stopLabel, px + pw - stopW, cy, stopW, 28, nil, 12.5) then
+  local stopY = stacked and (cy + 54) or cy
+  if stacked then stopW = math.min(pw, stopW) end
+  if button(stopLabel, stacked and px or (px + pw - stopW), stopY, stopW, 28, nil, 12.5) then
     if r.active then X.intents.refineStop = true else X.intents.refineStart = kind end
   end
   if r.active and app.auto then tip('SetupLab actif : l\'arrêt le met aussi en veille.') end
@@ -1220,7 +1259,22 @@ local function toolsPanel(kind, x, y, w, dry)
   local r = app.refine
   local refining = r and r.active and r.kind == kind
   local running = q and q.state == 'running'
-  local h = 52 + ((q and q.state == 'done' and q.result) and 0 or 0)
+  local done = q and q.state == 'done' and q.result
+  local labels = { spec.compute }
+  if not refining then labels[#labels + 1] = 'Affinage automatique (' .. spec.name .. ')' end
+  if done then
+    labels[#labels + 1] = spec.saveLabel
+    labels[#labels + 1] = spec.validate
+  end
+  local rowsN, used = 1, 0
+  for _, label in ipairs(labels) do
+    local bw = measure('button', 12, up(L.t(label))) + 28
+    if used > 0 and used + bw > w - 28 then
+      rowsN, used = rowsN + 1, 0
+    end
+    used = used + bw + 6
+  end
+  local h = 52 + (rowsN - 1) * 30
   if dry then return h end
   panel(x, y, x + w, y + h)
   local px, pw = x + 14, w - 28
@@ -1238,8 +1292,10 @@ local function toolsPanel(kind, x, y, w, dry)
   local bx = px
   local function small(label, intent, style)
     local vis = up(L.t((Skin.split(label))))
-    local bw = math.min(pw - (bx - px), measure('button', 12, vis) + 28)
-    if bw < 60 then return end
+    local bw = math.min(pw, measure('button', 12, vis) + 28)
+    if bx > px and bx + bw > px + pw then
+      bx, cy = px, cy + 30
+    end
     if button(label, bx, cy, bw, 24, style, 12) then intent() end
     bx = bx + bw + 6
   end
@@ -1248,7 +1304,7 @@ local function toolsPanel(kind, x, y, w, dry)
   if not refining then
     small('Affinage automatique (' .. spec.name .. ')', function() X.intents.refineStart = kind end, 'outline')
   end
-  if q and q.state == 'done' and q.result then
+  if done then
     small(spec.saveLabel, function() X.intents[kind .. 'Save'] = true end)
     small(spec.validate, function() X.intents.validate = kind end)
   end
@@ -1533,7 +1589,8 @@ local function raceStartCard(x, y, w, wide, dry)
   local whyS = why and (L.t('À faire : ') .. L.t(why) .. '.') or nil
   local othersH = others and (textBox('text', 12, others, 0, 0, pw, c.soft, true) + 8) or 0
   local whyH = whyS and (textBox('text', 11.5, whyS, 0, 0, pw, c.warn, true) + 6) or 0
-  local h = 14 + 15 + 32 + 8 + (others and othersH or math.max(1, #list) * (rowH + 4)) + 12 + 40 + (#list > 0 and 52 or 0)
+  local titleH = textBox('display', wide and 30 or 26, up(L.t('De quelle qualif part-on ?')), 0, 0, pw, c.light, true) + 8
+  local h = 14 + 15 + titleH + (others and othersH or math.max(1, #list) * (rowH + 4)) + 12 + 40 + (#list > 0 and 52 or 0)
     + whyH + (resume and 70 or 0) + 12
   if dry then return h end
   panel(x, y, x + w, y + h)
@@ -1542,8 +1599,7 @@ local function raceStartCard(x, y, w, wide, dry)
   local s = up(L.t('relais · carburant · usure · trafic'))
   lab('relais · carburant · usure · trafic', px + pw - measure('label', 11, s), cy)
   cy = cy + 15
-  text('display', wide and 30 or 26, up(L.t('De quelle qualif part-on ?')), px, cy, c.light)
-  cy = cy + 40
+  cy = cy + textBox('display', wide and 30 or 26, up(L.t('De quelle qualif part-on ?')), px, cy, pw, c.light) + 8
   -- qualifs validées (la sélection : celle dans la voiture, sinon la plus récente)
   app.ui.raceChoice = app.ui.raceChoice or nil
   local selected = nil
@@ -1605,7 +1661,7 @@ local function raceStartCard(x, y, w, wide, dry)
     local tx = px + bw + 14
     text('text', 11.5, fitted('text', 11.5, L.f('En un clic : v%s va dans la voiture et la v1 de course se calcule.',
       selected.version), pw - bw - 14), tx, cy + 4, c.soft)
-    if parts then conditions(parts, tx, cy + 22) end
+    if parts then conditions(parts, tx, cy + 22, x + w - 16 - tx) end
     cy = cy + 52
   end
   if whyS then cy = cy + textBox('text', 11.5, whyS, px, cy, pw, c.warn) + 6 end
@@ -1976,9 +2032,15 @@ local function memoryPage(x, y, w)
   local parts, follow, followColor = loadState('')
   if parts then
     local fx = x + text('text', 11, L.t('Charger') .. L.t(' : '), x, cy, c.grey) + 4
-    fx = fx + conditions(parts, fx, cy) + 8
-    text('text', 11, fitted('text', 11, L.t('1 clic · copie de sauvegarde avant si besoin'), x + w - fx), fx, cy, c.grey)
-    cy = cy + 18
+    local cw, ch = conditions(parts, fx, cy, x + w - fx)
+    local note = L.t('1 clic · copie de sauvegarde avant si besoin')
+    if fx + cw + 8 + measure('text', 11, note) <= x + w then
+      text('text', 11, note, fx + cw + 8, cy, c.grey)
+      cy = cy + ch + 5
+    else
+      text('text', 11, fitted('text', 11, note, w), x, cy + ch + 2, c.grey)
+      cy = cy + ch + 20
+    end
   end
   if app.loadWhere == 'memory' then
     local _, f2, fc2 = loadState(app.lastLoadKind or 'quali')

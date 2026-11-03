@@ -76,7 +76,7 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (391 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (393 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
@@ -173,6 +173,7 @@ src/store.lua        validated persistence (settings, calibrations, track memory
 src/updater.lua      in-game update: version check, download, checks, file replacement
 src/ui.lua           windows (read-only view of the state)
 src/skin.lua         "Racing 26" theme: colours, fonts, slanted buttons and tabs, cut-corner panels
+src/dash.lua         "Racing 26" page layouts (header, tabs, every page, overlay and debug windows)
 fonts/               Barlow, Barlow Condensed, JetBrains Mono (SIL Open Font License 1.1, licence next to each family)
 docs/                user guide (English and French)
 tests/               offline bench, linter, dictionary, data set generator (never distributed)
