@@ -1,0 +1,4 @@
+version=1.0.0-beta.1.5.4
+url=https://github.com/VincentChevalier44/ACSetupLab/releases/download/v1.0.0-beta.1.5.4/SetupLab-1.0.0-beta.1.5.4.zip
+sha256=e55903daabdb34925608a0d0dec62fdb8292a4cd1b335ebf62e7059c18046022
+size=1017538
