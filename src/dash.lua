@@ -2916,14 +2916,25 @@ function M.debug(host, app, U)
   text('mono', 10.5, js, W - measure('mono', 10.5, js), cy + 2, c.grey)
   cy = cy + 20
   local entries = Util.logEntries(app.log)
+  -- seules les lignes visibles sont dessinées ; les autres comptent pour la hauteur (mesures en cache)
+  local okY, scroll = Util.call(ui.getScrollY)
+  local top = (okY and Util.isFinite(scroll)) and scroll or nil
+  local bottom = top and (top + size.y) or nil
   for i = #entries, 1, -1 do
     local e = entries[i]
-    local ts = Util.fmt(e.t, 1) .. ' s'
-    text('mono', 10.5, ts, 0, cy + 1, c.grey)
-    local lx = 70
-    lx = lx + text('section', 10.5, e.level, lx, cy + 1, c[LEVEL_COLORS[e.level] or 'grey']) + 10
-    lx = lx + text('mono', 10.5, up(tostring(e.code)), lx, cy + 1, c.soft) + 10
-    cy = cy + math.max(16, textBox('text', 11.5, L.t(e.text), lx, cy, W - lx, c.light)) + 4
+    local code = up(tostring(e.code))
+    local lx = 70 + measure('section', 10.5, e.level) + 10 + measure('mono', 10.5, code) + 10
+    local msg = L.t(e.text)
+    local lh = math.max(16, textBox('text', 11.5, msg, lx, cy, W - lx, c.light, true))
+    local y0 = X.oy + cy
+    if top == nil or (y0 + lh >= top and y0 <= bottom) then
+      text('mono', 10.5, Util.fmt(e.t, 1) .. ' s', 0, cy + 1, c.grey)
+      local cx = 70
+      cx = cx + text('section', 10.5, e.level, cx, cy + 1, c[LEVEL_COLORS[e.level] or 'grey']) + 10
+      text('mono', 10.5, code, cx, cy + 1, c.soft)
+      textBox('text', 11.5, msg, lx, cy, W - lx, c.light)
+    end
+    cy = cy + lh + 4
   end
   ui.setCursor(vec(1, X.ox, X.oy + cy))
   ui.dummy(vec(3, W, 1))

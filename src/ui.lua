@@ -38,12 +38,13 @@ local STATUS_COLOR = {
   accentDark = { 0.024, 0.133, 0.176, 1 },
   bg = { 0.039, 0.043, 0.055, 0.98 },
   overlay = { 0.067, 0.075, 0.094, 0.96 }, -- fond de l'overlay en jeu : celui des panneaux
-  -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles)
+  -- boutons de l'étape suivante (décision de Vincent du 22/10/2026 : plus visibles) ; couleurs du thème Racing 26, et
+  -- texte sombre lisible dans les trois états (contraste d'au moins 5:1, bouton pressé compris)
   primaryButton = { 0.094, 0.773, 1.000, 1 }, primaryButtonHovered = { 0.435, 0.859, 1.000, 1 },
-  primaryButtonActive = { 0.055, 0.259, 0.345, 1 },
-  goButton = { 0.118, 0.620, 0.353, 1 }, goButtonHovered = { 0.180, 0.878, 0.498, 1 }, goButtonActive = { 0.086, 0.478, 0.271, 1 },
-  dangerButton = { 0.761, 0.267, 0.231, 1 }, dangerButtonHovered = { 1.000, 0.353, 0.306, 1 },
-  dangerButtonActive = { 0.561, 0.196, 0.169, 1 },
+  primaryButtonActive = { 0.071, 0.659, 0.871, 1 },
+  goButton = { 0.180, 0.878, 0.498, 1 }, goButtonHovered = { 0.361, 0.922, 0.612, 1 }, goButtonActive = { 0.149, 0.749, 0.427, 1 },
+  dangerButton = { 1.000, 0.353, 0.306, 1 }, dangerButtonHovered = { 1.000, 0.478, 0.439, 1 },
+  dangerButtonActive = { 0.902, 0.318, 0.275, 1 },
   -- texte de ces boutons, sombre sur leur aplat clair (contrôles ImGui, sans le thème)
   primaryButtonText = { 0.012, 0.094, 0.125, 1 }, goButtonText = { 0.016, 0.090, 0.051, 1 },
   dangerButtonText = { 0.141, 0.024, 0.016, 1 },

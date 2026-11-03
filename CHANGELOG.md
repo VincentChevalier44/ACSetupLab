@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (beta 1.5.5, in progress)
+
+- Debug window: only the visible log lines are drawn, the others only count for the height.
+- Without the "Racing 26" theme (fallback display): coloured buttons keep readable text when pressed (contrast of at least 5:1), with the theme's colours.
+
 ## 1.0.0-beta.1.5.4 — 2026-11-03 — beta 1.5.4: new interface, one click everywhere, a guided flow, race start of your choice, in-game update
 
 Why this update: loading took two clicks, trial files piled up in the setups folder, and the race could not resume after an AC restart. Now each step is one click, only the versions you validate stay, the race starts from the qualifying version you choose, and SetupLab can update itself.
