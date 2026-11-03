@@ -1156,7 +1156,8 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     nextInline(host, no)
   elseif e.status == 'essai' then
     stepsLine(host, palette, (driven and laps > 0) and 3 or 2)
-    local fileThere = e.trial ~= nil and app.written[e.trial.file] == e.trial.hash
+    local saved = app.saved and app.saved[kind]
+    local fileThere = e.trial ~= nil and app.written[e.trial.file] == e.trial.hash and saved ~= nil and saved.path == e.trial.path
     if driven then
       wrapped(host, v .. ' en essai : dans la voiture', palette.available)
     elseif fileThere then
@@ -1498,6 +1499,8 @@ local function pinsLine(host, app, intents, kind, palette)
     end
   end
   if pins.TYRES then labels[#labels + 1] = 'composé de pneus' end
+  if pins['aid:ABS'] then labels[#labels + 1] = 'niveau d\'ABS' end
+  if pins['aid:TRACTION_CONTROL'] then labels[#labels + 1] = 'niveau d\'antipatinage' end
   if #labels == 0 then return end
   wrapped(host, 'Vos retouches gardées (' .. KIND[kind].name .. ') : ' .. table.concat(labels, ', ')
     .. ' — les calculs ne les changent plus.', palette.accent)
@@ -2255,7 +2258,9 @@ local function stepCard(host, app, intents, palette, selected)
   elseif trial then
     local v = 'v' .. trial.version
     local f = realLaps(app, trial.family, trial.bucket)
-    local fileThere = trial.trial ~= nil and app.written[trial.trial.file] == trial.trial.hash
+    local saved = app.saved and app.saved[kind]
+    local fileThere = trial.trial ~= nil and app.written[trial.trial.file] == trial.trial.hash and saved ~= nil
+      and saved.path == trial.trial.path
     if r.driven ~= trial.version and not fileThere then
       title, text = 'Étape 3/4 · Essayer ' .. v, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).'
       actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,

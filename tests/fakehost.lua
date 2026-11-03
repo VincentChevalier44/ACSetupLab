@@ -733,6 +733,13 @@ function F.new(opts)
       end
       local tyres = text:match('%[TYRES%]%s*VALUE=(%d+)')
       if tyres then h.car.compoundIndex = tonumber(tyres) end
+      -- niveaux d'aide du fichier appliqués au chargement (opt-in : h.opts.applyAids), comme la règle pluie l'attend
+      if h.opts.applyAids then
+        local abs = text:match('%[ABS%]%s*VALUE=([%-%d%.]+)')
+        if abs then h.car.absMode = tonumber(abs) end
+        local tc = text:match('%[TRACTION_CONTROL%]%s*VALUE=([%-%d%.]+)')
+        if tc then h.car.tractionControlMode = tonumber(tc) end
+      end
       return true
     end,
     saveCurrentSetup = function() h.writeCalls = h.writeCalls + 1; error('interdit (D8)') end,

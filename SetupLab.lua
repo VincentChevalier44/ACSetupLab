@@ -1602,9 +1602,13 @@ local function startCompute(kind, fromPending)
       aids.ABS.assistNote = 'ABS coupé dans les aides du jeu : le niveau du setup ne s\'applique pas'
     end
     local absActive = absActiveOf(d)
-    if aids.ABS.to and assists.abs ~= 'off' then absActive = aids.ABS.to > 0 end
-    -- vos retouches au stand (décision de Vincent du 22/10/2026) : jamais changées par le calcul
+    -- vos retouches au stand (décision de Vincent du 22/10/2026) : jamais changées par le calcul ; un niveau d'aide refusé
+    -- n'est plus proposé (jusqu'à « Libérer vos retouches »)
     local pins = app.pins[kind] or {}
+    for _, section in ipairs({ 'ABS', 'TRACTION_CONTROL' }) do
+      if pins['aid:' .. section] and aids[section] then aids[section].to = nil end
+    end
+    if aids.ABS.to and assists.abs ~= 'off' then absActive = aids.ABS.to > 0 end
     local pinned, pinnedLabels = {}, {}
     for _, var in ipairs(d.space.vars) do
       for _, member in ipairs(var.members) do
@@ -2346,8 +2350,16 @@ local function requestLoad(kind, where)
   app.loadNote = nil
   app.loadWhere = where or 'result'
   local target = setupValues(saved.text)
-  -- état d'avant l'appel : un setup déjà identique au fichier ne prouve rien (constat non concluant)
+  -- état d'avant l'appel : un setup déjà identique au fichier ne prouve rien (constat non concluant) ; niveaux d'aide
+  -- compris : un chargement qui ne change qu'eux (pluie, niveau refusé) est un vrai chargement
   local already = liveHasValues(target)
+  if already then
+    local okA, liveText = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+    local live = okA and type(liveText) == 'string' and setupValues(liveText) or nil
+    for _, section in ipairs({ 'ABS', 'TRACTION_CONTROL' }) do
+      if live and target[section] ~= nil and live[section] ~= nil and target[section] ~= live[section] then already = false end
+    end
+  end
   -- copie de sauvegarde du setup en cours (nouveau fichier, relu) : le chargement reste réversible ; inutile
   -- quand la voiture roule avec un fichier gardé de SetupLab, intact (réponse de Vincent du 22/10/2026), ou avec le
   -- dernier setup que SetupLab y a mis, sans retouche
@@ -2426,6 +2438,39 @@ local function adoptMenuLoad(d)
         log('INFO', 'pins', 'Setup de SetupLab chargé depuis le menu d\'AC : ' .. f.name .. ' devient la référence'
           .. (had and ', retouches libérées' or '') .. '.')
         return true
+      end
+    end
+  end
+  -- essai en cours chargé depuis le menu d'AC : la version est dans la voiture (ses écarts ne sont pas vos retouches) ;
+  -- son fichier part à la Corbeille, comme après un chargement par SetupLab
+  for kind, r in pairs(app.refines) do
+    for _, e in ipairs(r.history or {}) do
+      local trial = e.trial
+      if e.version and e.status == 'essai' and trial and app.written[trial.file] == trial.hash and r.driven ~= e.version then
+        local okT, text = Util.call(Util.get(host.io, 'load'), trial.path)
+        if okT and type(text) == 'string' and Util.hashString(text) == trial.hash then
+          if live == nil then
+            local ok, liveText = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
+            if not (ok and type(liveText) == 'string') then return false end
+            live = setupValues(liveText)
+          end
+          local values = setupValues(text)
+          if sameSetup(live, values) then
+            app.loaded[kind] = { values = values, name = trial.file }
+            app.lastLoadKind = kind
+            r.driven = e.version
+            local kept = {}
+            for name, pin in pairs(app.pins[kind] or {}) do
+              if pin.refused then kept[name] = pin end
+            end
+            app.pins[kind] = kept
+            if app.saved[kind] and app.saved[kind].path == trial.path then app.saved[kind] = nil end
+            queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash,
+              why = 'essai de v' .. e.version .. ' chargé dans la voiture' })
+            log('INFO', 'pins', 'Essai de v' .. e.version .. ' chargé depuis le menu d\'AC : il est dans la voiture.')
+            return true
+          end
+        end
       end
     end
   end
@@ -2896,6 +2941,9 @@ local function pinRefused(kind, e, refused)
   if refused.TYRES and e.disc and e.disc.compoundIndex then
     pins.TYRES = { value = e.disc.compoundIndex, from = e.compound and e.compound.index, refused = true }
   end
+  for section, aid in pairs(e.aids or {}) do
+    if refused['aid:' .. section] then pins['aid:' .. section] = { value = aid.from, from = aid.from, refused = true } end
+  end
 end
 
 -- Historique : une seule ligne pour la même note d'affilée ; au-delà de K.refineHistory lignes, les notes
@@ -3287,7 +3335,7 @@ local function writeVersion(r, e)
   -- effets gardés (décision de Vincent du 26/10/2026) : la version enregistrée n'a que les groupes gardés
   local kept, why = keptSetup(e)
   if kept == nil then return false, why end
-  if e.file and kept.all then
+  if e.file and (kept.all or e.status == 'validée') then
     if r.kind == 'quali' and e.hash then validatedPut(e.file, e.hash, e.version) end
     setLoadTarget(r.kind, e)
     return true
