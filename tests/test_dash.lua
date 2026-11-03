@@ -313,4 +313,25 @@ tests['DS07 réglages : tableau des réglages du setup repliable, fermé par dé
   h.tab = nil
 end
 
+-- Demande de Vincent du 03/11/2026 : en replay, l'overlay ne s'affiche pas ; dès l'image où le replay commence, et
+-- de nouveau après.
+tests['DS08 overlay : rien en replay'] = function()
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  overlayFrame(h)
+  T.ok(shownText(h, 'SETUP'), 'hors replay : la barre')
+  h.sim.isReplayActive = true
+  overlayFrame(h)
+  T.no(shownText(h, 'SETUP'), 'replay : rien, dès la première image')
+  T.eq(#h.texts, 0, 'replay : aucun texte')
+  T.ok(waitFor(h, function() return app.inert ~= nil end), 'replay : SetupLab inactif')
+  overlayFrame(h)
+  T.eq(#h.texts, 0, 'replay : toujours rien')
+  h.sim.isReplayActive = false
+  T.ok(waitFor(h, function() return app.inert == nil end), 'fin du replay')
+  overlayFrame(h)
+  T.ok(shownText(h, 'SETUP'), 'après le replay : la barre revient')
+  T.eq(app.perf.errors, 0)
+end
+
 return tests

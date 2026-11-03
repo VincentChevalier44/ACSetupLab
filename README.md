@@ -2,7 +2,7 @@
 
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5.4** (`1.0.0-beta.1.5.4`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.5** (`1.0.0-beta.1.5.5`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
 SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits in one click, keep or refuse each of its settings, and validate it.
 
@@ -52,7 +52,7 @@ Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free versi
 
 From beta 1.5.4 on, SetupLab can update itself: when a newer version is published, an **Update** button appears at the top of its window (to click in the pits, car stopped). It downloads the release archive from GitHub, checks its size and SHA-256 fingerprint and its content, then replaces the app's files in one go (the previous files are put back if anything fails); CSP then reloads the app, which comes back on standby.
 
-To install by hand (and to go from 1.5.2 or older to 1.5.4): **delete the old `SetupLab` folder first.** Close Assetto Corsa completely (CSP reloads apps while the game runs), delete `assettocorsa/apps/lua/SetupLab`, then extract the new archive into `assettocorsa/apps/lua/`. This also removes files from older betas that are no longer used. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside that folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French.
+To install by hand (and to go from 1.5.2 or older to this version): **delete the old `SetupLab` folder first.** Close Assetto Corsa completely (CSP reloads apps while the game runs), delete `assettocorsa/apps/lua/SetupLab`, then extract the new archive into `assettocorsa/apps/lua/`. This also removes files from older betas that are no longer used. Your settings, calibration, track memory and saved setups are kept: CSP stores the app data outside that folder, and setups stay in your setups folder. From beta 1.5 the interface starts in English; the **FR** badge switches it to French.
 
 ## Quick start
 
@@ -76,11 +76,11 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (394 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (400 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
-- the 1.5.4 flow (one-click loading, race start of your choice) and the new page layouts. The in-game update itself has been tried end to end in game, from 1.5.3 to 1.5.4;
+- the 1.5.5 race laps entry during the race refinement, the folding setup settings table and the overlay hidden in replays, checked on the bench only. The page layouts, the overlay bar, the local time in file names and the in-game update (from 1.5.3 to 1.5.4) have been tried in game;
 - with cars whose data is packed (`data.acd`): gear ratio files are read through CSP (see the J0 report, DIAGNOSTICS tab); with layout tracks: the layout's own `data` folder (surfaces, DRS zones).
 
 Some settings are deliberately kept, with their reason shown: toe, coast and preload differential (transient effects outside the model), packers and bump stops (reference to confirm), springs and dampers until a valid dry lap has measured the track roughness, ride height until a load in the pits has verified the height reference, settings defined by a car's script (unknown effect).

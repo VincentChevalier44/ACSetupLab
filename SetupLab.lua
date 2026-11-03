@@ -4135,8 +4135,17 @@ function script.SETUPLAB__MAIN(_)
 end
 
 -- Overlay en jeu (bêta 1.3) : verdict sur vos tours, réglages changés et leur gain prévu.
+-- Replay (demande de Vincent du 03/11/2026) : l'overlay ne s'affiche pas ; drapeaux de CSP lus à chaque image (le
+-- contexte ne l'est qu'à 1 Hz). La fenêtre n'est pas cachée (CSP la garderait fermée si AC se fermait en replay) : rien
+-- n'est dessiné, et sans fond elle est invisible.
+local function replayNow()
+  if app.context and app.context.replay then return true end
+  local okS, sim = Util.call(Util.get(host.ac, 'getSim'))
+  return okS and (Util.get(sim, 'isReplayActive') == true or Util.get(sim, 'isReplayOnlyMode') == true) or false
+end
+
 function script.SETUPLAB__OVERLAY(_)
-  if app.released then return end
+  if app.released or replayNow() then return end
   local intents = {}
   local ok, err = measure(Ui.overlay, host, app, intents)
   if not ok then
