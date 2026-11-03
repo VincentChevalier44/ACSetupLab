@@ -444,6 +444,7 @@ tests['Q13 calcul en attente de la découverte : annulé, mode inerte, setup enc
   h.click = 'Calculer le setup tour rapide'
   frames(h, 1)
   T.ok(app.pendingComputes.quali)
+  app.settings.onlineActive = false -- « Actif en ligne » décoché : pause en ligne
   h.sim.isOnlineRace = true
   app.nextContextAt = 0
   frames(h, 1)

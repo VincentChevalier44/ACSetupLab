@@ -313,10 +313,11 @@ tests['DS07 réglages : tableau des réglages du setup repliable, fermé par dé
   h.tab = nil
 end
 
--- Mode en ligne (demande de Vincent du 03/11/2026) : en ligne, pause par défaut ; la case « Actif en ligne » (onglet
--- RÉGLAGES) se coche pendant la pause, seul réglage permis, et s'écrit tout de suite ; essais et qualification
--- actifs ; course en ligne en pause, où la case se décoche et s'écrit aussi ; hors ligne : reprise.
-tests['DS09 en ligne : pause par défaut, case cochée en pause, essais actifs, course en pause, case décochée gardée'] = function()
+-- Mode en ligne (demande de Vincent du 03/11/2026 : « je pensais que ça fonctionnait exactement pareil que le mode hors
+-- ligne ») : « Actif en ligne » coché par défaut, en ligne comme hors ligne dans toutes les séances (essais,
+-- qualification, course) ; décochée en roulant : pause, écrite tout de suite ; un autre réglage reste refusé en pause ;
+-- recochée pendant la pause (seul réglage permis) : écrite aussi, reprise ; hors ligne, la case ne change rien.
+tests['DS09 en ligne : actif par défaut en essais, qualif et course ; case décochée puis recochée, écrite en pause'] = function()
   local Store = require('src/store')
   local LABEL = Config.byKey.onlineActive.label
   local function storedOnline(h)
@@ -325,41 +326,93 @@ tests['DS09 en ligne : pause par défaut, case cochée en pause, essais actifs, 
   end
   local h, app = boot('fr')
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
-  T.eq(app.settings.onlineActive, false, 'décochée par défaut')
+  T.eq(app.settings.onlineActive, true, 'cochée par défaut')
   h.sim.isOnlineRace = true
-  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'en ligne : pause par défaut')
-  T.contains(app.inert, 'Actif en ligne')
-  -- un autre réglage reste refusé en pause
+  for _, session in ipairs({ 1, 2, 3 }) do
+    h.sim.raceSessionType = session
+    frames(h, 150)
+    T.eq(app.inert, nil, 'en ligne, séance ' .. session .. ' : actif comme hors ligne')
+  end
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte en ligne')
+  -- décochée en roulant : pause, avec sa raison, écrite tout de suite
   h.tab = 'Réglages'
   frames(h, 1)
   T.ok(shownText(h, 'Actif en ligne'), 'case affichée dans RÉGLAGES')
+  h.click = LABEL
+  frames(h, 1)
+  T.eq(app.settings.onlineActive, false, 'décochée')
+  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'pause en ligne')
+  T.contains(app.inert, 'Actif en ligne')
+  T.eq(storedOnline(h), false, 'décochée et écrite')
+  -- un autre réglage reste refusé en pause
   h.click = Config.byKey.calibrationAuto.label
   frames(h, 1)
   T.eq(app.settings.calibrationAuto, true, 'autre réglage refusé en pause')
-  -- la case se coche en pause, s'écrit tout de suite, et l'app reprend en essais
+  -- recochée pendant la pause : écrite tout de suite (le stockage n'est pas écrit en pause), reprise
   h.click = LABEL
   frames(h, 1)
-  T.eq(app.settings.onlineActive, true, 'cochée en pause')
-  T.eq(storedOnline(h), true, 'écrite tout de suite')
-  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'essais en ligne : actif')
-  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte en ligne')
-  -- qualification : actif ; course : pause, avec sa raison
-  h.sim.raceSessionType = 2
-  frames(h, 120)
-  T.eq(app.inert, nil, 'qualification en ligne : actif')
-  h.sim.raceSessionType = 3
-  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'course en ligne : pause')
-  T.contains(app.inert, 'Course en ligne')
-  -- décochée pendant la pause : écrite aussi (le stockage n'est pas écrit en pause)
+  T.eq(app.settings.onlineActive, true, 'recochée en pause')
+  T.eq(storedOnline(h), true, 'recochée et écrite en pause')
+  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'reprise en ligne')
+  -- hors ligne, la case ne change rien
   h.click = LABEL
   frames(h, 1)
-  T.eq(app.settings.onlineActive, false)
-  T.eq(storedOnline(h), false, 'décochée et écrite en pause')
-  -- hors ligne : reprise
   h.sim.isOnlineRace, h.sim.raceSessionType = false, 1
-  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'hors ligne : reprise')
+  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'hors ligne : actif, case décochée ou non')
   T.eq(app.perf.errors, 0)
   h.tab = nil
+end
+
+-- Constat de Vincent du 03/11/2026, en ligne : il a basculé l'interrupteur ACTIF de l'en-tête, l'app restait en pause
+-- et disait « SetupLab actif : affinage automatique… ». Désormais : ce message dit la pause ; sous le bandeau de pause,
+-- sur chaque onglet, « Activer SetupLab en ligne » lève la pause en un clic ; même bouton sans le thème.
+tests['DS10 en ligne : ACTIF en pause dit la pause ; « Activer SetupLab en ligne » sous le bandeau, en un clic'] = function()
+  -- identifiant vu à l'image, dans n'importe quelle portée (onglet, fenêtre enfant)
+  local function hasId(hh, id)
+    for key in pairs(hh.ids or {}) do
+      if key == id or key:sub(-#id - 1) == '|' .. id then return true end
+    end
+    return false
+  end
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  -- « Actif en ligne » décoché (choix du joueur), puis en ligne : pause
+  app.settings.onlineActive = false
+  h.sim.isOnlineRace, h.sim.raceSessionType = true, 2
+  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'en ligne : pause')
+  h.click = 'SetupLab actif'
+  frames(h, 1)
+  T.eq(app.auto, true)
+  T.contains(app.ui.message, 'mais en pause')
+  T.contains(app.ui.message, 'Actif en ligne')
+  for _, tab in ipairs({ 'Tour rapide', 'Course', 'Mesure' }) do
+    h.tab = tab
+    frames(h, 1)
+    T.ok(hasId(h, 'online_enable'), 'bouton sous le bandeau : ' .. tab)
+  end
+  h.tab = 'Tour rapide'
+  h.click = 'online_enable'
+  frames(h, 1)
+  T.eq(app.settings.onlineActive, true, 'activé en un clic')
+  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'pause levée')
+  frames(h, 1)
+  T.no(hasId(h, 'online_enable'), 'bouton retiré une fois actif')
+  T.eq(app.perf.errors, 0)
+  h.tab = nil
+  -- sans le thème (rendu de repli) : même bouton sous la ligne d'état
+  local h2 = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
+    stored = { ['setuplab:data'] = STORE.fr } })
+  Fake.install(h2)
+  assert(loadfile(PY.appDir .. '/SetupLab.lua'))()
+  local app2 = rawget(_G, 'SETUPLAB').app
+  app2.settings.onlineActive = false
+  h2.sim.isOnlineRace = true
+  T.ok(waitFor(h2, function() return app2.inert ~= nil end, 300), 'repli : pause')
+  h2.click = 'online_enable'
+  frames(h2, 2)
+  T.eq(app2.settings.onlineActive, true, 'repli : activé en un clic')
+  T.ok(waitFor(h2, function() return app2.inert == nil end, 300), 'repli : pause levée')
+  T.eq(app2.perf.errors, 0)
 end
 
 -- Demande de Vincent du 03/11/2026 : en replay, l'overlay ne s'affiche pas ; dès l'image où le replay commence, et

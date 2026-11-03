@@ -200,6 +200,7 @@ tests['EN01 parcours complet en anglais (affinage, essai, tri, validation, overl
   render(h)
   h.sim.rainWetness, h.sim.rainWater = 0, 0
   -- en ligne : inerte
+  app.settings.onlineActive = false -- « Actif en ligne » décoché : pause en ligne
   h.sim.isOnlineRace = true
   app.nextContextAt = 0
   frames(h, 2)

@@ -169,6 +169,7 @@ tests['J02 gardes : stand, arrêt, menu de setup, setup imposé, voiture, en lig
   T.contains(app.ui.message, 'illisible')
   h.sim.fixedSetup = false
   -- en ligne : inerte, intentions refusées
+  app.settings.onlineActive = false -- « Actif en ligne » décoché : pause en ligne
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end))
   app.handleIntents({ load = 'quali' })

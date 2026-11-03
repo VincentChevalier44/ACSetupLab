@@ -115,8 +115,9 @@ M.settings = {
   -- minimum ; les versions suivantes l'attendent
   { key = 'updateCheck', kind = 'boolean', default = true,
     label = 'Vérifier les mises à jour au lancement (GitHub)' },
-  -- mode en ligne (demande de Vincent du 03/11/2026) : décoché par défaut ; essais et qualification seulement
-  { key = 'onlineActive', kind = 'boolean', default = false, label = 'Actif en ligne (essais et qualification)' },
+  -- mode en ligne (demande de Vincent du 03/11/2026 : « je pensais que ça fonctionnait exactement pareil que le mode
+  -- hors ligne ») : coché par défaut, toutes les séances ; décoché : pause en ligne (règlement d'une ligue)
+  { key = 'onlineActive', kind = 'boolean', default = true, label = 'Actif en ligne' },
   -- barre de l'overlay (demande de Vincent du 03/11/2026) : cadenas (position et taille figées), réduit à la barre
   { key = 'overlayLocked', kind = 'boolean', default = false, label = 'Overlay verrouillé (position et taille figées)' },
   { key = 'overlayMini', kind = 'boolean', default = false, label = 'Overlay réduit à sa barre' },
@@ -170,10 +171,10 @@ M.help = {
   refineMinMinutes = 'Durée minimum de roulage, en minutes, avec le setup actuellement dans la voiture avant une proposition '
     .. '(en piste, voiture en mouvement). 0 : pas de durée minimum. Les tours et la durée doivent être atteints tous les deux.',
   language = 'Langue de toute l\'application : menus, messages, aides et overlay.',
-  onlineActive = 'Coché : SetupLab fonctionne aussi sur un serveur en ligne, en essais et en qualification ; en course en '
-    .. 'ligne, il reste en pause. Un tour passé derrière ou à côté d\'une autre voiture (aspiration, gêne) n\'est pas '
-    .. 'compté. Un setup imposé par le serveur ne se charge pas. Rien n\'est envoyé au serveur. Décoché : SetupLab se '
-    .. 'met en pause en ligne.',
+  onlineActive = 'Coché (par défaut) : en ligne, SetupLab fonctionne exactement comme hors ligne, dans toutes les séances. '
+    .. 'Seule différence : un tour passé derrière ou à côté d\'une autre voiture (aspiration, gêne) n\'est pas compté. Un '
+    .. 'setup imposé par le serveur ne se charge pas. Rien n\'est envoyé au serveur. Décoché : SetupLab se met en pause en '
+    .. 'ligne (par exemple si le règlement d\'une ligue interdit les apps).',
 }
 
 -- Constantes internes (réglables ici uniquement).
@@ -197,7 +198,6 @@ M.K = {
   trafficBesideM = 8,         -- m derrière : à côté (roue dans roue)
   trafficMaxTime = 2.0,       -- s cumulées dans le tour au-delà desquelles le tour est rejeté
   trafficMaxCars = 64,        -- voitures examinées au plus par échantillon
-  onlineSessions = { [1] = true, [2] = true }, -- types de séance actifs en ligne : essais (1), qualification (2)
   updateCheckFrame = 300,    -- mise à jour : vérifiée après ~5 s (images), une fois par lancement
   contextPeriod = 1.0,        -- détection de contexte (s)
   fpsTarget = 60,             -- en dessous, la tranche est réduite

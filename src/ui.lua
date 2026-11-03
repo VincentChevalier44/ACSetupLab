@@ -517,6 +517,14 @@ function M.slowFrames(app)
   return Util.isFinite(fps) and fps > 0 and fps < Config.K.fpsTarget or false
 end
 
+-- Mode en ligne : en pause faute du réglage « Actif en ligne » ; sous le bandeau de pause, un bouton l'active en un
+-- clic (constat de Vincent du 03/11/2026 : en ligne, il a basculé l'interrupteur ACTIF de l'en-tête, la case de
+-- l'onglet RÉGLAGES restait introuvable).
+M.ONLINE_ENABLE = 'Activer SetupLab en ligne###online_enable'
+function M.onlineOffer(app)
+  return app.inert ~= nil and app.context ~= nil and app.context.online == true and app.settings.onlineActive ~= true
+end
+
 -- Ligne d'état principale (une seule phrase, la plus importante d'abord).
 function M.statusLine(app)
   if app.inert then return app.inert, 'pending' end
@@ -2180,6 +2188,12 @@ local function header(host, app, intents, palette)
   small(host, autoText, palette[autoColor])
   local status, kind = M.statusLine(app)
   small(host, '• ' .. status, palette[kind])
+  if M.onlineOffer(app) then
+    if actionButton(host, app.ui, palette, M.ONLINE_ENABLE, 'primary', false) then
+      intents.setting = { key = 'onlineActive', value = true }
+    end
+    tip(host, Config.help.onlineActive)
+  end
   if d then
     local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
       or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')

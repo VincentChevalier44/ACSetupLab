@@ -3224,6 +3224,14 @@ function M.main(host, app, intents, U, tabs)
     local y = updateRow(0, 0, w)
     if app.inert or app.discoveryState == 'failed' then
       y = y + messageBar(L.t((X.U.statusLine(app))), 0, y, w, app.inert and 'warn' or 'error') + 8
+      -- mode en ligne : en pause faute du réglage, il s'active ici en un clic, sur chaque onglet
+      if X.U.onlineOffer(app) then
+        if button(X.U.ONLINE_ENABLE, 0, y, math.min(w, 300), 30, 'primary', 13) then
+          X.intents.setting = { key = 'onlineActive', value = true }
+        end
+        tip(Config.help.onlineActive)
+        y = y + 38
+      end
     end
     local tab = app.ui.tab
     y = y + (PAGES[tab] or PAGES['Tour rapide'])(0, y, w)

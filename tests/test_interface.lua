@@ -337,6 +337,7 @@ tests['I09 mode inerte (en ligne, replay) : aucune intention exécutée, rien d\
   h.stored = {} -- stockage vide au départ (ce test lit ce qui est écrit)
   local app = load(h)
   T.ok(untilDone(h, app, function(a) return a.discoveryState == 'done' end))
+  app.settings.onlineActive = false -- « Actif en ligne » décoché : pause en ligne
   h.sim.isOnlineRace = true
   T.ok(untilDone(h, app, function(a) return a.inert ~= nil end), 'inerte en ligne')
   local label

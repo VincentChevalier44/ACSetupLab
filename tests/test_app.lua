@@ -116,8 +116,9 @@ tests['A02 budget : p90 ≤ 2,2 ms, p99 ≤ 3 ms, ≤ 1 % au-delà de 3 ms, hors
   T.ok(app.perf.avgMs < 0.3, 'coût moyen ' .. app.perf.avgMs .. ' ms (§14.3)')
 end
 
-tests['A03 session en ligne : inerte, puis reprise hors ligne'] = function()
+tests['A03 session en ligne, « Actif en ligne » décoché : inerte, puis reprise hors ligne'] = function()
   local h, _, app = boot()
+  app.settings.onlineActive = false -- « Actif en ligne » décoché : pause en ligne
   h.sim.isOnlineRace = true
   frames(h, 200)
   T.ok(app.inert and app.inert:find('en ligne'), tostring(app.inert))

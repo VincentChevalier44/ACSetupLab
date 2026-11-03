@@ -816,21 +816,14 @@ local function conditionsDrift(ref)
   return nil
 end
 
--- Mode en ligne (demande de Vincent du 03/11/2026) : seule décision de la pause en ligne, prise à l'image (inertNow,
--- chargement) comme à la relecture du contexte. Réglage « Actif en ligne » décoché : pause ; coché : essais et
--- qualification seulement (K.onlineSessions), la course en ligne reste en pause, comme un type de séance inconnu.
--- Renvoie la raison de la pause, ou nil.
-local function onlinePause(online, sessionType)
-  if not online then return nil end
-  if not app.settings.onlineActive then
-    return 'Session en ligne : SetupLab est en pause (cocher « Actif en ligne », onglet RÉGLAGES).'
+-- Mode en ligne (demande de Vincent du 03/11/2026 : « exactement pareil que le mode hors ligne ») : seule décision de la
+-- pause en ligne, prise à l'image (inertNow, chargement) comme à la relecture du contexte. Réglage « Actif en ligne »
+-- coché (par défaut) : en ligne comme hors ligne, toutes les séances ; décoché : pause. Renvoie sa raison, ou nil.
+local function onlinePause(online)
+  if online and not app.settings.onlineActive then
+    return 'Session en ligne : SetupLab est en pause (« Actif en ligne » décoché, onglet RÉGLAGES).'
   end
-  sessionType = tonumber(sessionType)
-  if sessionType and K.onlineSessions[sessionType] then return nil end
-  if sessionType == 3 then
-    return 'Course en ligne : SetupLab reste en pause (en ligne : essais et qualification seulement).'
-  end
-  return 'Séance en ligne autre qu\'essais ou qualification : SetupLab reste en pause.'
+  return nil
 end
 
 local function refreshContext()
@@ -845,7 +838,7 @@ local function refreshContext()
   end
   app.context = c
   local inert = nil
-  local onlineReason = c.ok and onlinePause(c.online, c.sessionType) or nil
+  local onlineReason = c.ok and onlinePause(c.online) or nil
   if not c.ok then
     inert = 'Contexte illisible : ' .. tostring(c.reason)
   elseif onlineReason then
@@ -1280,8 +1273,8 @@ local function recordFrame()
   if lap then onLap(lap) end
 end
 
--- Mode inerte vu dès la frame (le contexte n'est relu qu'à 1 Hz) : en ligne (sauf mode en ligne permis pour cette
--- séance, onlinePause) ou en replay, rien n'est enregistré et le tour en cours est abandonné.
+-- Mode inerte vu dès la frame (le contexte n'est relu qu'à 1 Hz) : en ligne avec « Actif en ligne » décoché
+-- (onlinePause) ou en replay, rien n'est enregistré et le tour en cours est abandonné.
 local function inertNow(sim)
   if app.inert then return true end
   local online = false
@@ -1291,7 +1284,7 @@ local function inertNow(sim)
       online = true
     end
   end
-  return online and onlinePause(true, Util.get(sim, 'raceSessionType')) ~= nil
+  return online and onlinePause(true) ~= nil
 end
 
 local function update(dt)
@@ -3829,6 +3822,8 @@ local function autoToggle()
     app.ui.message = 'SetupLab actif : affinage automatique du setup ' .. COMPUTE[kind].label .. ' (séance : '
       .. groupLabel(memoryGroup(kind)) .. ') dès la fin de la découverte ; chaque setup proposé est annoncé à l\'écran, '
       .. 'rien n\'est enregistré avant « Valider ».'
+    -- en pause (en ligne, replay) : dit tel quel, l'affinage attend la fin de la pause (constat du 03/11/2026)
+    if app.inert then app.ui.message = 'SetupLab actif, mais en pause : ' .. app.inert end
   else
     local r = app.refine
     if r and r.active then refineStop() end

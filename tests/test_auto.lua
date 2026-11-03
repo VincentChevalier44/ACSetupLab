@@ -703,13 +703,12 @@ tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists, getSetupTabs 
   T.eq(app.perf.errors, 0)
 end
 
--- Mode en ligne (demande de Vincent du 03/11/2026) : « Actif en ligne » coché, en essais sur un serveur, le parcours
--- complet marche comme hors ligne : découverte, v1, Valider, chargement au stand ; setup imposé par le serveur :
--- chargement refusé.
-tests['AU20 en ligne, « Actif en ligne » coché : cycle complet en essais ; setup imposé par le serveur : refusé'] = function()
+-- Mode en ligne (demande de Vincent du 03/11/2026 : « exactement pareil que le mode hors ligne ») : par défaut, sur un
+-- serveur, le parcours complet marche comme hors ligne : découverte, v1, Valider, chargement au stand ; setup imposé
+-- par le serveur : chargement refusé ; « Actif en ligne » décoché : refusé dès l'image, avant la relecture du contexte.
+tests['AU20 en ligne par défaut : cycle complet ; setup imposé par le serveur, case décochée : chargement refusé'] = function()
   local h, app = boot(nil, 1)
   h.sim.isOnlineRace = true
-  app.settings.onlineActive = true
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte en ligne')
   T.eq(app.inert, nil, 'actif en ligne')
   app.settings.compoundChoice = app.discovery.compoundIndex
@@ -736,16 +735,16 @@ tests['AU20 en ligne, « Actif en ligne » coché : cycle complet en essais ; se
   T.contains(app.ui.message, 'imposé')
   h.sim.fixedSetup = false
   T.eq(app.inert, nil)
-  -- course en ligne vue dès l'image, avant la relecture du contexte (1 Hz) : chargement refusé
+  -- « Actif en ligne » décoché (stockage d'une autre séance), vu dès l'image, avant la relecture du contexte (1 Hz)
   app.nextContextAt = app.now + 30
-  h.sim.raceSessionType = 3
+  app.settings.onlineActive = false
   frames(h, 40)
   h.click = 'Charger le setup tour rapide dans la voiture'
   frames(h, 2)
   T.eq(app.inert, nil, 'contexte pas encore relu')
-  T.eq(#h.loadCalls, 1, 'course en ligne : refusé dès l\'image')
+  T.eq(#h.loadCalls, 1, 'case décochée : refusé dès l\'image')
   T.contains(app.ui.message, 'en ligne')
-  h.sim.raceSessionType = 1
+  app.settings.onlineActive = true
   app.nextContextAt = 0
   T.eq(app.perf.errors, 0)
 end
