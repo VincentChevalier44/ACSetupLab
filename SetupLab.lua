@@ -3427,6 +3427,8 @@ local function refineReject(r, e)
       local okB, text = Util.call(Util.get(host.io, 'load'), before.path)
       if not (okB and type(text) == 'string' and Util.hashString(text) == before.hash) then before = nil end
     end
+    -- mêmes valeurs que la référence : son propre fichier (l'affinage sait qu'il repart d'elle), pas sa copie
+    if before and back and back.text and sameSetup(setupValues(before.text), setupValues(back.text)) then before = nil end
     if before then
       app.written[before.file] = before.hash
       setLoadTarget(r.kind, before)

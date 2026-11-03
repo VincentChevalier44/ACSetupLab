@@ -470,11 +470,13 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient, rem
   frames(h, 1, profile)
   T.eq(v2.status, 'validée', tostring(app.ui.message))
   T.eq(app.memory['qualif|sec'].signature, v2.signature, 'v2 référence')
+  local inCarBefore = h.ac.stringifyCurrentSetup(true, false)
   loadAtPit(h, app, 'Charger le setup tour rapide dans la voiture')
   T.eq(r.driven, 2)
-  -- essayée, écartée : v1 redevient la référence ; 1.5.3 (décision de Vincent du 02/11/2026) : v2 étant dans la voiture,
-  -- la référence d'avant y est remise aussitôt ; le fichier de v2 part à la Corbeille, voiture arrêtée (réponse de
-  -- Vincent du 22/10/2026), et plus rien ne le désigne
+  -- essayée, écartée : v1 redevient la référence ; 1.5.3 (décision de Vincent du 02/11/2026 : « Recommencer remet le setup
+  -- d'avant ») : v2 étant dans la voiture, ce qui y était avant elle revient aussitôt (v1 et le pincement changé à la
+  -- main, par la copie de sauvegarde faite avant son chargement) ; le fichier de v2 part à la Corbeille, voiture arrêtée
+  -- (réponse de Vincent du 22/10/2026), et plus rien ne le désigne
   local writes = h.writeCalls
   local v2file = v2.file
   h.click = 'Recommencer (ne pas garder v2)'
@@ -482,10 +484,13 @@ tests['AU06 validée, essayée, écartée : la référence d\'avant revient, rem
   T.eq(v2.status, 'écartée', tostring(app.ui.message))
   T.eq(app.memory['qualif|sec'].signature, v1.signature, 'la référence d\'avant revient')
   T.eq(#storedKeys(app, ':qualif:sec'), 1)
-  T.eq(h.loadCalls[#h.loadCalls], folderOf(h) .. '/' .. v1.file, 'la référence remise dans la voiture')
+  T.eq(h.loadCalls[#h.loadCalls], v2.before and v2.before.path, 'le setup d\'avant v2 remis dans la voiture')
   T.ok(waitFor(h, function() return app.loadCheck == nil end), 'chargement constaté')
   T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
-  T.eq(r.driven, 1, 'l\'affinage repart de la référence')
+  local now, before = app.setupValues(h.ac.stringifyCurrentSetup(true, false)), app.setupValues(inCarBefore)
+  for name, value in pairs(before) do
+    if name ~= 'FUEL' then T.eq(now[name], value, 'setup d\'avant v2 : ' .. name) end
+  end
   T.ok(waitFor(h, function() return h.written[folderOf(h) .. '/' .. v2file] == nil end, 10), 'à la Corbeille, voiture arrêtée')
   T.eq(h.recycled[#h.recycled], folderOf(h) .. '/' .. v2file)
   T.eq(app.written[v2file], nil, 'plus rien ne le désigne')
