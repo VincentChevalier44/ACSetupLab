@@ -144,6 +144,7 @@ end
 tests['UP01 versions comparées segment par segment ; update.txt contrôlé'] = function()
   T.eq(Updater.compare('1.0.0-beta.1.5.10', '1.0.0-beta.1.5.9'), 1, '1.5.10 après 1.5.9')
   T.eq(Updater.compare('1.0.0-beta.1.5.3', '1.0.0-beta.1.5.3'), 0)
+  T.eq(Updater.compare('1.0.0-beta.1.5.4', '1.0.0-beta.1.5.3'), 1, '1.5.4 proposée à une installation en 1.5.3')
   T.eq(Updater.compare('v1.0.0-beta.1.5.3', '1.0.0-beta.1.5.3'), 0, 'préfixe v')
   T.eq(Updater.compare('1.0.0', '1.0.0-beta.9'), 1, 'la version finale passe devant ses bêtas')
   T.eq(Updater.compare('1.0.0-beta.1.6', '1.0.0-beta.1.5.9'), 1)
