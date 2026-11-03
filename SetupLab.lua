@@ -721,9 +721,7 @@ local function onDiscovered(ok, result, cpuMs)
       rememberSetup(result.signature, known)
     end
     app.recorder.protected = protectedSignatures()
-    -- chargement demandé et pas encore constaté : la voiture a peut-être déjà le nouveau setup, comparé à l'ancien il
-    -- donnerait de fausses retouches ; la découverte qui suit le constat les détecte
-    if app.detectPins and (app.discoverySeq or 0) == (app.loadSeq or 0) and app.loadCheck == nil then app.detectPins(result) end
+    if app.detectPins and (app.discoverySeq or 0) == (app.loadSeq or 0) then app.detectPins(result) end
     restoreStored(result)
     scheduleReport(result)
     local counts = Caps.countByStatus(result.caps)

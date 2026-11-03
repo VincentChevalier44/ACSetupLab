@@ -274,7 +274,7 @@ tests['LR08 aides refusées : reproposées au calcul suivant'] = function()
   T.eq(#s, 0, 'niveaux d\'aide refusés : pas reproposés')
 end
 
--- C2. Une version chargée par SetupLab d'abord, puis l'essai de v2 chargé depuis le menu d'AC.
+-- E. Essai chargé puis remplacé par un autre setup, fichier à la Corbeille : « Essayer v2 » l'y remet (carte et bloc).
 tests['LR10 essai plus dans la voiture, fichier recyclé : deux boutons Essayer'] = function()
   local h, app, r, e = v1Ready()
   app.handleIntents({ refineJudge = { version = e.version, verdict = 'essayer' } })

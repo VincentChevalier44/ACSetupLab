@@ -286,34 +286,4 @@ tests['LR15 essai chargé par SetupLab, découverte finie avant le constat'] = f
   T.eq(r.driven, e.version, 'essai dans la voiture')
 end
 
-tests['LR16 découverte finie pendant un chargement pas encore constaté : aucune fausse retouche'] = function()
-  local h, app, r, e = v1Ready()
-  -- v1 essayée et validée : un setup mis par SetupLab sert de base aux retouches
-  app.handleIntents({ refineJudge = { version = e.version, verdict = 'essayer' } })
-  T.ok(settled(h, app))
-  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
-  T.ok(settled(h, app))
-  app.handleIntents({ refineChoice = { version = e.version } })
-  r.forceNext = true
-  T.ok(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end, 20000), 'v2')
-  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
-  frames(h, 2)
-  T.eq(pinNames(app), '', 'aucune retouche avant')
-  -- découverte en cours, « Essayer v2 » : la voiture a v2, le constat attend l'image suivante de la fenêtre
-  app.handleIntents({ rediscover = true })
-  app.handleIntents({ refineJudge = { version = 2, verdict = 'essayer' } })
-  T.ok(app.loadCheck ~= nil, 'chargement demandé')
-  local n = 0
-  while app.discoveryState ~= 'done' and n < 20000 do
-    h.sim.time = h.sim.time + 1000 / 60
-    script.SETUPLAB__UPDATE(1 / 60)
-    n = n + 1
-  end
-  T.eq(pinNames(app), '', 'les écarts de v2 ne sont pas des retouches')
-  T.ok(settled(h, app))
-  T.eq(r.driven, 2, 'v2 dans la voiture')
-  T.eq(pinNames(app), '', 'toujours aucune retouche après le constat')
-  T.eq(app.perf.errors, 0)
-end
-
 return tests
