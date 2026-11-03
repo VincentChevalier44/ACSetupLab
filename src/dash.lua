@@ -11,11 +11,11 @@ local L = require('src/i18n')
 local Skin = require('src/skin')
 local SetupSpace = require('src/setup_space')
 
-local M = {}
+local M = { frame = 0 }
 local K = Config.K
 
 -- contexte de l'image en cours (une seule fenêtre dessinée à la fois) et vec2 réutilisés (aucune allocation par image)
-local X = { host = nil, ui = nil, S = nil, c = nil, app = nil, intents = nil, U = nil, ox = 0, oy = 0 }
+local X = { host = nil, ui = nil, S = nil, c = nil, app = nil, intents = nil, U = nil, ox = 0, oy = 0, loadShown = {} }
 local V = nil
 local function vec(i, x, y)
   local p = V[i]
@@ -43,7 +43,13 @@ M.upper = up
 
 -- cache des mesures : rôle → taille → largeur de retour à la ligne (0 : aucune) → texte → { largeur, hauteur } ; aucune
 -- chaîne construite par appel
-local sizes, wcount = {}, 0
+local sizes, older, wcount = {}, nil, 0
+local function lookup(cache, role, size, wk, s)
+  local a = cache[role]
+  local b = a and a[size]
+  local d = b and b[wk]
+  return d and d[s]
+end
 local function measure(role, size, s, wrap)
   local wk = (wrap and wrap > 0) and wrap or 0
   local bySize = sizes[role]
@@ -63,11 +69,15 @@ local function measure(role, size, s, wrap)
   end
   local hit = byText[s]
   if hit then return hit[1], hit[2] end
-  local ok, m = pcall(X.S.call, role, X.ui.measureDWriteText, s, size, wk > 0 and wk or nil)
-  local mw, mh = (ok and m and m.x) or (#s * size * 0.5), (ok and m and m.y) or (size * 1.25)
-  if wcount > 6000 then sizes, wcount = {}, 0 end
-  byText[s], wcount = { mw, mh }, wcount + 1
-  return mw, mh
+  -- génération précédente : les textes stables survivent au vidage (les nombres qui changent à chaque image, non)
+  hit = older and lookup(older, role, size, wk, s)
+  if hit == nil then
+    local ok, m = pcall(X.S.call, role, X.ui.measureDWriteText, s, size, wk > 0 and wk or nil)
+    hit = { (ok and m and m.x) or (#s * size * 0.5), (ok and m and m.y) or (size * 1.25) }
+  end
+  byText[s], wcount = hit, wcount + 1
+  if wcount > 4000 then sizes, older, wcount = {}, sizes, 0 end
+  return hit[1], hit[2]
 end
 M.measure = measure
 
@@ -91,10 +101,23 @@ local function textBox(role, size, s, x, y, w, color, dry)
   return h
 end
 
--- texte coupé avec « … » pour tenir dans w
+-- texte coupé avec « … » pour tenir dans w (gardé : une recherche par texte et par largeur)
+local cuts, ccount = {}, 0
 local function fitted(role, size, s, w)
   if measure(role, size, s) <= w then return s end
-  return X.S.fitIn(role, s, size, w)
+  local key = role .. size .. '|' .. math.floor(w)
+  local byKey = cuts[key]
+  if byKey == nil then
+    byKey = {}
+    cuts[key] = byKey
+  end
+  local hit = byKey[s]
+  if hit == nil then
+    hit = X.S.fitIn(role, s, size, w)
+    if ccount > 1500 then cuts, ccount = {}, 0 end
+    byKey[s], ccount = hit, ccount + 1
+  end
+  return hit
 end
 
 -- ---------------------------------------------------------------------------
@@ -165,15 +188,6 @@ local function button(label, x, y, w, h, style, size, align, shown)
     bg, fg = hot and c.raisedHover or c.select, c.blueSoft
   end
   slanted(x, y, x + w, y + h, 9, bg)
-  if style == 'primary' and w >= 120 then
-    -- rayures sombres sur la droite (kit Racing 26) : barres de 4 px inclinées, tous les 11 px
-    local lean = math.floor(h * 0.53)
-    for i = 0, 4 do
-      local sx = x + w - 9 - lean - 4 - i * 11
-      X.S.quad(X.ox + sx + lean, X.oy + y, X.ox + sx + lean + 4, X.oy + y, X.ox + sx + 4, X.oy + y + h, X.ox + sx, X.oy + y + h,
-        c.stripe)
-    end
-  end
   size = size or 14
   local s = shown or up(L.t(visible))
   local room = w >= 60 and (w - 24) or (w - 6)
@@ -181,6 +195,17 @@ local function button(label, x, y, w, h, style, size, align, shown)
   s = fitted('button', size, s, room)
   local tw, th = measure('button', size, s)
   local tx = align == 'left' and (x + 22) or (x + (w - tw) / 2)
+  if style == 'primary' then
+    -- rayures sombres sur la droite (kit Racing 26) : barres de 4 px inclinées, tous les 11 px, jamais sous le libellé
+    local lean = math.floor(h * 0.53)
+    local last = x + w - 9 - lean - 4
+    for i = 0, 4 do
+      local sx = last - i * 11
+      if sx < tx + tw + 6 then break end
+      X.S.quad(X.ox + sx + lean, X.oy + y, X.ox + sx + lean + 4, X.oy + y, X.ox + sx + 4, X.oy + y + h, X.ox + sx, X.oy + y + h,
+        c.stripe)
+    end
+  end
   text('button', size, s, tx, y + (h - th) / 2, fg)
   return clicked
 end
@@ -403,10 +428,11 @@ local function header(tabs, W, narrow)
   tip('Language / Langue : English, Français.')
   -- état : au stand, en piste (enregistrement), en veille
   local atPit = app.carAtPit and app.carAtPit()
-  local state = app.auto ~= true and 'EN VEILLE' or (atPit and 'AU STAND' or 'EN PISTE · REC')
-  if narrow then state = app.auto ~= true and 'VEILLE' or (atPit and 'STAND' or 'PISTE') end
+  local idle = app.auto ~= true or app.inert ~= nil
+  local state = idle and 'EN VEILLE' or (atPit and 'AU STAND' or 'EN PISTE · REC')
+  if narrow then state = idle and 'VEILLE' or (atPit and 'STAND' or 'PISTE') end
   local fg = app.auto ~= true and c.tabIdle or (atPit and c.go or c.rec)
-  local bg = app.auto ~= true and c.pillIdle or (atPit and c.pillGo or c.pillRec)
+  local bg = idle and c.pillIdle or (atPit and c.pillGo or c.pillRec)
   local ps = L.t(state)
   local pw, ph = measure('section', narrow and 11 or 12, ps)
   local px = lx - 8 - (pw + 26)
@@ -601,7 +627,8 @@ local function coverage(app)
   local d = app.discovery
   local space = d and d.space
   if space == nil then return nil end
-  if d.dashCoverage == nil then
+  if d.dashCoverage == nil or M.frame - (d.dashCoverageAt or 0) > 60 then
+    d.dashCoverageAt = M.frame
     local optimized, later, kept = 0, 0, 0
     for _, row in ipairs(SetupSpace.statusRows(space)) do
       if row.status == 'optimisé' then
@@ -644,6 +671,7 @@ local function cardActions(model, vm, kind)
     for i = 2, #model.actions do more[#more + 1] = model.actions[i] end
   elseif app.saved and app.saved[kind] then
     main = { label = X.U.loadLabel(app, kind), intent = { load = kind }, style = 'go', tip = X.U.LOAD_TIP, load = true }
+    X.loadShown[kind] = true
   end
   if vm and vm.actions then
     local verdict = main and main.intent and main.intent.refineJudge and main.intent.refineJudge.verdict
@@ -651,8 +679,9 @@ local function cardActions(model, vm, kind)
     if a.try and verdict ~= 'essayer' and main == nil then main = a.try end
     if a.validate and verdict ~= 'valider' then
       local short = a.validate.label:find('sans essai', 1, true) and 'Valider sans essai' or nil
+      -- libellé court (« Valider sans essai ») : le nombre de réglages gardés le suit ; le libellé complet le porte déjà
       more[#more + 1] = { label = a.validate.label, intent = a.validate.intent, tip = a.validate.tip, short = short,
-        partial = vm.kept < vm.total and (vm.kept .. '/' .. vm.total) or nil }
+        partial = (short and vm.kept < vm.total) and (vm.kept .. '/' .. vm.total) or nil }
     end
     if not (model.refine and model.refine.choice) then
       if a.restart then more[#more + 1] = { label = a.restart.label, intent = a.restart.intent, tip = a.restart.tip,
@@ -745,8 +774,23 @@ local function stepCard(model, kind, x, y, w, wide, dry)
   local h = 14 + (stepLabel and 15 or 0) + th + 8 + ((model.step or model.done) and 22 + 8 or 0) + textH + 10
   local btnH = 40
   local mainW = main and math.min(lw, math.max(190, measure('button', 16, up(L.t((Skin.split(main.label))))) + 70)) or 0
+  -- secondaires : à côté du principal (large) s'ils tiennent, sinon sur une seconde rangée
+  local function visOf(a)
+    return up(L.t(a.short or (Skin.split(a.label)))) .. (a.partial and (' · ' .. a.partial) or '')
+  end
+  local moreW, icons = 0, 0
+  for _, a in ipairs(more) do
+    if a.icon then icons = icons + 1 end
+    moreW = moreW + (a.icon and 40 or math.min(lw, measure('button', 14, visOf(a)) + 36)) + 6
+  end
+  local textBtns = #more - icons
+  local secondRow = #more > 0 and main ~= nil and (not wide or mainW + 6 + moreW - 6 > lw)
   if main then h = h + btnH end
-  if not wide and #more > 0 then h = h + 6 + 36 end
+  if secondRow then
+    h = h + 6 + 36
+  elseif #more > 0 and not main then
+    h = h + (wide and btnH or 42)
+  end
   if main and main.intent and (main.intent.refineJudge or main.load) and parts then h = h + (wide and 18 or 33) end
   if follow then h = h + 16 end
   if model.start then h = h + 18 end
@@ -765,18 +809,19 @@ local function stepCard(model, kind, x, y, w, wide, dry)
     at(15)
   end
   if model.start then
+    -- départ choisi et « changer » : sur la ligne de l'étape (à droite), sinon sur sa propre ligne
     local s = L.t('Départ') .. ' · ' .. L.t(tostring(X.U.START_NAMES[model.start.mode] or model.start.mode))
     local sw = measure('label', 11, up(s))
-    local lx = x + pad + lw - sw - measure('label', 11, up(L.t('changer'))) - 8
-    if stepLabel then
-      lab(s, lx, cy - 15)
-      X.ui.setCursor(vec(1, X.ox + lx + sw + 8, X.oy + cy - 16))
-      if X.ui.invisibleButton('###start_change', vec(3, measure('label', 11, up(L.t('changer'))), 14)) then
-        X.intents.startReset = kind
-      end
-      lab('changer', lx + sw + 8, cy - 15, hovered() and c.blue or c.light)
-      tip('Repartir d\'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.')
+    local lx = stepLabel and (x + pad + lw - sw - measure('label', 11, up(L.t('changer'))) - 8) or (x + pad)
+    local ly = stepLabel and (cy - 15) or cy
+    lab(s, lx, ly)
+    X.ui.setCursor(vec(1, X.ox + lx + sw + 8, X.oy + ly - 1))
+    if X.ui.invisibleButton('###start_change', vec(3, measure('label', 11, up(L.t('changer'))), 14)) then
+      X.intents.startReset = kind
     end
+    lab('changer', lx + sw + 8, ly, hovered() and c.blue or c.light)
+    tip('Repartir d\'un autre setup : votre setup actuel, celui par défaut de la voiture, ou votre référence.')
+    if not stepLabel then at(18) end
   end
   textBox('display', tsize, up(titleText), x + pad, cy, lw, X.c[model.color] or c.light)
   at(th + 8)
@@ -796,21 +841,27 @@ local function stepCard(model, kind, x, y, w, wide, dry)
     tip(main.tip)
     bx = bx + mw + 6
   end
-  local rowY = cy
-  if not wide and main then
-    rowY = cy + btnH + 6
-    bx = x + pad
+  local rowY, rowH = cy, (wide and not main) and btnH or (main and btnH or 36)
+  if secondRow then
+    rowY, rowH, bx = cy + btnH + 6, 36, x + pad
   end
+  -- étroit, ou seconde rangée : les boutons texte se partagent ce que laissent les icônes
+  local share = (lw - icons * 46 - math.max(0, textBtns - 1) * 6) / math.max(1, textBtns)
   for _, a in ipairs(more) do
     if a.icon then
-      if iconButton(a.label, a.icon, a.short, bx, rowY, 40, wide and btnH or 36) then apply(a.intent) end
+      if iconButton(a.label, a.icon, a.short, bx, rowY, 40, rowH) then apply(a.intent) end
       tip2((Skin.split(a.label)), a.tip)
       bx = bx + 46
     else
-      local vis = up(L.t(a.short or (Skin.split(a.label)))) .. (a.partial and (' · ' .. a.partial) or '')
-      local bw = math.min(measure('button', 14, vis) + 36, math.max(120, x + pad + lw - bx - (#more - 1) * 46))
-      if not wide then bw = math.max(120, x + pad + lw - bx - 2 * 46) end
-      if button(a.label, bx, rowY, bw, wide and btnH or 36, a.style, 14, nil, vis) then
+      local vis = visOf(a)
+      local natural = measure('button', 14, vis) + 36
+      local bw
+      if not wide then
+        bw = math.max(60, share)
+      else
+        bw = math.max(60, math.min(natural, x + pad + lw - bx - icons * 46))
+      end
+      if button(a.label, bx, rowY, bw, rowH, a.style, 14, nil, vis) then
         apply(a.intent)
         if a.tab then app.ui.tab = a.tab end
       end
@@ -818,7 +869,11 @@ local function stepCard(model, kind, x, y, w, wide, dry)
       bx = bx + bw + 6
     end
   end
-  cy = (not wide and #more > 0) and (rowY + 36) or (main and (cy + btnH) or cy)
+  if secondRow then
+    cy = rowY + 36
+  elseif main or #more > 0 then
+    cy = cy + rowH
+  end
   if main and main.intent and (main.intent.refineJudge or main.load) and parts then
     cy = cy + 5
     local verb = main.load and 'Charger' or (VERBS[main.intent.refineJudge.verdict] or 'Charger')
@@ -898,6 +953,54 @@ end
 -- ---------------------------------------------------------------------------
 -- Panneaux de la page de calcul
 -- ---------------------------------------------------------------------------
+
+-- setup enregistré, pas encore dans la voiture : « Charger » (même identifiant et même intention que l'ImGui), quand la
+-- carte d'étape ne le porte pas déjà
+local function loadBar(kind, x, y, w, dry)
+  local app, c = X.app, X.c
+  local saved = app.saved and app.saved[kind]
+  if saved == nil or X.loadShown[kind] then return 0 end
+  -- déjà dans la voiture (chargé et vérifié) : rien à proposer ici
+  local loaded = app.loaded and app.loaded[kind]
+  if loaded and loaded.name == saved.name then return 0 end
+  local label = X.U.loadLabel(app, kind)
+  local vis = up(L.t((Skin.split(label))))
+  local bw = math.min(w - 24, measure('button', 14, vis) + 44)
+  local parts, follow, followColor = loadState(kind)
+  local beside = w - 24 - bw >= 220
+  local h = 12 + 15 + 18 + (beside and 0 or 40) + (parts and 18 or 0) + (follow and 16 or 0) + 10
+  if dry then return h end
+  rect(x, y, x + w, y + h, c.okBg)
+  rect(x, y, x + 3, y + h, c.go)
+  local px = x + 12
+  lab('Enregistré · pas encore dans la voiture', px, y + 12, c.go)
+  local fw = beside and (w - 24 - bw - 12) or (w - 24)
+  text('mono', 10.5, fitted('mono', 10.5, tostring(saved.name), fw), px, y + 30, c.soft)
+  local by = beside and (y + 12) or (y + 50)
+  local bx = beside and (x + w - 12 - bw) or px
+  if button(label, bx, by, bw, 32, 'go', 14) then X.intents.load = kind end
+  tip(X.U.LOAD_TIP)
+  local cy = by + (beside and 40 or 40)
+  if beside then cy = y + 50 end
+  if parts then
+    local lx = px + text('text', 11, L.t('Charger') .. L.t(' : '), px, cy, c.grey) + 4
+    local _, ch = conditions(parts, lx, cy, x + w - 12 - lx)
+    cy = cy + ch + 5
+  end
+  if follow then text('text', 11, fitted('text', 11, follow, w - 24), px, cy, followColor or c.grey) end
+  return h
+end
+
+-- alertes du résultat (src/ui.lua M.resultNotes) : une ligne chacune ; la calibration est déjà dans l'état du modèle
+local NOTE_SORT = { pending = 'warn', unavailable = 'error' }
+local function resultNotes(kind, bucket, result, x, y, w)
+  if result == nil then return 0 end
+  local cy = y
+  for _, n in ipairs(X.U.resultNotes(kind, bucket, result)) do
+    if n.key ~= 'calibration' then cy = cy + messageBar(L.t(n.text), x, cy, w, NOTE_SORT[n.color] or 'info') + 6 end
+  end
+  return cy - y
+end
 
 -- vos retouches gardées : barre fine avec « Libérer »
 local function pinsBar(kind, x, y, w)
@@ -1260,24 +1363,64 @@ local function toolsPanel(kind, x, y, w, dry)
   local refining = r and r.active and r.kind == kind
   local running = q and q.state == 'running'
   local done = q and q.state == 'done' and q.result
-  local labels = { spec.compute }
-  if not refining then labels[#labels + 1] = 'Affinage automatique (' .. spec.name .. ')' end
+  local pw = w - 28
+  -- comme l'ImGui (computeArea) : colle prête, course possible, découverte en cours
+  local blocker = 'colle non prête'
+  if app.qualiBlocker then blocker = app.qualiBlocker() end
+  local raceWhy = nil
+  if blocker == nil and kind == 'race' and app.raceBlocker then
+    raceWhy = app.raceBlocker()
+    blocker = raceWhy
+  end
+  if app.discoveryState == 'running' and not app.inert then blocker = nil end
+  local pending = app.pendingComputes and app.pendingComputes[kind]
+  local mode = pending and 'pending' or (running and 'running' or (raceWhy and 'wait' or (blocker and 'blocked' or 'ready')))
+  local lines = {}
+  if mode == 'pending' then
+    lines[#lines + 1] = { L.t('Calcul ' .. spec.name .. ' lancé dès la fin de la découverte…'), c.warn }
+  elseif mode == 'wait' then
+    lines[#lines + 1] = { L.t('Calcul course en attente : ' .. tostring(raceWhy) .. '.'), c.warn }
+  elseif mode == 'blocked' then
+    lines[#lines + 1] = { L.t('Calcul indisponible : ' .. tostring(blocker)), c.warn }
+  elseif mode == 'ready' then
+    local budget = app.settings[spec.budgetKey]
+    local estimate = X.U.estimateSeconds(app, budget, spec.lapsPerEval, kind)
+    local dtext, long = X.U.durationText(estimate, K[spec.target], X.U.slowFrames(app))
+    lines[#lines + 1] = { L.t(budget .. spec.unit) .. L.t(dtext), long and c.warn or c.grey }
+  end
+  if q and q.state == 'failed' then
+    lines[#lines + 1] = { L.t('Calcul en échec : ' .. tostring(q.error)), c.danger }
+  elseif q and q.state == 'cancelled' then
+    lines[#lines + 1] = { L.t('Calcul annulé.'), c.grey }
+  end
+  if done and q.stale then lines[#lines + 1] = { L.t(q.stale), c.warn } end
+  local labels = {}
+  if mode == 'ready' then
+    labels[#labels + 1] = spec.compute
+    if not refining then labels[#labels + 1] = 'Affinage automatique (' .. spec.name .. ')' end
+  elseif mode == 'blocked' and app.discoveryState == 'failed' then
+    labels[#labels + 1] = spec.rediscover
+  elseif mode == 'pending' then
+    labels[#labels + 1] = spec.cancel
+  end
   if done then
     labels[#labels + 1] = spec.saveLabel
     labels[#labels + 1] = spec.validate
   end
-  local rowsN, used = 1, 0
+  local rowsN, used = (#labels > 0 or running) and 1 or 0, 0
   for _, label in ipairs(labels) do
-    local bw = measure('button', 12, up(L.t(label))) + 28
-    if used > 0 and used + bw > w - 28 then
+    local bw = math.min(pw, measure('button', 12, up(L.t((Skin.split(label))))) + 28)
+    if used > 0 and used + bw > pw then
       rowsN, used = rowsN + 1, 0
     end
     used = used + bw + 6
   end
-  local h = 52 + (rowsN - 1) * 30
+  local linesH = 0
+  for _, ln in ipairs(lines) do linesH = linesH + textBox('text', 11, ln[1], 0, 0, pw, ln[2], true) + 4 end
+  local h = 22 + rowsN * 30 + linesH + 8
   if dry then return h end
   panel(x, y, x + w, y + h)
-  local px, pw = x + 14, w - 28
+  local px = x + 14
   lab('Calcul à la main', px, y + 10)
   local cy = y + 22
   if running then
@@ -1287,8 +1430,11 @@ local function toolsPanel(kind, x, y, w, dry)
     rect(px, cy + 4, px + (pw - 110) * f, cy + 20, c.blue)
     text('mono', 10.5, L.f('%s : %s / %s', L.t(o.phase), o.evaluations, q.budget), px + 6, cy + 5, c.light)
     if button(spec.cancel, px + pw - 100, cy, 100, 24, nil, 12) then X.intents[kind .. 'Cancel'] = true end
+    cy = cy + 30
+    for _, ln in ipairs(lines) do cy = cy + textBox('text', 11, ln[1], px, cy, pw, ln[2]) + 4 end
     return h
   end
+  local linesY = cy + rowsN * 30
   local bx = px
   local function small(label, intent, style)
     local vis = up(L.t((Skin.split(label))))
@@ -1299,15 +1445,23 @@ local function toolsPanel(kind, x, y, w, dry)
     if button(label, bx, cy, bw, 24, style, 12) then intent() end
     bx = bx + bw + 6
   end
-  small(spec.compute, function() X.intents[kind .. 'Start'] = true end)
-  tip('Un calcul complet depuis le setup en cours (' .. app.settings[spec.budgetKey] .. spec.unit .. ').')
-  if not refining then
-    small('Affinage automatique (' .. spec.name .. ')', function() X.intents.refineStart = kind end, 'outline')
+  if mode == 'ready' then
+    small(spec.compute, function() X.intents[kind .. 'Start'] = true end)
+    tip('Un calcul complet depuis le setup en cours (' .. app.settings[spec.budgetKey] .. spec.unit .. ').')
+    if not refining then
+      small('Affinage automatique (' .. spec.name .. ')', function() X.intents.refineStart = kind end, 'outline')
+    end
+  elseif mode == 'blocked' and app.discoveryState == 'failed' then
+    small(spec.rediscover, function() X.intents.rediscover = true end)
+  elseif mode == 'pending' then
+    small(spec.cancel, function() X.intents[kind .. 'Cancel'] = true end)
   end
   if done then
     small(spec.saveLabel, function() X.intents[kind .. 'Save'] = true end)
     small(spec.validate, function() X.intents.validate = kind end)
   end
+  cy = linesY
+  for _, ln in ipairs(lines) do cy = cy + textBox('text', 11, ln[1], px, cy, pw, ln[2]) + 4 end
   return h
 end
 
@@ -1463,9 +1617,12 @@ local function kindPage(kind, x, y, w)
   local wide = w >= K.uiDashWide
   local cy = y
   local model = X.U.stepModel(app, kind == 'race' and 'Course' or 'Tour rapide')
+  X.loadShown.quali, X.loadShown.race = nil, nil
   cy = cy + statusRow(x, cy, w) + 8
   if app.ui.message then cy = cy + messageBar(L.t(app.ui.message), x, cy, w, 'info') + 8 end
   if model then cy = cy + stepCard(model, kind, x, cy, w, wide) + 8 end
+  local hl = loadBar(kind, x, cy, w)
+  if hl > 0 then cy = cy + hl + 8 end
   cy = cy + pinsBar(kind, x, cy, w)
   local r = app.refine and app.refine.kind == kind and app.refine or nil
   local q = app[kind]
@@ -1479,12 +1636,16 @@ local function kindPage(kind, x, y, w)
       end
     end
   end
-  if model and model.step == 1 and model.actions[1] then
+  local choosing = model and model.step == 1 and model.actions[1]
+  if choosing then
     cy = cy + picksRow(model, kind, x, cy, w, wide) + 8
     cy = cy + trackPanels(x, cy, w, wide) + 8
-  else
-    -- résultat du dernier calcul, sinon celui de la version (une découverte efface le résultat après un chargement)
+  end
+  -- résultat du dernier calcul, sinon celui de la version (une découverte efface le résultat après un chargement) ;
+  -- à l'étape 1, seulement un calcul à la main
+  if not choosing or res then
     local result = res or (e and e.view) or nil
+    cy = cy + resultNotes(kind, (res and q.conditions and q.conditions.bucket) or (e and e.bucket) or bucketOf(app), result, x, cy, w)
     local leftW = wide and math.floor((w - 8) * 0.53) or w
     local rightW = wide and (w - 8 - leftW) or w
     local hL = changesPanel(kind, e, result, x, cy, leftW, true)
@@ -1537,6 +1698,7 @@ M.kindPage = kindPage
 local NO_QUALI = { title = 'Course · avant le calcul', actions = { { label = 'Affiner le tour rapide###step_quali',
   intent = { refineStart = 'quali' }, tab = 'Tour rapide',
   tip = 'Lance l\'affinage du setup de tour rapide (onglet QUALIF), même en séance de course.' } } }
+local NO_QUALI_GO = { title = NO_QUALI.title, actions = {} }
 local function noQualiCard(model, x, y, w, dry)
   local c = X.c
   local h = 150
@@ -1703,7 +1865,8 @@ local function stintPanel(r, x, y, w, dry)
   if dry then return h end
   panel(x, y, x + w, y + h)
   local px, pw = x + 14, w - 28
-  local title = L.f('Relais · %s tours', race.laps) .. (race.stops > 0 and L.f(' · %s arrêt(s)', race.stops) or '')
+  local stint = (s and s.laps and #s.laps > 0) and #s.laps or race.stintLaps or race.laps
+  local title = L.f('Relais · %s tours', stint) .. (race.stops > 0 and L.f(' · %s arrêt(s)', race.stops) or '')
   text('section', 13, up(title), px, y + 11, c.light)
   local cy = y + 32
   if chartH > 0 then
@@ -1718,10 +1881,12 @@ local function stintPanel(r, x, y, w, dry)
       local crit = s.critical and i >= s.critical
       rect(px + (i - 1) * bw + 1, cy + chartH - bh, px + i * bw - 1, cy + chartH, crit and c.warn or c.blue)
     end
-    if race.stops > 0 and race.stintLaps and race.stintLaps < #laps then
-      local sx = px + race.stintLaps * bw
+    if race.stops > 0 then
+      -- arrêt à la fin du relais
+      local sx = px + #laps * bw - 2
       rect(sx, cy, sx + 2, cy + chartH, c.light)
-      lab(L.f('Stand · T%s', race.stintLaps), sx + 6, cy, c.light, 10)
+      local ps = L.f('Stand · T%s', #laps)
+      lab(ps, sx - 6 - measure('label', 10, up(L.t(ps))), cy, c.light, 10)
     end
     text('text', 10, L.t('écart au meilleur tour'), px, cy - 2, c.grey)
     cy = cy + chartH + 10
@@ -1737,7 +1902,7 @@ local function stintPanel(r, x, y, w, dry)
     .. L.t(race.kmSource) .. ')', race.kmSource == 'mesure' and c.light or c.warn)
   if s then
     row('Équilibre', Util.fmt(s.balanceFirst, 2) .. ' ' .. L.t('au T1') .. ' › ' .. Util.fmt(s.balanceLast, 2) .. ' '
-      .. L.f('au T%s', race.laps) .. ' · ' .. (s.critical and L.f('tour critique %s', s.critical) or L.t('aucun tour critique')),
+      .. L.f('au T%s', stint) .. ' · ' .. (s.critical and L.f('tour critique %s', s.critical) or L.t('aucun tour critique')),
       s.critical and c.warn or c.light)
   end
   return h
@@ -1798,15 +1963,19 @@ local function racePage(x, y, w)
   local _, action = nil, nil
   if app.raceBlocker then _, action = app.raceBlocker() end
   if action == 'qualif' then
-    local card = (model and model.kind == 'race') and model or NO_QUALI
+    local inRace = app.autoKind and app.autoKind() == 'race'
+    local card = (model and model.kind == 'race') and model or (inRace and NO_QUALI or NO_QUALI_GO)
     cy = cy + noQualiCard(card, x, cy, w) + 8
     return cy - y
   end
+  X.loadShown.quali, X.loadShown.race = nil, nil
   if not (r and r.active) then
     cy = cy + raceStartCard(x, cy, w, wide) + 8
   elseif model then
     cy = cy + stepCard(model, 'race', x, cy, w, wide) + 8
   end
+  local hl = loadBar('race', x, cy, w)
+  if hl > 0 then cy = cy + hl + 8 end
   cy = cy + pinsBar('race', x, cy, w)
   local q = app.race
   local res = q and q.state == 'done' and q.result or nil
@@ -1820,6 +1989,7 @@ local function racePage(x, y, w)
     end
   end
   local result = res or (e and e.view) or nil
+  cy = cy + resultNotes('race', (res and q.conditions and q.conditions.bucket) or (e and e.bucket) or bucketOf(app), result, x, cy, w)
   local hp = pitPanel(x, cy, w, true)
   if hp > 0 then cy = cy + pitPanel(x, cy, w) + 8 end
   local hs, ht = stintPanel(result, 0, 0, w, true), trafficPanel(result, 0, 0, w, true)
@@ -2189,7 +2359,9 @@ local function measurePage(x, y, w)
     local v = app.validations and app.validations[kind]
     if v and v.state == 'done' then
       local s = X.U.validationText(v)
-      cy = cy + messageBar(L.t('Setup ' .. X.U.KIND[kind].name .. ' — ') .. L.t(s), x, cy, w, v.conforming and 'go' or 'warn') + 8
+      s = 'Setup ' .. X.U.KIND[kind].name .. ' — ' .. s .. ' ; carburant ' .. Util.fmt(v.fuelO, 1) .. ' L contre '
+        .. Util.fmt(v.fuelP, 1) .. ' L, pris en compte' .. (v.calibrated and '' or ' ; modèle non calibré')
+      cy = cy + messageBar(L.t(s), x, cy, w, v.conforming and 'go' or 'warn') + 8
     end
   end
   -- tours de calibration
@@ -2310,21 +2482,22 @@ local function settingsPage(x, y, w)
   local strategy = { 'perfStab', 'fuelMarginPct', 'fuelQualiLaps', 'drsTrafficPct', 'driverMarginPct', 'compoundChoice',
     'wetAidLevels', 'calibrationAuto', 'updateCheck' }
   local estimate = X.U.estimateSeconds(app, app.settings.optBudgetEvalsQ, X.U.KIND.quali.lapsPerEval, 'quali')
-  local dur = estimate and X.U.durationText(estimate, K.computeTargetQ, X.U.slowFrames(app)) or nil
+  local dur = estimate and (L.t(app.settings.optBudgetEvalsQ .. X.U.KIND.quali.unit)
+    .. L.t((X.U.durationText(estimate, K.computeTargetQ, X.U.slowFrames(app))))) or nil
   if wide then
     local h1 = settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, 0, 0, half, true)
     local h2 = settingsPanel('Calcul', nil, compute, 0, 0, half, true)
     local h3 = settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, 0, 0, w - half - 8, true)
     settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, x, cy, half)
     settingsPanel('Calcul', nil, compute, x, cy + h1 + 8, half)
-    if dur then text('text', 11, fitted('text', 11, L.t(dur), half - 28), x + 14, cy + h1 + 8 + h2 - 4, c.grey) end
+    if dur then text('text', 11, fitted('text', 11, dur, half - 28), x + 14, cy + h1 + 8 + h2 - 4, c.grey) end
     settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, x + half + 8, cy, w - half - 8)
     cy = cy + math.max(h1 + 8 + h2 + (dur and 12 or 0), h3) + 8
   else
     cy = cy + settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, x, cy, w) + 8
     cy = cy + settingsPanel('Calcul', nil, compute, x, cy, w) + 8
     if dur then
-      text('text', 11, fitted('text', 11, L.t(dur), w), x, cy - 4, c.grey)
+      text('text', 11, fitted('text', 11, dur, w), x, cy - 4, c.grey)
       cy = cy + 12
     end
     cy = cy + settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, x, cy, w) + 8
@@ -2773,6 +2946,8 @@ function M.main(host, app, intents, U, tabs)
     for i = 1, 4 do V[i] = host.vec2(0, 0) end
   end
   app.ui.tab = app.ui.tab or ((app.autoKind and app.autoKind() == 'race') and 'Course' or 'Tour rapide')
+  M.frame = M.frame + 1
+  X.loadShown.quali, X.loadShown.race = nil, nil
   local okC, origin = Util.call(ui.getCursor)
   local okS, size = Util.call(ui.windowSize)
   if not (okC and origin and okS and size and Util.isFinite(size.x) and Util.isFinite(size.y)) then return false end
@@ -2792,6 +2967,9 @@ function M.main(host, app, intents, U, tabs)
     local okW, avail = Util.call(ui.availableSpaceX)
     local w = (okW and Util.isFinite(avail) and avail or (W - 2 * margin)) - 4
     local y = updateRow(0, 0, w)
+    if app.inert or app.discoveryState == 'failed' then
+      y = y + messageBar(L.t((X.U.statusLine(app))), 0, y, w, app.inert and 'warn' or 'error') + 8
+    end
     local tab = app.ui.tab
     y = y + (PAGES[tab] or PAGES['Tour rapide'])(0, y, w)
     ui.setCursor(vec(1, X.ox, X.oy + y))

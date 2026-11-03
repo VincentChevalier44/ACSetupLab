@@ -1434,32 +1434,42 @@ local function resultTiles(host, app, kind, q, r, palette)
   end
 end
 
--- Alertes d'un résultat (une ligne chacune, en couleur, toujours visibles).
-local function resultWarnings(host, kind, q, r, palette)
-  if q.conditions and q.conditions.bucket == 'pluie' then
-    small(host, 'Setup pluie : composé ' .. tostring(r.compound and r.compound.name or '—') .. ' ; modèle pluie à confirmer '
-      .. '(H25 à H28), détail dans la section Pluie.', palette.pending)
+-- Alertes d'un résultat : { text, color (clé de palette), small (petite police), key } ; partagées avec les pages
+-- Racing 26 (src/dash.lua).
+function M.resultNotes(kind, bucket, r)
+  local out = {}
+  local function add(text, color, isSmall, key) out[#out + 1] = { text = text, color = color, small = isSmall, key = key } end
+  if bucket == 'pluie' then
+    add('Setup pluie : composé ' .. tostring(r.compound and r.compound.name or '—') .. ' ; modèle pluie à confirmer '
+      .. '(H25 à H28), détail dans la section Pluie.', 'pending', true)
   end
-  if r.fallback then wrapped(host, r.fallback, palette.pending) end
+  if r.fallback then add(r.fallback, 'pending') end
   for _, axle in ipairs({ 'F', 'R' }) do
     local e = r.tyres and r.tyres[axle]
     if e and e.state == 'surchauffe' then
-      wrapped(host, (axle == 'F' and 'Pneus avant' or 'Pneus arrière') .. ' en surchauffe : pression à froid jamais abaissée '
+      add((axle == 'F' and 'Pneus avant' or 'Pneus arrière') .. ' en surchauffe : pression à froid jamais abaissée '
         .. '(une pression plus basse chauffe davantage, à confirmer) ; surveiller la température au prochain relais.',
-        palette.unavailable)
+        'unavailable')
     end
   end
   if not r.calibrated then
-    small(host, 'Confiance basse : modèle non calibré (§9). Gains indicatifs, à vérifier en piste.', palette.pending)
+    add('Confiance basse : modèle non calibré (§9). Gains indicatifs, à vérifier en piste.', 'pending', true, 'calibration')
   end
-  if r.minHeightWarning then wrapped(host, r.minHeightWarning, palette.unavailable) end
+  if r.minHeightWarning then add(r.minHeightWarning, 'unavailable') end
   if kind == 'quali' and r.absActive == false then
-    wrapped(host, 'ABS coupé : risque de blocage au freinage pris en compte (H15).', palette.pending)
+    add('ABS coupé : risque de blocage au freinage pris en compte (H15).', 'pending')
   end
-  if r.drs and r.drs.warning then wrapped(host, r.drs.warning, palette.unavailable) end
+  if r.drs and r.drs.warning then add(r.drs.warning, 'unavailable') end
   if r.robustSkipped then
-    wrapped(host, 'Robustesse non évaluée : budget trop petit (§10.2). Augmenter le budget pour la prendre en compte.',
-      palette.pending)
+    add('Robustesse non évaluée : budget trop petit (§10.2). Augmenter le budget pour la prendre en compte.', 'pending')
+  end
+  return out
+end
+
+-- Alertes d'un résultat (une ligne chacune, en couleur, toujours visibles).
+local function resultWarnings(host, kind, q, r, palette)
+  for _, n in ipairs(M.resultNotes(kind, q.conditions and q.conditions.bucket, r)) do
+    if n.small then small(host, n.text, palette[n.color]) else wrapped(host, n.text, palette[n.color]) end
   end
 end
 

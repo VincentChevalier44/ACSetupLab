@@ -13,6 +13,11 @@ local function boot(lang)
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
     skin = true, lang = lang, stored = { ['setuplab:data'] = STORE[lang] } })
   h.sim.raceSessionType = 1
+  h.texts = {}
+  local text, wrapped, colored = h.ui.text, h.ui.textWrapped, h.ui.textColored
+  h.ui.text = function(s) h.texts[#h.texts + 1] = s; return text(s) end
+  h.ui.textWrapped = function(s) h.texts[#h.texts + 1] = s; return wrapped(s) end
+  h.ui.textColored = function(s, c) h.texts[#h.texts + 1] = s; return colored(s, c) end
   Fake.install(h)
   assert(loadfile(PY.appDir .. '/SetupLab.lua'))()
   local app = rawget(_G, 'SETUPLAB').app
@@ -25,6 +30,7 @@ end
 local function frames(h, n)
   for _ = 1, n do
     h.sim.time = h.sim.time + 1000 / 60
+    h.texts = {}
     script.SETUPLAB__UPDATE(1 / 60)
     script.SETUPLAB__MAIN(1 / 60)
   end
@@ -106,6 +112,43 @@ for _, lang in ipairs({ 'fr', 'en' }) do
     drawAll(h, app, 'course en affinage')
     h.tab = nil
   end
+end
+
+local function shownText(h, needle)
+  for _, s in ipairs(h.texts) do
+    if type(s) == 'string' and s:find(needle, 1, true) then return true end
+  end
+  return false
+end
+
+-- relecture du 03/11/2026 : un calcul à la main à l'étape 1 montre son résultat ; enregistré, il offre « Charger » (barre
+-- verte, même libellé que l'ImGui), qui met le setup dans la voiture ; une version validée hors du stand aussi
+tests['DS02 pages Racing 26 : résultat d\'un calcul à la main à l\'étape 1, « Charger » toujours offert'] = function()
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  pits(h)
+  app.settings.compoundChoice = app.discovery.compoundIndex
+  app.handleIntents({ qualiStart = true })
+  T.ok(waitFor(h, function() return app.quali and app.quali.state == 'done' end), 'calcul à la main')
+  for _, width in ipairs({ 404, 764 }) do
+    h.width, h.tab = width, 'Tour rapide'
+    frames(h, 2)
+    T.ok(shownText(h, 'D\'OÙ PART-ON ?'), 'étape 1 : choix du départ')
+    T.ok(shownText(h, 'RÉGLAGES CHANGÉS'), 'étape 1 : le résultat du calcul à la main est montré (' .. width .. ' px)')
+  end
+  app.handleIntents({ qualiSave = true })
+  T.ok(app.saved and app.saved.quali, 'setup enregistré : ' .. tostring(app.ui.message))
+  frames(h, 2)
+  T.ok(shownText(h, 'ENREGISTRÉ · PAS ENCORE DANS LA VOITURE'), 'barre de chargement')
+  h.click = 'Charger le setup tour rapide dans la voiture'
+  frames(h, 1)
+  T.ok(app.loadCheck or (app.loadTest and app.loadTest.ok), 'chargement demandé en un clic : ' .. tostring(app.ui.message))
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.loadTest and app.loadTest.reason))
+  frames(h, 2)
+  T.no(shownText(h, 'ENREGISTRÉ · PAS ENCORE DANS LA VOITURE'), 'dans la voiture : plus de barre de chargement')
+  T.eq(app.perf.errors, 0, 'aucune erreur de dessin')
+  h.tab = nil
 end
 
 return tests
