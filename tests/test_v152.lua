@@ -562,20 +562,20 @@ tests['UI02 carte d\'étape : dans l\'onglet de son genre seulement ; en séance
   local h, app = ready({ skin = true })
   frames(h, 1)
   T.eq(app.ui.tab, 'Tour rapide', 'essai : QUALIF d\'abord')
-  T.ok(shown(h, 'Étape 1/4 · Départ'), 'QUALIF : carte de départ')
+  T.ok(shown(h, 'ÉTAPE 1 / 4'), 'QUALIF : carte de départ')
   for _, id in ipairs({ 'Course', 'Mémoire', 'Mesure', 'Réglages', 'Capacités', 'Aide' }) do
     onTab(h, id)
     T.eq(app.ui.tab, id)
-    T.no(shown(h, 'Étape 1/4'), 'pas de carte d\'étape de la qualification dans l\'onglet ' .. id)
+    T.no(shown(h, 'ÉTAPE 1 / 4'), 'pas de carte d\'étape de la qualification dans l\'onglet ' .. id)
   end
   onTab(h, 'Tour rapide')
-  T.ok(shown(h, 'Étape 1/4 · Départ'), 'de retour dans QUALIF')
+  T.ok(shown(h, 'ÉTAPE 1 / 4'), 'de retour dans QUALIF')
   local h2, app2 = ready({ session = 3, skin = true })
   frames(h2, 1)
   T.eq(app2.ui.tab, 'Course', 'course : COURSE d\'abord')
-  T.ok(shown(h2, 'Course · avant le calcul'), 'carte de la course dans COURSE')
+  T.ok(shown(h2, 'COURSE · AVANT LE CALCUL'), 'carte de la course dans COURSE')
   onTab(h2, 'Tour rapide')
-  T.no(shown(h2, 'Course · avant le calcul'), 'pas dans QUALIF')
+  T.no(shown(h2, 'COURSE · AVANT LE CALCUL'), 'pas dans QUALIF')
   T.eq(app.perf.errors + app2.perf.errors, 0)
 end
 

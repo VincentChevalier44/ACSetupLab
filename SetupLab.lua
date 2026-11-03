@@ -3047,6 +3047,17 @@ local function refineFinish(r, q)
       -- suivant remplace app[kind])
       e.deltas, e.disc, e.compound, e.aids, e.baseText = result.deltas, p.d, result.compound, result.aids, p.baseText
       e.groups = effectGroupsOf(e, e.groups)
+      -- affichage seul (pages Racing 26 : équilibre, pneus, vitesse de la version) : son calcul, gardé pour les trois
+      -- dernières versions (une découverte efface app[kind])
+      e.view = result
+      local views = 0
+      for i = #r.history, 1, -1 do
+        local h = r.history[i]
+        if h.view then
+          views = views + 1
+          if views > 3 then h.view = nil end
+        end
+      end
       -- même setup déjà enregistré à la main : validable sans nouveau fichier
       local saved = app.saved[r.kind]
       if saved and saved.signature == p.signature and saved.text == p.text then

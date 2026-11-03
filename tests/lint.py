@@ -40,7 +40,7 @@ GLUE_NETWORK = {'web'}
 CORE = {'util', 'config', 'track_model', 'car_model', 'setup_space', 'laptime_sim', 'stint_sim', 'ers', 'ers_plan', 'explain',
         'optimizer', 'calibration', 'i18n', 'lang_en'}
 IO = {'caps', 'datasource', 'recorder', 'exporter', 'store', 'updater'}
-UI = {'ui', 'skin'}
+UI = {'ui', 'skin', 'dash'}
 
 # Fonctions d'écriture : seulement là où le PDR les place. D8 amendé le 22/10/2026 (décision de Vincent) : Corbeille
 # et renommage des fichiers écrits par SetupLab, depuis l'exporteur seulement ; suppression définitive jamais.

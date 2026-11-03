@@ -13,6 +13,7 @@ local Caps = require('src/caps')
 local SetupSpace = require('src/setup_space')
 local L = require('src/i18n')
 local Skin = require('src/skin')
+local Dash = require('src/dash')
 local Calibration = require('src/calibration')
 
 local M = {}
@@ -1511,9 +1512,9 @@ end
 
 -- Vos retouches gardées (décision de Vincent du 22/10/2026) : réglages modifiés à la main depuis le dernier
 -- chargement par SetupLab, que les calculs ne changent plus ; « Libérer vos retouches » les rend au calcul.
-local function pinsLine(host, app, intents, kind, palette)
+function M.pinsLabels(app, kind)
   local pins = app.pins and app.pins[kind]
-  if pins == nil or next(pins) == nil then return end
+  if pins == nil or next(pins) == nil then return nil end
   local labels, seen = {}, {}
   local space = app.discovery and app.discovery.space
   for _, var in ipairs(space and space.vars or {}) do
@@ -1527,7 +1528,13 @@ local function pinsLine(host, app, intents, kind, palette)
   if pins.TYRES then labels[#labels + 1] = 'composé de pneus' end
   if pins['aid:ABS'] then labels[#labels + 1] = 'niveau d\'ABS' end
   if pins['aid:TRACTION_CONTROL'] then labels[#labels + 1] = 'niveau d\'antipatinage' end
-  if #labels == 0 then return end
+  if #labels == 0 then return nil end
+  return labels
+end
+
+local function pinsLine(host, app, intents, kind, palette)
+  local labels = M.pinsLabels(app, kind)
+  if labels == nil then return end
   wrapped(host, 'Vos retouches gardées (' .. KIND[kind].name .. ') : ' .. table.concat(labels, ', ')
     .. ' — les calculs ne les changent plus.', palette.accent)
   local label = 'Libérer vos retouches (' .. KIND[kind].name .. ')'
@@ -2753,6 +2760,8 @@ function M.main(host, app, intents)
     { 'AIDE###Aide', function() helpSection(host, palette) end },
   }
   local ok, err = pcall(function()
+    -- thème Racing 26 : pages de la maquette (src/dash.lua) ; contenu ImGui pour les onglets pas encore refaits
+    if ui.skin and Dash.main(host, app, intents, M, tabs) then return end
     if ui.skin then
       -- thème Racing 26 : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
       -- qui défile dans une fenêtre enfant
@@ -3064,5 +3073,10 @@ function M.debug(host, app)
     ui.textWrapped(Util.fmt(e.t, 1) .. ' s  ' .. e.level .. '  ' .. e.code .. L.t(' : ') .. L.t(e.text))
   end
 end
+
+-- Aides partagées avec les pages Racing 26 (src/dash.lua)
+M.tip, M.realLaps, M.realTime, M.versionLaps, M.realText = tip, realLaps, realTime, versionLaps, realText
+M.gainText, M.effectGain, M.itemText, M.KIND, M.loadLabel, M.LOAD_TIP = gainText, effectGain, itemText, KIND, loadLabel, LOAD_TIP
+M.START_NAMES, M.sessionRaceLaps = START_NAMES, sessionRaceLaps
 
 return M

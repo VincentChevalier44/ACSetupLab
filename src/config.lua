@@ -357,6 +357,7 @@ M.K = {
   plotHeight = 120,           -- hauteur du graphique de vitesse (px)
   -- tableau de bord (demande de Vincent du 21/10/2026 : interface épurée, dense, adaptée à la largeur)
   uiWide = 720,               -- largeur à partir de laquelle réglages et graphiques sont côte à côte (px)
+  uiDashWide = 640,           -- pages Racing 26 : deux colonnes à partir de cette largeur, tout empilé en dessous (px)
   uiNarrow = 420,             -- largeur sous laquelle le tableau des réglages passe à 3 colonnes (px)
   uiLeftShare = 0.62,         -- part de la largeur du volet gauche (réglages) : ≥ uiNarrow dès uiWide
   uiPaneMinHeight = 260,      -- hauteur minimale des volets côte à côte (px)

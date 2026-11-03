@@ -1036,7 +1036,28 @@ function F.new(opts)
       assert(type(pos) == 'table' and type(pos.x) == 'number', 'position de texte invalide')
       return h.ui.text(text)
     end
-    h.ui.measureDWriteText = function(text, size) return { x = 0.55 * (size or 14) * #tostring(text), y = (size or 14) * 1.3 } end
+    h.ui.measureDWriteText = function(text, size, wrap)
+      local w = 0.55 * (size or 14) * #tostring(text)
+      local lines = (wrap and wrap > 0) and math.max(1, math.ceil(w / wrap)) or 1
+      return { x = (wrap and wrap > 0) and math.min(w, wrap) or w, y = (size or 14) * 1.3 * lines }
+    end
+    -- texte dans un rectangle, logo, icônes, découpe (pages Racing 26) : vus comme des textes affichés / des dessins
+    h.ui.dwriteDrawTextClipped = function(text, size, pmin, pmax)
+      assert(type(pmin) == 'table' and type(pmax) == 'table' and pmax.x >= pmin.x, 'rectangle de texte invalide')
+      return h.ui.text(text)
+    end
+    h.ui.drawImage = function(src, p1, p2)
+      assert(type(src) == 'string' and type(p1) == 'table' and type(p2) == 'table', 'image invalide')
+      h.images = (h.images or 0) + 1
+    end
+    h.ui.drawIcon = function(icon, p1, p2)
+      assert(icon ~= nil and type(p1) == 'table' and type(p2) == 'table', 'icône invalide')
+      h.icons = (h.icons or 0) + 1
+    end
+    h.ui.Icons = { Restart = 'RESTART', Padlock = 'PADLOCK', Play = 'PLAY', Undo = 'UNDO', Lock = 'LOCK' }
+    h.ui.rectHovered = function() return h.hover == true end
+    h.ui.drawQuadFilled = uiCall
+    h.ui.drawTriangleFilled = uiCall
     h.ui.pushDWriteFont = uiCall
     h.ui.popDWriteFont = uiCall
     h.ui.invisibleButton = function(label, size)

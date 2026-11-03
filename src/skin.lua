@@ -26,6 +26,13 @@ M.COLORS = {
   go = hex('#2EE07F'), goHover = hex('#5CEB9C'), goText = hex('#04170D'),
   danger = hex('#FF5A4E'), dangerHover = hex('#FF7A70'), dangerText = hex('#240604'),
   switchOff = hex('#2A2E36'), knobOn = hex('#031820'), segmentOff = hex('#2A2E36'),
+  -- pages Racing 26 (src/dash.lua) : contrôle, texte secondaire, filets, aplats de statut (kit de la maquette)
+  control = hex('#1D2027'), controlHover = hex('#272B34'), soft = hex('#C9CDD3'), dim = hex('#5C626C'), tabIdle = hex('#9AA1AC'),
+  rowLine = hex('#1A1D23'), trackBg = hex('#181B21'), band = hex('#3A2A12'), okBg = hex('#0E2A1B'), okInk = hex('#9FD9B8'),
+  warn = hex('#FFC23D'), warnBg = hex('#2E2410'), warnInk = hex('#E6C98A'), warnText = hex('#FFE3A3'), badBg = hex('#3A1614'),
+  badInk = hex('#FFB4AD'), errBg = hex('#2A1412'), bar = hex('#15181D'), tile = hex('#17191E'), selLine = hex('#0E4258'),
+  best = hex('#B26CFF'), fast = hex('#8C7BFF'), langBg = hex('#1B1E24'), langLine = hex('#343943'), pillGo = hex('#0E251C'),
+  pillRec = hex('#310B11'), pillIdle = hex('#1B1D21'), rec = hex('#FF6B72'), stripe = hex('#118EB8'), keepBg = hex('#173E2A'),
 }
 
 -- Tailles de texte (px).
@@ -40,6 +47,7 @@ local FAMILIES = {
   display = { 'Barlow Condensed:%s/barlowcondensed;Weight=Black;Style=Italic', 'Segoe UI;Weight=Black;Style=Italic' },
   button = { 'Barlow Condensed:%s/barlowcondensed;Weight=UltraBold;Style=Italic', 'Segoe UI;Weight=Bold;Style=Italic' },
   tab = { 'Barlow Condensed:%s/barlowcondensed;Weight=Bold', 'Segoe UI;Weight=Bold' },
+  section = { 'Barlow Condensed:%s/barlowcondensed;Weight=Bold', 'Segoe UI;Weight=Bold' },
   label = { 'Barlow Condensed:%s/barlowcondensed;Weight=SemiBold', 'Segoe UI;Weight=SemiBold' },
   mono = { 'JetBrains Mono:%s/jetbrainsmono;Weight=Medium', 'Consolas' },
 }

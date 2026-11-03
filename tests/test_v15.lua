@@ -303,16 +303,17 @@ end
 tests['NV06 interface : départ, essai, « Modifier… » réglage par réglage, validation'] = function()
   local h, app = ready({ skin = true })
   frames(h, 1)
-  T.ok(shownText(h, 'Étape 1/4 · Départ'), 'étape 1 : départ à choisir')
-  T.ok(shownText(h, 'Mon setup actuel') and shownText(h, 'Setup par défaut de la voiture'), 'deux départs proposés')
+  -- pages Racing 26 (maquette de Vincent) : libellés en capitales, départs en cartes de choix
+  T.ok(shownText(h, 'ÉTAPE 1 / 4') and shownText(h, 'D\'OÙ PART-ON ?'), 'étape 1 : départ à choisir')
+  T.ok(shownText(h, 'MON SETUP ACTUEL') and shownText(h, 'SETUP PAR DÉFAUT'), 'deux départs proposés')
   h.click = 'start_mine'
   frames(h, 1)
   T.eq(app.auto, true, 'le choix active SetupLab')
   local r = app.refine
   T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
   frames(h, 1)
-  T.ok(shownText(h, 'Étape 3/4 · Essayer v1'), 'étape 3')
-  T.ok(shownText(h, 'changé'), 'réglages changés résumés')
+  T.ok(shownText(h, 'ÉTAPE 3 / 4') and shownText(h, 'ESSAYER V1'), 'étape 3')
+  T.ok(shownText(h, 'RÉGLAGES PROPOSÉS'), 'réglages proposés listés')
   local e = r.history[#r.history]
   local item = e.groups[1].items[1]
   local id = 'effect_quali_1_' .. item.key
@@ -349,13 +350,19 @@ tests['NV07 interface course : conditions, chargement de la référence, nombre 
   local h, app = ready({ skin = true })
   h.tab = 'Course'
   frames(h, 1)
-  T.ok(shownText(h, '1. Setup de qualification : aucun'), 'condition 1')
+  -- pages Racing 26 : sans qualification validée, la carte « Validez d'abord une qualif » (planche « sans qualif »)
+  T.ok(shownText(h, 'VALIDEZ D\'ABORD UNE QUALIF'), 'condition : une qualification validée')
   T.ok(shownText(h, 'au moins une v1'), 'course verrouillée avant une qualification validée')
+  -- qualification validée : carte de départ, nombre de tours au curseur (entre « − » et « + »)
+  Fake.raceReady(h, app, 10)
+  frames(h, 1)
+  T.ok(shownText(h, 'DE QUELLE QUALIF PART-ON ?'), 'carte de départ de la course')
   h.sliders = { race_laps = 22 }
   frames(h, 1)
   T.eq(app.raceLaps, 22, tostring(app.ui.message))
+  h.click = 'race_laps_plus'
   frames(h, 1)
-  T.ok(shownText(h, '3. Tours de la course : 22'), 'tours affichés')
+  T.eq(app.raceLaps, 23, 'un tour de plus')
   h.tab = nil
   T.eq(app.perf.errors, 0)
 end
@@ -368,8 +375,8 @@ tests['NV08 langue au badge, aide de chaque réglage'] = function()
   frames(h, 1)
   T.eq(app.settings.language, 'en', 'badge : anglais')
   frames(h, 1)
-  T.ok(shownText(h, 'Step 1/4 · Start'), 'interface en anglais')
-  T.no(shownText(h, 'Étape 1/4'), 'plus de français')
+  T.ok(shownText(h, 'STEP 1 / 4') and shownText(h, 'WHERE DO WE START?'), 'interface en anglais')
+  T.no(shownText(h, 'ÉTAPE 1'), 'plus de français')
   h.tab, h.click = 'Réglages', 'lang_fr'
   frames(h, 1)
   h.tab = nil
@@ -424,17 +431,17 @@ tests['NV10 thème de l\'app : onglets dessinés, interrupteur, boutons du thèm
     end
   end
   frames(h, 1)
-  T.ok(shownText(h, 'SETUPLAB'), 'en-tête')
+  T.ok(shownText(h, 'SETUP') and shownText(h, 'LAB'), 'en-tête')
   T.ok(shownText(h, 'QUALIF') and shownText(h, 'AIDE'), 'onglets dessinés')
   T.eq(app.ui.tab, 'Tour rapide', 'onglet par défaut')
-  T.ok(shownText(h, 'Tour rapide : essai'), 'contenu de l\'onglet QUALIF')
+  T.ok(shownText(h, 'D\'OÙ PART-ON ?'), 'contenu de l\'onglet QUALIF')
   T.no(shownText(h, 'Mesure et calibration'), 'les autres onglets ne sont pas dessinés')
   h.click = 'tab_Mesure'
   frames(h, 1)
   T.eq(app.ui.tab, 'Mesure', 'un clic change d\'onglet')
   frames(h, 1)
   T.ok(shownText(h, 'Mesure et calibration'), 'contenu de l\'onglet MESURE')
-  T.no(shownText(h, 'Tour rapide : essai'), 'QUALIF masqué')
+  T.no(shownText(h, 'D\'OÙ PART-ON ?'), 'QUALIF masqué')
   h.click = 'SetupLab actif'
   frames(h, 1)
   T.eq(app.auto, true, 'interrupteur')
@@ -453,7 +460,7 @@ tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
   local h, app = ready({ skin = true, cdata = true })
   T.eq(type(h.ui.dwriteText), 'table', 'banc : fonction non Lua')
   frames(h, 1)
-  T.ok(shownText(h, 'SETUPLAB'), 'en-tête du thème')
+  T.ok(shownText(h, 'SETUP') and shownText(h, 'LAB'), 'en-tête du thème')
   h.tab = 'Capacités'
   frames(h, 1)
   T.ok(shownText(h, 'Thème de l\'interface : actif'), 'thème actif')
@@ -463,7 +470,7 @@ tests['NV11 fonctions C de CSP : thème actif, textes traduits'] = function()
   h.tab = nil
   app.handleIntents({ setting = { key = 'language', value = 'en' } })
   frames(h, 1)
-  T.ok(shownText(h, 'Step 1/4 · Start'), 'texte traduit')
+  T.ok(shownText(h, 'STEP 1 / 4'), 'texte traduit')
   T.eq(app.perf.errors, 0)
 end
 
@@ -566,7 +573,7 @@ tests['NV15 départ de la référence (figée ou non) ; setup par défaut réuti
   frames(h, 1)
   frames(h, 1)
   T.eq(app.start.quali, nil, 'départ à choisir')
-  T.ok(shownText(h, 'Reprendre ma référence ' .. e.file), 'référence proposée')
+  T.ok(shownText(h, 'REPRENDRE MA RÉFÉRENCE') and shownText(h, e.file), 'référence proposée')
   h.click = 'start_reference'
   frames(h, 1)
   T.eq(app.start.quali and app.start.quali.mode, 'reference', tostring(app.ui.message))
@@ -645,7 +652,7 @@ end
 tests['NV17 séance de course sans qualification : affiner le tour rapide, puis la course se débloque'] = function()
   local h, app = ready({ session = 3, skin = true })
   frames(h, 1)
-  T.ok(shownText(h, 'Course · avant le calcul'), 'course : la garde d\'abord, pas de départ à choisir')
+  T.ok(shownText(h, 'COURSE · AVANT LE CALCUL'), 'course : la garde d\'abord, pas de départ à choisir')
   h.click = 'step_quali'
   frames(h, 1)
   T.eq(app.ui.tab, 'Tour rapide', 'vers l\'onglet QUALIF')
@@ -720,7 +727,7 @@ tests['NV20 setup figé dans la carte ; figer à 0 refusé ; version non gardée
   app.handleIntents({ refineLock = e.version })
   T.eq(e.status, 'validée', tostring(app.ui.message))
   frames(h, 2)
-  T.ok(shownText(h, 'Setup figé'), 'carte : setup figé')
+  T.ok(shownText(h, 'SETUP FIGÉ'), 'carte : setup figé')
   h.click = 'step_unlock'
   frames(h, 1)
   T.no(app.memory[app.memoryGroupOf('quali') .. '|sec'].locked, 'déverrouillé depuis la carte')
@@ -861,7 +868,7 @@ local function nv23(button)
   frames(h, 2)
   local v1 = r.history[#r.history]
   T.ok(v1 and v1.version == 1, 'v1 de course proposée, partie de la v2 de qualification')
-  T.ok(shownText(h, 'Étape 3/4 · Essayer v1'), 'carte d\'étape : la v1 de course à essayer')
+  T.ok(shownText(h, 'ÉTAPE 3 / 4 · COURSE') and shownText(h, 'ESSAYER V1'), 'carte d\'étape : la v1 de course à essayer')
   -- le tour rapide se reprend avec ses versions
   app.handleIntents({ refineStart = 'quali' })
   frames(h, 2)
