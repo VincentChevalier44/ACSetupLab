@@ -2652,9 +2652,7 @@ local function skinTabs(host, app, tabs)
       S.slanted(x, y0, x + w, y0 + 28, Skin.TAB_SLANT, S.colors.raised)
     end
     p.x, p.y = x + gap, y0 + 6
-    S.withRole('tab', function()
-      ui.skin.real.dwriteDrawText(it.text, fs, p, active and S.colors.dark or S.colors.grey)
-    end)
+    S.call('tab', ui.skin.real.dwriteDrawText, it.text, fs, p, active and S.colors.dark or S.colors.grey)
     x = x + w + 2 * scale
   end
   p.x, p.y = origin.x, y0 + 31

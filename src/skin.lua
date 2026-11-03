@@ -102,7 +102,7 @@ function M.new(real, rgbm, vec2, translate, fontDir)
     return a, b
   end
   S.withRole = withRole
-  -- chemin chaud (chaque texte de chaque image) : appel direct sous la police, sans fermeture créée
+  -- chemin chaud (chaque texte de chaque image) : appel direct sous la police, sans fermeture créée (S.call pour l'interface)
   local function roleCall(role, fn, ...)
     real.pushDWriteFont(fonts[role] or fonts.text)
     local ok, a, b = pcall(fn, ...)
@@ -154,6 +154,7 @@ function M.new(real, rgbm, vec2, translate, fontDir)
   function S.text(text) S.textAs(text, nil, false) end
   function S.textColored(text, color) S.textAs(text, color, false) end
   function S.textWrapped(text) S.textAs(text, nil, true) end
+  S.call = roleCall
   function S.drawText(text, pos, color)
     local size, bold, role = current()
     roleCall(role or (bold and 'bold' or 'text'), real.dwriteDrawText, translate(tostring(text)), size, pos, color or c.light)
@@ -192,88 +193,99 @@ function M.new(real, rgbm, vec2, translate, fontDir)
   -- danger : rouge. Neutre : aplat plus clair que les panneaux, cerné d'un filet (cyan au survol) : un bouton ne se
   -- confond pas avec le texte (constat de Vincent du 02/11/2026). size : nil (largeur du libellé), x < 0 (toute la
   -- largeur), x > 0 (largeur donnée) ; y > 0 : hauteur.
+  local function drawButton(visible, id, size, style)
+    local fs = M.SIZE.button
+    local m = real.measureDWriteText(visible, fs)
+    local w, h = m.x + M.BUTTON_PAD, 30
+    if size ~= nil and type(size) ~= 'number' then
+      if size.x and size.x < 0 then w = math.max(w, real.availableSpaceX()) elseif size.x and size.x > 0 then w = size.x end
+      if size.y and size.y > 0 then h = size.y end
+    end
+    ps.x, ps.y = w, h
+    local clicked = real.invisibleButton('###' .. id, ps)
+    local hovered, active = real.itemHovered(), real.itemActive()
+    local a, b = real.itemRectMin(), real.itemRectMax()
+    local hot = hovered or active
+    local bg, fg, border
+    if style == 'primary' then
+      bg, fg = hot and c.blueHover or c.blue, c.dark
+    elseif style == 'go' then
+      bg, fg = hot and c.goHover or c.go, c.goText
+    elseif style == 'danger' then
+      bg, fg = hot and c.dangerHover or c.danger, c.dangerText
+    else
+      bg, fg, border = hot and c.raisedHover or c.raised, c.light, hot and c.blue or c.outline
+    end
+    local slant = math.min(M.SLANT, (b.y - a.y) / 3)
+    if border then
+      S.slanted(a.x, a.y, b.x, b.y, slant, border)
+      S.slanted(a.x + 1, a.y + 1, b.x - 1, b.y - 1, slant, bg)
+    else
+      S.slanted(a.x, a.y, b.x, b.y, slant, bg)
+    end
+    -- libellé qui tient : sa mesure sert telle quelle (une seule mesure par image)
+    local room = math.max(10, (b.x - a.x) - 24)
+    local text, tm = visible, m
+    if m.x > room then text, tm = fit(visible, fs, room) end
+    pa.x, pa.y = a.x + math.max(12, ((b.x - a.x) - tm.x) / 2), a.y + ((b.y - a.y) - tm.y) / 2
+    real.dwriteDrawText(text, fs, pa, fg)
+    return clicked
+  end
+
+  -- Bouton Racing 26 : parallélogramme, Barlow Condensed italique très gras. primary : cyan, texte sombre ; go : vert ;
+  -- danger : rouge. Neutre : aplat plus clair que les panneaux, cerné d'un filet (cyan au survol) : un bouton ne se
+  -- confond pas avec le texte (constat de Vincent du 02/11/2026). size : nil (largeur du libellé), x < 0 (toute la
+  -- largeur), x > 0 (largeur donnée) ; y > 0 : hauteur.
   function S.button(label, size, style)
     local visible, id = split(label)
-    visible = translate(visible)
-    local fs = M.SIZE.button
-    return withRole('button', function()
-      local m = real.measureDWriteText(visible, fs)
-      local w, h = m.x + M.BUTTON_PAD, 30
-      if size ~= nil and type(size) ~= 'number' then
-        if size.x and size.x < 0 then w = math.max(w, real.availableSpaceX()) elseif size.x and size.x > 0 then w = size.x end
-        if size.y and size.y > 0 then h = size.y end
-      end
-      ps.x, ps.y = w, h
-      local clicked = real.invisibleButton('###' .. id, ps)
-      local hovered, active = real.itemHovered(), real.itemActive()
-      local a, b = real.itemRectMin(), real.itemRectMax()
-      local hot = hovered or active
-      local bg, fg, border
-      if style == 'primary' then
-        bg, fg = hot and c.blueHover or c.blue, c.dark
-      elseif style == 'go' then
-        bg, fg = hot and c.goHover or c.go, c.goText
-      elseif style == 'danger' then
-        bg, fg = hot and c.dangerHover or c.danger, c.dangerText
-      else
-        bg, fg, border = hot and c.raisedHover or c.raised, c.light, hot and c.blue or c.outline
-      end
-      local slant = math.min(M.SLANT, (b.y - a.y) / 3)
-      if border then
-        S.slanted(a.x, a.y, b.x, b.y, slant, border)
-        S.slanted(a.x + 1, a.y + 1, b.x - 1, b.y - 1, slant, bg)
-      else
-        S.slanted(a.x, a.y, b.x, b.y, slant, bg)
-      end
-      local text, tm = fit(visible, fs, math.max(10, (b.x - a.x) - 24))
-      pa.x, pa.y = a.x + math.max(12, ((b.x - a.x) - tm.x) / 2), a.y + ((b.y - a.y) - tm.y) / 2
-      real.dwriteDrawText(text, fs, pa, fg)
-      return clicked
-    end)
+    return (roleCall('button', drawButton, translate(visible), id, size, style))
+  end
+
+  local function drawCheckbox(visible, id, value)
+    local fs = M.SIZE.main
+    local m = real.measureDWriteText(visible, fs)
+    local w, h = m.x + 60, 26
+    ps.x, ps.y = w, h
+    local clicked = real.invisibleButton('###' .. id, ps)
+    local hovered = real.itemHovered()
+    local a = real.itemRectMin()
+    if hovered then
+      pb.x, pb.y = a.x + w, a.y + h
+      real.drawRectFilled(a, pb, c.rowHover, 2)
+    end
+    pa.x, pa.y = a.x + 6, a.y + (h - m.y) / 2
+    real.dwriteDrawText(visible, fs, pa, value and c.light or c.grey)
+    local x, y = a.x + w - 39, a.y + (h - 15) / 2
+    pa.x, pa.y = x, y
+    pb.x, pb.y = x + 30, y + 15
+    real.drawRectFilled(pa, pb, value and c.blue or c.switchOff, 8)
+    pa.x, pa.y = x + 8 + (value and 14 or 0), y + 7.5
+    Util.call(real.drawCircleFilled, pa, 5, value and c.knobOn or c.grey, 24)
+    return clicked
   end
 
   -- Interrupteur : libellé, pastille cyan quand actif ; renvoie vrai au clic (comme ui.checkbox).
   function S.checkbox(label, value)
     local visible, id = split(label)
-    visible = translate(visible)
-    local fs = M.SIZE.main
-    return withRole('tab', function()
-      local m = real.measureDWriteText(visible, fs)
-      local w, h = m.x + 60, 26
-      ps.x, ps.y = w, h
-      local clicked = real.invisibleButton('###' .. id, ps)
-      local hovered = real.itemHovered()
-      local a = real.itemRectMin()
-      if hovered then
-        pb.x, pb.y = a.x + w, a.y + h
-        real.drawRectFilled(a, pb, c.rowHover, 2)
-      end
-      pa.x, pa.y = a.x + 6, a.y + (h - m.y) / 2
-      real.dwriteDrawText(visible, fs, pa, value and c.light or c.grey)
-      local x, y = a.x + w - 39, a.y + (h - 15) / 2
-      pa.x, pa.y = x, y
-      pb.x, pb.y = x + 30, y + 15
-      real.drawRectFilled(pa, pb, value and c.blue or c.switchOff, 8)
-      pa.x, pa.y = x + 8 + (value and 14 or 0), y + 7.5
-      Util.call(real.drawCircleFilled, pa, 5, value and c.knobOn or c.grey, 24)
-      return clicked
-    end)
+    return (roleCall('tab', drawCheckbox, translate(visible), id, value))
+  end
+
+  local function drawBadge(visible, id)
+    local m = real.measureDWriteText(visible, 11)
+    ps.x, ps.y = m.x + 18, 20
+    local clicked = real.invisibleButton('###' .. id, ps)
+    local hovered = real.itemHovered()
+    local a, b = real.itemRectMin(), real.itemRectMax()
+    S.slanted(a.x, a.y, b.x, b.y, 5, hovered and c.blueHover or c.blue)
+    pa.x, pa.y = a.x + 9, a.y + (20 - m.y) / 2
+    real.dwriteDrawText(visible, 11, pa, c.dark)
+    return clicked
   end
 
   -- Badge (langue) : petit parallélogramme cyan, texte sombre ; renvoie vrai au clic.
   function S.badge(label)
     local visible, id = split(label)
-    return withRole('tab', function()
-      local m = real.measureDWriteText(visible, 11)
-      ps.x, ps.y = m.x + 18, 20
-      local clicked = real.invisibleButton('###' .. id, ps)
-      local hovered = real.itemHovered()
-      local a, b = real.itemRectMin(), real.itemRectMax()
-      S.slanted(a.x, a.y, b.x, b.y, 5, hovered and c.blueHover or c.blue)
-      pa.x, pa.y = a.x + 9, a.y + (20 - m.y) / 2
-      real.dwriteDrawText(visible, 11, pa, c.dark)
-      return clicked
-    end)
+    return (roleCall('tab', drawBadge, visible, id))
   end
   return S
 end
