@@ -435,12 +435,12 @@ tests['NV10 thème de l\'app : onglets dessinés, interrupteur, boutons du thèm
   T.ok(shownText(h, 'QUALIF') and shownText(h, 'AIDE'), 'onglets dessinés')
   T.eq(app.ui.tab, 'Tour rapide', 'onglet par défaut')
   T.ok(shownText(h, 'D\'OÙ PART-ON ?'), 'contenu de l\'onglet QUALIF')
-  T.no(shownText(h, 'Mesure et calibration'), 'les autres onglets ne sont pas dessinés')
+  T.no(shownText(h, 'TOURS ENREGISTRÉS'), 'les autres onglets ne sont pas dessinés')
   h.click = 'tab_Mesure'
   frames(h, 1)
   T.eq(app.ui.tab, 'Mesure', 'un clic change d\'onglet')
   frames(h, 1)
-  T.ok(shownText(h, 'Mesure et calibration'), 'contenu de l\'onglet MESURE')
+  T.ok(shownText(h, 'TOURS ENREGISTRÉS'), 'contenu de l\'onglet MESURE')
   T.no(shownText(h, 'D\'OÙ PART-ON ?'), 'QUALIF masqué')
   h.click = 'SetupLab actif'
   frames(h, 1)

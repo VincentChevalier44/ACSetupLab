@@ -2512,92 +2512,6 @@ local function helpSection(host, palette)
   end
 end
 
--- En-tête du thème Racing 26 : mot SETUP / LAB, badge de langue, version, état (au stand, en piste, en veille) ;
--- interrupteur à droite ; voiture, circuit et séance en dessous.
-local function skinHeader(host, app, intents, palette)
-  local ui = host.ui
-  local d = app.discovery
-  local S = ui.skin
-  local okP, at = Util.call(ui.getCursor)
-  ui.skinText('SETUPLAB', S.colors.clear, false, Skin.SIZE.header, true, 'display')
-  if okP and at and Util.isFinite(at.x) then
-    S.withRole('display', function()
-      local okM, m = Util.call(S.real.measureDWriteText, 'SETUP', Skin.SIZE.header)
-      local w = okM and m and m.x or 0
-      local pos = vec(host, app.ui, 'brand')
-      if pos then
-        pos.x, pos.y = at.x, at.y
-        Util.call(S.real.dwriteDrawText, 'SETUP', Skin.SIZE.header, pos, S.colors.light)
-        pos.x = at.x + w
-        Util.call(S.real.dwriteDrawText, 'LAB', Skin.SIZE.header, pos, S.colors.blue)
-      end
-    end)
-  end
-  tip(host, Config.appName .. ' ' .. Config.version .. ' — jalon ' .. Config.milestone
-    .. (d and d.car and ('\nVoiture : ' .. tostring(d.car.id)) or '')
-    .. (d and d.trackFiles and ('\nCircuit : ' .. tostring(d.trackFiles.fullId)) or ''))
-  local p = vec(host, app.ui, 'headerAt')
-  local function nextTo(dy)
-    ui.sameLine(0, 14)
-    local ok, cur = Util.call(ui.getCursor)
-    if ok and cur and p and Util.isFinite(cur.y) then
-      p.x, p.y = cur.x, cur.y + dy
-      Util.call(ui.setCursor, p)
-    end
-  end
-  nextTo(7)
-  local english = app.settings.language ~= 'fr'
-  if ui.skinBadge((english and 'EN' or 'FR') .. '###lang_toggle') then
-    intents.setting = { key = 'language', value = english and 'fr' or 'en' }
-  end
-  tip(host, 'Language / Langue : English, Français.')
-  nextTo(1)
-  ui.skinText(Config.version, palette.muted, false, 10, false, 'mono')
-  -- Racing 26 : état en un mot (au stand, en piste, en veille), en petit parallélogramme
-  local where = app.auto ~= true and 'EN VEILLE' or (app.carAtPit and app.carAtPit() and 'AU STAND' or 'EN PISTE')
-  nextTo(-1)
-  local okB, badgeAt = Util.call(ui.getCursor)
-  if okB and badgeAt and Util.isFinite(badgeAt.x) and p then
-    local at2 = badgeAt
-    S.withRole('label', function()
-      local text = L.t(where)
-      local okW, m = Util.call(S.real.measureDWriteText, text, 10)
-      local w = (okW and m and m.x or 60) + 16
-      S.slanted(at2.x, at2.y + 1, at2.x + w, at2.y + 19, 5, where == 'EN VEILLE' and S.colors.raised or S.colors.select)
-      p.x, p.y = at2.x + 8, at2.y + 4
-      local ink = where == 'EN VEILLE' and S.colors.grey or (where == 'EN PISTE' and S.colors.go or S.colors.blueSoft)
-      Util.call(S.real.dwriteDrawText, text, 10, p, ink)
-      p.x, p.y = w, 20
-      Util.call(ui.dummy, p)
-    end)
-  end
-  -- SetupLab actif, à droite (décision de Vincent du 21/10/2026 : « on l'ouvre, on l'active, on roule »)
-  ui.sameLine()
-  local okC, cur = Util.call(ui.getCursor)
-  local okR, room = Util.call(ui.availableSpaceX)
-  local okM, m = Util.call(S.withRole, 'tab', function() return S.real.measureDWriteText(L.t('SetupLab actif'), Skin.SIZE.main) end)
-  local need = okM and m and type(m) ~= 'number' and m.x and (m.x + 60) or 200
-  if okC and cur and okR and Util.isFinite(room) and p then
-    if room > need then
-      p.x, p.y = cur.x + room - need, cur.y - 8
-      Util.call(ui.setCursor, p)
-    else
-      Util.call(ui.newLine)
-    end
-  end
-  if ui.checkbox('SetupLab actif', app.auto == true) then intents.autoToggle = true end
-  tip(host, 'Actif : SetupLab affine tout seul le setup de la séance (tour rapide en essai, journée circuit, hotlap et '
-    .. 'qualification ; course en course) et annonce chaque proposition ; à vous de l\'essayer, de trier ses réglages et de la '
-    .. 'valider. En veille : rien n\'est calculé ni enregistré tout seul. Pour ce lancement d\'AC : jamais actif tout seul au '
-    .. 'démarrage.')
-  local title = {}
-  if d and d.car then title[#title + 1] = tostring(d.car.name) end
-  if d and d.trackFiles then title[#title + 1] = tostring(d.trackFiles.name) end
-  local session = M.sessionLine(app.context)
-  if session then title[#title + 1] = L.t(session) end
-  if #title > 0 then small(host, table.concat(title, '  ·  '), palette.muted) end
-end
-
 -- Barre de message (Racing 26) : fond cyan sombre, filet cyan de 3 px à gauche, à la hauteur de l'image précédente ;
 -- sans le thème, le message en couleur d'accent.
 local function messageBar(host, app, palette)
@@ -2662,82 +2576,6 @@ local function updateLine(host, app, intents, palette)
   end
 end
 
--- État : SetupLab actif, découverte, données et calculs (en tête du contenu).
-local function statusLines(host, app, palette)
-  local d = app.discovery
-  local autoText, autoColor = M.autoLine(app)
-  small(host, autoText, palette[autoColor])
-  local status, kind = M.statusLine(app)
-  small(host, '• ' .. status, palette[kind])
-  if d then
-    local source = (d.carBase and d.carBaseMissing and #d.carBaseMissing == 0) and 'fichiers de la voiture'
-      or (app.measureOnly and 'mesure uniquement (§9.4)' or 'données incomplètes')
-    local function stateOf(q)
-      if q == nil then return 'non lancé' end
-      return ({ running = 'en cours', done = 'terminé', failed = 'en échec', cancelled = 'annulé' })[q.state] or q.state
-    end
-    small(host, 'Données : ' .. source .. ' ; modèle ' .. M.modelState(app) .. ' ; tour rapide ' .. stateOf(app.quali)
-      .. ', course ' .. stateOf(app.race), palette.muted)
-  end
-end
-
--- Onglets du thème Racing 26 : inclinés, l'actif en cyan plein (texte sombre), les autres en gris, filet sous la
--- rangée ; resserrés si la fenêtre est étroite. Renvoie l'identifiant de l'onglet choisi.
-local function skinTabs(host, app, tabs)
-  local ui = host.ui
-  local S = ui.skin
-  local okC, origin = Util.call(ui.getCursor)
-  local okW, avail = Util.call(ui.availableSpaceX)
-  local p, q = vec(host, app.ui, 'tabA'), vec(host, app.ui, 'tabB')
-  if not (okC and origin and okW and Util.isFinite(avail) and p and q) then return app.ui.tab end
-  local size, pad = Skin.SIZE.tab, 14
-  -- largeurs des libellés : mesurées une fois par langue (elles ne changent pas d'une image à l'autre)
-  app.ui.tabCache = app.ui.tabCache or {}
-  local cached = app.ui.tabCache[L.lang]
-  if cached == nil then
-    cached = { items = {}, total = 0 }
-    S.withRole('tab', function()
-      for i, tab in ipairs(tabs) do
-        local visible, id = Skin.split(tab[1])
-        visible = L.t(visible)
-        local okM, m = Util.call(ui.skin.real.measureDWriteText, visible, size)
-        local w = okM and m and m.x or (#visible * 8)
-        cached.items[i] = { id = id, text = visible, w = w }
-        cached.total = cached.total + w + 2 * pad + 2
-      end
-    end)
-    app.ui.tabCache[L.lang] = cached
-  end
-  local items, total = cached.items, cached.total
-  local scale = total > avail and math.max(0.6, avail / total) or 1
-  local fs, gap = math.floor(math.max(10, size * scale) * 2) / 2, math.max(6, pad * scale)
-  local x, y0 = origin.x, origin.y
-  for _, it in ipairs(items) do
-    local w = it.w * (fs / size) + 2 * gap
-    p.x, p.y = x, y0
-    Util.call(ui.setCursor, p)
-    q.x, q.y = w, 28
-    if ui.invisibleButton('###tab_' .. it.id, q) then app.ui.tab = it.id end
-    local active = app.ui.tab == it.id
-    local okH, hovered = Util.call(ui.itemHovered)
-    -- Racing 26 : onglet incliné, l'actif en cyan plein
-    if active then
-      S.slanted(x, y0, x + w, y0 + 28, Skin.TAB_SLANT, S.colors.blue)
-    elseif okH and hovered then
-      S.slanted(x, y0, x + w, y0 + 28, Skin.TAB_SLANT, S.colors.raised)
-    end
-    p.x, p.y = x + gap, y0 + 6
-    S.call('tab', ui.skin.real.dwriteDrawText, it.text, fs, p, active and S.colors.dark or S.colors.grey)
-    x = x + w + 2 * scale
-  end
-  p.x, p.y = origin.x, y0 + 31
-  q.x, q.y = origin.x + avail, y0 + 32
-  Util.call(ui.drawRectFilled, p, q, S.colors.line, 0)
-  p.x, p.y = origin.x, y0 + 38
-  Util.call(ui.setCursor, p)
-  return app.ui.tab
-end
-
 function M.main(host, app, intents)
   host = hostFor(host, app)
   local ui = host.ui
@@ -2762,46 +2600,6 @@ function M.main(host, app, intents)
   local ok, err = pcall(function()
     -- thème Racing 26 : pages de la maquette (src/dash.lua) ; contenu ImGui pour les onglets pas encore refaits
     if ui.skin and Dash.main(host, app, intents, M, tabs) then return end
-    if ui.skin then
-      -- thème Racing 26 : fenêtre sans fond ni marge (manifest), fond uni dessiné, en-tête et onglets fixes, contenu
-      -- qui défile dans une fenêtre enfant
-      -- premier onglet : celui du genre de la séance (en course, COURSE), où se trouve la carte d'étape
-      app.ui.tab = app.ui.tab or ((app.autoKind and app.autoKind() == 'race') and 'Course' or 'Tour rapide')
-      local okC, origin = Util.call(ui.getCursor)
-      local okS, size = Util.call(ui.windowSize)
-      local p, q = vec(host, app.ui, 'bgA'), vec(host, app.ui, 'bgB')
-      local good = okC and origin and okS and size and p and q and Util.isFinite(size.x) and Util.isFinite(size.y)
-      if good then
-        p.x, p.y = origin.x, origin.y
-        q.x, q.y = origin.x + size.x, origin.y + size.y
-        Util.call(ui.drawRectFilled, p, q, ui.skin.colors.bg, 0)
-        p.x, p.y = origin.x + 16, origin.y + 10
-        Util.call(ui.setCursor, p)
-      end
-      Util.call(ui.indent, 16)
-      skinHeader(host, app, intents, palette)
-      local selected = skinTabs(host, app, tabs)
-      Util.call(ui.unindent, 16)
-      local function body()
-        updateLine(host, app, intents, palette)
-        statusLines(host, app, palette)
-        stepCard(host, app, intents, palette, selected)
-        messageBar(host, app, palette)
-        for _, tab in ipairs(tabs) do
-          if select(2, Skin.split(tab[1])) == selected then tab[2]() end
-        end
-      end
-      local okY, cur = Util.call(ui.getCursor)
-      if good and okY and cur and ui.childWindow then
-        p.x, p.y = origin.x + 16, cur.y
-        Util.call(ui.setCursor, p)
-        q.x, q.y = math.max(100, size.x - 24), math.max(100, origin.y + size.y - cur.y - 6)
-        ui.childWindow('setuplab_body', q, false, 0, body)
-      else
-        body()
-      end
-      return
-    end
     local okC0, origin0 = Util.call(ui.getCursor)
     local okS0, size0 = Util.call(ui.windowSize)
     local a0, b0 = vec(host, app.ui, 'bgA'), vec(host, app.ui, 'bgB')
@@ -2940,6 +2738,8 @@ end
 function M.overlay(host, app)
   host = hostFor(host, app)
   local ui = host.ui
+  -- thème Racing 26 : planches « Overlay en piste » (src/dash.lua)
+  if ui.skin and Dash.overlay(host, app, M) then return end
   local palette = colors(app.ui, host)
   local okS, size = Util.call(ui.windowSize)
   local origin = vec(host, app.ui, 'overlayOrigin')
@@ -3049,6 +2849,8 @@ end
 function M.debug(host, app)
   host = hostFor(host, app)
   local ui = host.ui
+  -- thème Racing 26 : planche « Fenêtre Debug » (src/dash.lua)
+  if ui.skin and Dash.debug(host, app, M) then return end
   local s = app.scheduler.stats
   local p = app.perf
   ui.text('Horloge : ' .. (app.clock and tostring(app.clockSource or 'QueryPerformanceCounter')
@@ -3078,5 +2880,7 @@ end
 M.tip, M.realLaps, M.realTime, M.versionLaps, M.realText = tip, realLaps, realTime, versionLaps, realText
 M.gainText, M.effectGain, M.itemText, M.KIND, M.loadLabel, M.LOAD_TIP = gainText, effectGain, itemText, KIND, loadLabel, LOAD_TIP
 M.START_NAMES, M.sessionRaceLaps = START_NAMES, sessionRaceLaps
+M.FACTOR_ORDER, M.FACTOR_LABELS = FACTOR_ORDER, FACTOR_LABELS
+M.overlaySetup, M.overlayChanges, M.capsCounts = overlaySetup, overlayChanges, Caps.countByStatus
 
 return M

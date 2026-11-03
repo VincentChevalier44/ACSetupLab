@@ -1790,12 +1790,919 @@ local function racePage(x, y, w)
 end
 M.racePage = racePage
 
+
+-- ---------------------------------------------------------------------------
+-- Petites commandes : interrupteur de réglage, pas à pas avec curseur, titre de panneau
+-- ---------------------------------------------------------------------------
+
+local function panelTitle(s, x, y, right)
+  text('section', 14, up(L.t(s)), x, y, X.c.light)
+  if right then
+    local r = up(L.t(right))
+    lab(right, X.cw - 14 - measure('label', 11, r), y + 2)
+  end
+end
+
+-- interrupteur d'un réglage de l'app (identifiant : son libellé, comme la case ImGui)
+local function settingSwitch(def, value, x, y)
+  local c = X.c
+  X.ui.setCursor(vec(1, X.ox + x, X.oy + y))
+  local clicked = X.ui.invisibleButton('###' .. def.label, vec(3, 34, 18))
+  X.ui.drawRectFilled(vec(1, X.ox + x, X.oy + y), vec(2, X.ox + x + 34, X.oy + y + 18), value and c.blue or c.switchOff, 9)
+  dot(value and (x + 25) or (x + 9), y + 9, 6, value and c.knobOn or c.grey)
+  if clicked then X.intents.setting = { key = def.key, value = not value } end
+end
+
+-- pas d'un réglage numérique
+local function stepOf(def)
+  if def.kind == 'integer' then
+    local span = (def.max or 1) - (def.min or 0)
+    return span > 2000 and 100 or (span > 300 and 10 or 1)
+  end
+  local span = (def.max or 1) - (def.min or 0)
+  return span <= 1 and 0.05 or (span <= 20 and 0.5 or 1)
+end
+
+-- − curseur + d'un réglage numérique (curseur : identifiant = son libellé, Ctrl + clic pour saisir)
+local function settingStepper(def, value, x, y, w)
+  local stepV = stepOf(def)
+  local function set(v)
+    v = math.max(def.min or v, math.min(def.max or v, v))
+    if def.kind == 'integer' then v = math.floor(v + 0.5) else v = math.floor(v / stepV + 0.5) * stepV end
+    if v ~= value then X.intents.setting = { key = def.key, value = v } end
+  end
+  if button('−###dec_' .. def.key, x, y, 26, 24, nil, 15) then set((value or 0) - stepV) end
+  if X.ui.slider then
+    X.ui.setCursor(vec(1, X.ox + x + 30, X.oy + y))
+    Util.call(X.ui.setNextItemWidth, w - 60)
+    local ok, nextValue, changed = Util.call(X.ui.slider, '###' .. def.label, value, def.min, def.max,
+      def.kind == 'integer' and '%.0f' or '%.2f', def.kind == 'integer' and true or 1)
+    if ok and changed and nextValue ~= value then X.intents.setting = { key = def.key, value = nextValue } end
+  end
+  if button('+###inc_' .. def.key, x + w - 26, y, 26, 24, nil, 15) then set((value or 0) + stepV) end
+end
+
+-- une ligne de réglage : libellé à gauche (revient à la ligne), commande à droite ; renvoie sa hauteur
+local function settingRow(key, x, y, w, dry)
+  local def = Config.byKey[key]
+  if def == nil then return 0 end
+  local app, c = X.app, X.c
+  local ctrlW = def.kind == 'boolean' and 34 or 190
+  local lh = textBox('text', 12.5, L.t(def.label), 0, 0, w - ctrlW - 16, c.light, true)
+  local h = math.max(26, lh + 6)
+  if dry then return h end
+  textBox('text', 12.5, L.t(def.label), x, y + 3, w - ctrlW - 16, c.light)
+  X.ui.setCursor(vec(1, X.ox + x, X.oy + y))
+  X.ui.invisibleButton('###row_' .. key, vec(3, w - ctrlW - 16, h))
+  tip(Config.help[key])
+  local value = app.settings[key]
+  if def.kind == 'boolean' then
+    settingSwitch(def, value == true, x + w - 34, y + (h - 18) / 2)
+  else
+    settingStepper(def, value, x + w - ctrlW, y + (h - 24) / 2, ctrlW)
+  end
+  rect(x, y + h, x + w, y + h + 1, c.rowLine)
+  return h + 1
+end
+
+-- panneau de réglages : titre, lignes ; renvoie sa hauteur
+local function settingsPanel(title, right, keys, x, y, w, dry)
+  local h = 40
+  for _, key in ipairs(keys) do h = h + settingRow(key, 0, 0, w - 28, true) end
+  h = h + 10
+  if dry then return h end
+  panel(x, y, x + w, y + h)
+  X.cw = x + w
+  panelTitle(title, x + 14, y + 12, right)
+  local cy = y + 36
+  for _, key in ipairs(keys) do cy = cy + settingRow(key, x + 14, cy, w - 28) end
+  return h
+end
+
+-- ---------------------------------------------------------------------------
+-- Onglet MÉMOIRE (planche « setups du circuit »)
+-- ---------------------------------------------------------------------------
+
+local MEM_ROWS = {
+  { key = 'qualif', title = 'Qualif', sub = 'qualification' },
+  { key = 'essai', title = 'Essai', sub = 'essai · journée circuit · hotlap' },
+  { key = 'course', title = 'Course', sub = 'relais complet' },
+}
+
+-- une case : setup validé, figé, fichier absent ou vide ; boutons Charger, Figer / Déverrouiller (identifiants ImGui)
+local function memoryCell(row, bucket, x, y, w, h)
+  local app, c = X.app, X.c
+  local key = row.key .. '|' .. bucket
+  local id = row.key .. '_' .. bucket
+  local m = app.memory and app.memory[key]
+  rect(x, y, x + w, y + h, m and (m.problem and c.badBg or (m.locked and c.select or c.okBg)) or c.tile)
+  local px = x + 12
+  if m == nil then
+    lab('Vide', px, y + 10, c.grey)
+    textBox('text', 11.5, L.t(bucket == 'pluie' and 'Aucun setup validé sur piste mouillée.' or 'Aucun setup validé sur piste sèche.'),
+      px, y + 28, w - 24, c.grey)
+    return
+  end
+  local status = m.problem and L.t('Validé · fichier absent') or (L.t(m.locked and 'Figé' or 'Validé')
+    .. (m.version and (' · v' .. m.version) or ''))
+  lab(status, px, y + 10, m.problem and c.badInk or (m.locked and c.blueSoft or c.go))
+  text('mono', 10.5, fitted('mono', 10.5, tostring(m.file), w - 24), px, y + 28, c.soft)
+  if m.problem then
+    textBox('text', 11, L.t(m.problem), px, y + 46, w - 24, c.badInk)
+  else
+    local tv = (Util.isFinite(m.time) and m.time > 0) and X.U.lapTime(m.time) or '—'
+    local tw = text('display', 20, tv, px, y + 44, row.key == 'course' and c.light or c.best)
+    lab(row.key == 'course' and 'votre tour moyen' or (m.locked and 'affinage arrêté' or 'votre meilleur'), px + tw + 8, y + 52,
+      c.grey, 10)
+  end
+  local by = y + h - 32
+  local bx = px
+  if m.text then
+    if button('Charger###memload_' .. id, bx, by, 96, 24, 'go', 12) then X.intents.memoryLoad = key end
+    tip(X.U.LOAD_TIP)
+    bx = bx + 102
+  end
+  local lock = (m.locked and 'Déverrouiller' or 'Figer (cadenas)') .. '###memlock_' .. id
+  if button(lock, bx, by, m.locked and 120 or 110, 24, nil, 12) then
+    X.intents.memoryLock = { key = key, locked = not m.locked }
+  end
+end
+
+local function memoryPage(x, y, w)
+  local app, c = X.app, X.c
+  local wide = w >= K.uiDashWide
+  local d = app.discovery
+  local cy = y
+  if app.ui.message then cy = cy + messageBar(L.t(app.ui.message), x, cy, w, 'info') + 8 end
+  local intro = L.t('Setups validés ou figés') .. ' · ' .. (d and d.car and tostring(d.car.name) or '') .. ' · '
+    .. (d and d.trackFiles and tostring(d.trackFiles.name) or '') .. ' · ' .. L.t('proposés à chaque visite')
+  cy = cy + textBox('text', 12, intro, x, cy, w, c.soft) + 10
+  -- légende
+  local lx = x
+  for _, it in ipairs({ { c.go, 'validé' }, { c.blue, 'figé' }, { c.dim, 'vide' } }) do
+    rect(lx, cy + 3, lx + 8, cy + 11, it[1])
+    lx = lx + 14 + text('text', 11, L.t(it[2]), lx + 12, cy, c.grey) + 14
+  end
+  cy = cy + 22
+  local cellH = 112
+  local leftW = wide and 150 or 0
+  local colW = wide and (w - leftW - 16) / 2 or w - 28
+  local rows = #MEM_ROWS
+  local h = 14 + 22 + rows * (wide and (cellH + 8) or (2 * cellH + 26 + 8)) + 6
+  panel(x, cy, x + w, cy + h)
+  local gy = cy + 14
+  if wide then
+    lab('Piste sèche', x + 14 + leftW, gy)
+    lab('Piste mouillée', x + 14 + leftW + colW + 8, gy)
+  end
+  gy = gy + 22
+  for _, row in ipairs(MEM_ROWS) do
+    if wide then
+      text('button', 16, up(L.t(row.title)), x + 14, gy + 8, c.light)
+      textBox('text', 11, L.t(row.sub), x + 14, gy + 30, leftW - 20, c.grey)
+      memoryCell(row, 'sec', x + 14 + leftW, gy, colW - 8, cellH)
+      memoryCell(row, 'pluie', x + 14 + leftW + colW, gy, colW - 8, cellH)
+      gy = gy + cellH + 8
+    else
+      text('button', 15, up(L.t(row.title)) .. '  ·  ' .. L.t(row.sub), x + 14, gy, c.light)
+      gy = gy + 22
+      memoryCell(row, 'sec', x + 14, gy, colW, cellH)
+      memoryCell(row, 'pluie', x + 14, gy + cellH + 4, colW, cellH)
+      gy = gy + 2 * cellH + 12
+    end
+  end
+  cy = cy + h + 8
+  -- pied : conditions du chargement, suivi, rangement des fichiers
+  local parts, follow, followColor = loadState('')
+  if parts then
+    local fx = x + text('text', 11, L.t('Charger') .. L.t(' : '), x, cy, c.grey) + 4
+    fx = fx + conditions(parts, fx, cy) + 8
+    text('text', 11, fitted('text', 11, L.t('1 clic · copie de sauvegarde avant si besoin'), x + w - fx), fx, cy, c.grey)
+    cy = cy + 18
+  end
+  if app.loadWhere == 'memory' then
+    local _, f2, fc2 = loadState(app.lastLoadKind or 'quali')
+    follow, followColor = follow or f2, followColor or fc2
+  end
+  if follow then
+    cy = cy + textBox('text', 11.5, follow, x, cy, w, followColor or c.grey) + 6
+  end
+  local waiting = app.fileOps and #app.fileOps or 0
+  if waiting > 0 then
+    text('text', 11, L.f('%s fichier(s) à ranger › Corbeille, voiture arrêtée', waiting), x, cy, c.grey)
+    cy = cy + 18
+  end
+  return cy - y
+end
+
+-- ---------------------------------------------------------------------------
+-- Onglet MESURE (planche « tours & calibration »)
+-- ---------------------------------------------------------------------------
+
+local function measurePage(x, y, w)
+  local app, c = X.app, X.c
+  local wide = w >= K.uiDashWide
+  local rec, d = app.recorder, app.discovery
+  local cy = y
+  if app.ui.message then cy = cy + messageBar(L.t(app.ui.message), x, cy, w, 'info') + 8 end
+  if app.storeNote then cy = cy + messageBar(L.t(app.storeNote), x, cy, w, 'warn') + 8 end
+  local bucket = bucketOf(app)
+  local last = rec and rec.laps.last
+  local cal = app.calibration
+  local cr = cal and (cal.result or cal.previous)
+  local calText, calColor = '—', c.grey
+  if cal and cal.state == 'running' then
+    calText, calColor = 'en cours', c.warn
+  elseif cal and cal.state == 'failed' then
+    calText, calColor = 'en échec', c.danger
+  elseif cr then
+    calText, calColor = cr.usable and 'utilisable' or 'non utilisée', cr.usable and c.go or c.warn
+  end
+  local own = d and app.recorder and app.recorder.laps.best[(bucket == 'pluie') and (tostring(d.signature) .. '#pluie')
+    or d.signature]
+  -- tuiles
+  local cols = wide and 4 or 2
+  local tw = (w - 8 * (cols - 1)) / cols
+  local tiles = {
+    { last and (last.valid and 'Dernier tour · valide' or 'Dernier tour · rejeté') or 'Dernier tour',
+      last and X.U.lapTime(last.time) or '—', last and (last.valid and c.go or c.warn) or c.light },
+    { 'Meilleur · setup actuel', own and X.U.lapTime(own.time) or '—', own and c.best or c.light },
+    { 'Tours enregistrés', tostring(rec and rec.finished or 0), c.light },
+    { 'Calibration', up(L.t(calText)), calColor },
+  }
+  for i, it in ipairs(tiles) do
+    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    local tx, ty = x + col * (tw + 8), cy + row * 70
+    panel(tx, ty, tx + tw, ty + 62)
+    lab(it[1], tx + 12, ty + 10)
+    text('display', 24, it[2], tx + 12, ty + 26, it[3])
+  end
+  cy = cy + math.ceil(#tiles / cols) * 70 + 4
+  -- enregistrement en cours, dernier tour rejeté
+  if rec then
+    local s
+    if rec.state == 'enregistrement' then
+      s = L.f('Enregistrement du tour en cours : %s points', rec.n) .. (rec.invalid and (' · ' .. L.t('sera rejeté : ')
+        .. L.t(tostring(rec.invalid))) or '')
+    else
+      s = L.t('Enregistrement : en attente du prochain passage de la ligne.')
+    end
+    cy = cy + messageBar(s, x, cy, w, rec.invalid and 'warn' or 'info') + 8
+    if last and not last.valid then
+      cy = cy + messageBar(L.t('Dernier tour : ') .. X.U.lapTime(last.time) .. ' — ' .. L.t('rejeté : ') .. L.t(tostring(last.reason)),
+        x, cy, w, 'warn') + 8
+    end
+  end
+  -- meilleur tour par setup (réel, prévu) | facteurs du modèle
+  local list = {}
+  for signature, known in pairs(app.knownSetups or {}) do
+    for _, state in ipairs({ 'sec', 'pluie' }) do
+      local best = rec and rec.laps.best[state == 'pluie' and (tostring(signature) .. '#pluie') or signature]
+      if best then list[#list + 1] = { label = tostring(known.label), wet = state == 'pluie', time = best.time,
+        predicted = state == 'sec' and known.predicted or nil } end
+    end
+  end
+  table.sort(list, function(a, b) return a.time < b.time end)
+  local leftW = wide and math.floor((w - 8) * 0.55) or w
+  local rightW = wide and (w - 8 - leftW) or w
+  local hl = 40 + math.max(1, #list) * 24 + 10
+  local hr = cr and (40 + #X.U.FACTOR_ORDER * 24 + 30) or 0
+  local function bestPanel(px, py, pw)
+    panel(px, py, px + pw, py + hl)
+    X.cw = px + pw
+    panelTitle('Meilleur tour par setup', px + 14, py + 12, 'réel · prévu')
+    local ry = py + 38
+    if #list == 0 then text('text', 12, L.t('Aucun tour valide pour l\'instant.'), px + 14, ry, c.grey) end
+    for _, it in ipairs(list) do
+      local name = it.label .. (it.wet and (' · ' .. L.t('mouillée')) or '')
+      text('text', 12, fitted('text', 12, name, pw - 28 - 150), px + 14, ry + 3, c.light)
+      local rt = X.U.lapTime(it.time)
+      text('mono', 11, rt, px + pw - 14 - 150, ry + 4, c.light)
+      text('mono', 11, it.predicted and X.U.lapTime(it.predicted) or '—', px + pw - 14 - 70, ry + 4, c.grey)
+      rect(px + 14, ry + 22, px + pw - 14, ry + 23, c.rowLine)
+      ry = ry + 24
+    end
+  end
+  local function factorsPanel(px, py, pw)
+    panel(px, py, px + pw, py + hr)
+    X.cw = px + pw
+    panelTitle('Facteurs du modèle', px + 14, py + 12, '0.90 · 1.00 · 1.10')
+    local ry = py + 38
+    for _, key in ipairs(X.U.FACTOR_ORDER) do
+      local v = cr.factors[key]
+      local state = cr.atBound[key] and 'En butée' or (cr.identified[key] and 'Identifié' or 'Non identifié')
+      local sc = cr.atBound[key] and c.warn or (cr.identified[key] and c.go or c.grey)
+      text('text', 12, fitted('text', 12, L.t(X.U.FACTOR_LABELS[key]), 90), px + 14, ry + 2, c.light)
+      local bx, bw = px + 110, pw - 110 - 14 - 140
+      rect(bx, ry + 7, bx + bw, ry + 13, c.trackBg)
+      local mid = bx + bw / 2
+      rect(mid, ry + 4, mid + 1, ry + 16, c.dim)
+      local f = Util.clamp(((v or 1) - 0.9) / 0.2, 0, 1)
+      dot(bx + f * bw, ry + 10, 4, sc)
+      text('mono', 11, Util.fmt(v, 3), bx + bw + 10, ry + 3, c.light)
+      text('section', 10.5, up(L.t(state)), px + pw - 14 - measure('section', 10.5, up(L.t(state))), ry + 4, sc)
+      ry = ry + 24
+    end
+    local d2 = app.discovery
+    local index = d2 and d2.compoundIndex or -1
+    local current = d2 and app.calibrations and app.calibrations[bucket == 'pluie' and (tostring(index) .. '#pluie') or index]
+    if current and current.result and current.result.stored then
+      text('text', 11, fitted('text', 11, L.t('Reprise d\'une séance précédente.'), pw - 28), px + 14, ry + 4, c.grey)
+    end
+  end
+  if wide and hr > 0 then
+    bestPanel(x, cy, leftW)
+    factorsPanel(x + leftW + 8, cy, rightW)
+    cy = cy + math.max(hl, hr) + 8
+  else
+    bestPanel(x, cy, w)
+    cy = cy + hl + 8
+    if hr > 0 then
+      factorsPanel(x, cy, w)
+      cy = cy + hr + 8
+    end
+  end
+  -- validation du gain réel
+  for _, kind in ipairs({ 'quali', 'race' }) do
+    local v = app.validations and app.validations[kind]
+    if v and v.state == 'done' then
+      local s = X.U.validationText(v)
+      cy = cy + messageBar(L.t('Setup ' .. X.U.KIND[kind].name .. ' — ') .. L.t(s), x, cy, w, v.conforming and 'go' or 'warn') + 8
+    end
+  end
+  -- tours de calibration
+  if cr and cr.runs and #cr.runs > 0 then
+    local hh = 40 + #cr.runs * 24 + 8
+    panel(x, cy, x + w, cy + hh)
+    X.cw = x + w
+    panelTitle('Tours de calibration', x + 14, cy + 12, L.f('écart de temps · seuil %s %% · profil · seuil %s %%',
+      Util.fmt(K.calibMaxTimeError * 100, 0), Util.fmt(K.calibMaxRms * 100, 0)))
+    local ry = cy + 38
+    for _, one in ipairs(cr.runs) do
+      local okT, okR = one.timeError <= K.calibMaxTimeError, one.rms <= K.calibMaxRms
+      text('text', 12, fitted('text', 12, L.t(tostring(one.label)), 140), x + 14, ry + 2, c.light)
+      text('mono', 11, Util.fmt(one.timeError * 100, 2) .. '%', x + 170, ry + 3, okT and c.go or c.warn)
+      text('mono', 11, Util.fmt(one.rms * 100, 1) .. '%', x + 250, ry + 3, okR and c.go or c.warn)
+      text('text', 11, fitted('text', 11, L.f('idéal %s s plus rapide', Util.fmt(one.measuredTime - one.idealTime, 2)), w - 340),
+        x + 330, ry + 3, c.grey)
+      ry = ry + 24
+    end
+    cy = cy + hh + 8
+  end
+  -- mesure seule (données de la voiture illisibles)
+  local mo = app.measureOnly
+  if mo then
+    local s = L.t('Mode mesure uniquement (§9.4) : données de la voiture illisibles, modèle estimé sur le tour.')
+    if mo.reason then s = s .. ' ' .. L.t('Estimation : ') .. L.t(tostring(mo.reason)) end
+    cy = cy + messageBar(s, x, cy, w, 'warn') + 8
+  end
+  if cal and cal.state == 'failed' then
+    cy = cy + messageBar(L.t('Calibration en échec : ') .. L.t(tostring(cal.error)), x, cy, w, 'error') + 8
+  end
+  -- actions
+  local bx = x
+  if last then
+    if button('Calibrer maintenant', bx, cy, 170, 30, 'primary', 13) then X.intents.calibrate = true end
+    bx = bx + 178
+    if button('Copier le tour enregistré', bx, cy, 210, 30, nil, 13) then X.intents.copyLap = true end
+    tip('Copie le tour (temps, profil, setup) dans le presse-papiers, à coller dans la conversation de développement.')
+    bx = bx + 218
+  end
+  local def = Config.byKey.calibrationAuto
+  if def then
+    local sw = text('text', 12, fitted('text', 12, L.t('Calibration automatique après chaque tour valide'), x + w - bx - 50), bx,
+      cy + 7, c.soft)
+    settingSwitch(def, app.settings.calibrationAuto == true, bx + sw + 10, cy + 6)
+  end
+  cy = cy + 40
+  return cy - y
+end
+
+-- ---------------------------------------------------------------------------
+-- Onglet RÉGLAGES (planche « app & prise en compte »)
+-- ---------------------------------------------------------------------------
+
+local function setupStatusPanel(x, y, w)
+  local app, c = X.app, X.c
+  local d = app.discovery
+  if not (d and d.space) then return 0 end
+  local rows = SetupSpace.statusRows(d.space)
+  local optimized = 0
+  for _, row in ipairs(rows) do if row.status == 'optimisé' then optimized = optimized + 1 end end
+  local extra = 2
+  local h = 40 + 22 + (#rows + extra) * 22 + 12
+  panel(x, y, x + w, y + h)
+  X.cw = x + w
+  local s = L.f('%s optimisés · %s conservés', optimized, #rows - optimized)
+  panelTitle('Réglages du setup', x + 14, y + 12)
+  text('text', 11.5, s, x + w - 14 - measure('text', 11.5, s), y + 12, c.grey)
+  local c1, c2 = x + w - 14 - 230, x + w - 14 - 110
+  local ry = y + 38
+  lab('Réglage', x + 14, ry)
+  lab('Sec', c1, ry)
+  lab('Pluie', c2, ry)
+  ry = ry + 22
+  local function line(label, status, statusColor, wet, wetColor, tipText, idx)
+    X.ui.setCursor(vec(1, X.ox + x + 14, X.oy + ry))
+    X.ui.invisibleButton('###status_' .. idx, vec(3, w - 28, 20))
+    tip(tipText)
+    text('text', 12, fitted('text', 12, label, c1 - x - 24), x + 14, ry + 2, c.light)
+    text('section', 11, up(L.t(status)), c1, ry + 3, statusColor)
+    text('section', 11, up(L.t(wet)), c2, ry + 3, wetColor)
+    rect(x + 14, ry + 21, x + w - 14, ry + 22, c.rowLine)
+    ry = ry + 22
+  end
+  for i, row in ipairs(rows) do
+    local st = row.status
+    local sc = st == 'optimisé' and c.go or ((row.detail and (row.detail:find('rugosité', 1, true)
+      or row.detail:find('repère de hauteur', 1, true))) and c.warn or c.grey)
+    local ws = row.wetShort or '—'
+    local wc = ws == 'modélisé' and c.go or (ws == 'règle' and c.blueSoft or c.grey)
+    line(L.t(row.label), st, sc, ws, wc, L.t(row.detail) .. ' (' .. table.concat(row.names, ', ') .. ')', i)
+  end
+  line(L.t('Composé de pneus'), 'choisi', c.go, 'modélisé', c.go, 'D18 : composés secs comparés', #rows + 1)
+  line(L.t('Aides (antipatinage, ABS)'), 'conservé', c.grey, 'règle', c.blueSoft, 'Aides au pilote, non modélisées.', #rows + 2)
+  return h
+end
+
+local function settingsPage(x, y, w)
+  local app, c = X.app, X.c
+  local wide = w >= K.uiDashWide
+  local cy = y
+  if app.ui.message then cy = cy + messageBar(L.t(app.ui.message), x, cy, w, 'info') + 8 end
+  -- langue
+  lab('Langue', x, cy + 8)
+  local lx = x + 90
+  for _, item in ipairs({ { 'en', 'English' }, { 'fr', 'Français' } }) do
+    local on = app.settings.language == item[1]
+    if button(item[2] .. '###lang_' .. item[1], lx, cy, 120, 28, on and 'primary' or nil, 13) then
+      X.intents.setting = { key = 'language', value = item[1] }
+    end
+    tip(Config.help.language)
+    lx = lx + 128
+  end
+  cy = cy + 40
+  local half = wide and math.floor((w - 8) / 2) or w
+  local proposal = { 'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'refineLaps' }
+  local compute = { 'optBudgetEvalsQ', 'optBudgetEvalsC' }
+  local strategy = { 'perfStab', 'fuelMarginPct', 'fuelQualiLaps', 'drsTrafficPct', 'driverMarginPct', 'compoundChoice',
+    'wetAidLevels', 'calibrationAuto', 'updateCheck' }
+  local estimate = X.U.estimateSeconds(app, app.settings.optBudgetEvalsQ, X.U.KIND.quali.lapsPerEval, 'quali')
+  local dur = estimate and X.U.durationText(estimate, K.computeTargetQ, X.U.slowFrames(app)) or nil
+  if wide then
+    local h1 = settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, 0, 0, half, true)
+    local h2 = settingsPanel('Calcul', nil, compute, 0, 0, half, true)
+    local h3 = settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, 0, 0, w - half - 8, true)
+    settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, x, cy, half)
+    settingsPanel('Calcul', nil, compute, x, cy + h1 + 8, half)
+    if dur then text('text', 11, fitted('text', 11, L.t(dur), half - 28), x + 14, cy + h1 + 8 + h2 - 4, c.grey) end
+    settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, x + half + 8, cy, w - half - 8)
+    cy = cy + math.max(h1 + 8 + h2 + (dur and 12 or 0), h3) + 8
+  else
+    cy = cy + settingsPanel('Quand SetupLab propose', 'setup en piste', proposal, x, cy, w) + 8
+    cy = cy + settingsPanel('Calcul', nil, compute, x, cy, w) + 8
+    if dur then
+      text('text', 11, fitted('text', 11, L.t(dur), w), x, cy - 4, c.grey)
+      cy = cy + 12
+    end
+    cy = cy + settingsPanel('Stratégie', 'gardés d\'une séance à l\'autre', strategy, x, cy, w) + 8
+  end
+  local hs = setupStatusPanel(x, cy, w)
+  if hs > 0 then cy = cy + hs + 8 end
+  text('text', 11, L.t('Survol d\'une ligne : la raison de son statut.'), x, cy, c.grey)
+  return cy + 18 - y
+end
+
 -- ---------------------------------------------------------------------------
 -- Fenêtre principale
 -- ---------------------------------------------------------------------------
 
--- host, app, intents : comme M.main de src/ui.lua ; U : src/ui.lua (modèles, aides) ; tabs :
--- onglets { libellé###id, contenu ImGui } (contenu utilisé tant que la page de l'onglet n'est pas refaite)
+
+-- ---------------------------------------------------------------------------
+-- Onglet DIAGNOSTIC (planche « capacités CSP »)
+-- ---------------------------------------------------------------------------
+
+local CAP_WORDS = { available = 'Disponible', pending = 'À confirmer', unavailable = 'Indisponible', na = 'Sans objet' }
+
+local function diagPage(x, y, w)
+  local app, c = X.app, X.c
+  local d = app.discovery
+  local cy = y
+  if app.ui.message then cy = cy + messageBar(L.t(app.ui.message), x, cy, w, 'info') + 8 end
+  local colors = { available = c.go, pending = c.warn, unavailable = c.danger, na = c.grey }
+  if d and d.caps then
+    local counts = X.U.capsCounts(d.caps)
+    local cols = w >= K.uiDashWide and 4 or 2
+    local tw = (w - 8 * (cols - 1)) / cols
+    local list = { { 'Disponibles', counts.available, c.go }, { 'À confirmer', counts.pending, c.warn },
+      { 'Indisponibles', counts.unavailable, c.danger }, { 'Sans objet', counts.na, c.grey } }
+    for i, it in ipairs(list) do
+      local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+      local tx, ty = x + col * (tw + 8), cy + row * 64
+      panel(tx, ty, tx + tw, ty + 56)
+      lab(it[1], tx + 12, ty + 10, it[3])
+      text('display', 24, tostring(it[2]), tx + 12, ty + 24, c.light)
+    end
+    cy = cy + math.ceil(#list / cols) * 64 + 4
+    -- capacités, une par ligne : nom, détail, état (détail au survol s'il est coupé)
+    local rows = d.caps.list
+    local h = 40 + #rows * 24 + 10
+    panel(x, cy, x + w, cy + h)
+    X.cw = x + w
+    panelTitle('Capacités · découverte J0', x + 14, cy + 12)
+    local ry = cy + 38
+    local nameW = math.min(230, (w - 28) * 0.38)
+    for i, entry in ipairs(rows) do
+      X.ui.setCursor(vec(1, X.ox + x + 14, X.oy + ry))
+      X.ui.invisibleButton('###cap_' .. i, vec(3, w - 28, 22))
+      tip(entry.detail ~= '' and entry.detail or nil)
+      text('text', 12, fitted('text', 12, L.t(entry.label), nameW - 8), x + 14, ry + 3, c.light)
+      local st = up(L.t(CAP_WORDS[entry.status] or entry.status))
+      local sw = measure('section', 11, st)
+      text('mono', 10.5, fitted('mono', 10.5, L.t(entry.detail or ''), w - 28 - nameW - sw - 20), x + 14 + nameW, ry + 4, c.grey)
+      text('section', 11, st, x + w - 14 - sw, ry + 4, colors[entry.status] or c.grey)
+      rect(x + 14, ry + 23, x + w - 14, ry + 24, c.rowLine)
+      ry = ry + 24
+    end
+    cy = cy + h + 8
+  else
+    cy = cy + messageBar(L.t('Capacités : sondage en attente.'), x, cy, w, 'info') + 8
+  end
+  -- actions (mêmes libellés que les contrôles ImGui)
+  local bx = x
+  local actions = { { 'Copier le rapport J0', function() X.intents.copyReport = true end, 'primary',
+    'Le rapport J0 se colle tel quel dans la conversation de développement. À faire de préférence depuis l\'écran de setup, '
+      .. 'voiture aux stands.' },
+    { 'Relancer la découverte', function() X.intents.rediscover = true end },
+    { 'Enregistrer une copie du setup actuel', function() X.intents.saveCopy = true end, nil,
+      'Test d\'écriture : un nouveau fichier, copie exacte du setup actuel, sans rien modifier ni écraser.' } }
+  for _, a in ipairs(actions) do
+    local vis = up(L.t(a[1]))
+    local bw = measure('button', 13, vis) + 34
+    if bx + bw > x + w then
+      bx = x
+      cy = cy + 36
+    end
+    if button(a[1], bx, cy, bw, 30, a[3], 13) then a[2]() end
+    tip(a[4])
+    bx = bx + bw + 8
+  end
+  cy = cy + 40
+  local test = app.writeTest
+  local ts = test and (test.ok and (L.t('Test d\'écriture réussi : ') .. tostring(test.path))
+    or (L.t('Test d\'écriture en échec : ') .. L.t(tostring(test.reason)))) or L.t('Écriture non testée.')
+  dot(x + 4, cy + 7, 3.5, test and (test.ok and c.go or c.danger) or c.dim)
+  cy = cy + textBox('text', 11.5, ts, x + 14, cy, w - 14, test and (test.ok and c.light or c.badInk) or c.grey) + 6
+  local theme = L.t('Thème de l\'interface : ' .. tostring(X.U.skinStatus or 'non évalué')
+    .. (X.S.fontDir and ' ; polices de l\'app' or ' ; polices absentes : Segoe UI'))
+  cy = cy + textBox('text', 11.5, theme, x, cy, w, c.grey) + 4
+  cy = cy + textBox('mono', 10.5, Config.appName .. ' ' .. Config.version .. ' — ' .. L.t('jalon') .. ' ' .. Config.milestone, x, cy,
+    w, c.grey) + 8
+  return cy - y
+end
+
+-- ---------------------------------------------------------------------------
+-- Onglet AIDE (planche « le principe »)
+-- ---------------------------------------------------------------------------
+
+local HELP_STEPS = {
+  { 'Au stand', 'Départ', 'Votre setup actuel, celui par défaut de la voiture, ou votre référence validée sur ce circuit. Le choix '
+    .. 'active SetupLab.' },
+  { 'En piste', 'Rouler', 'Après le minimum de tours propres et de minutes, SetupLab a ce qu\'il faut. Il continue d\'analyser : la '
+    .. 'version est prête au retour au stand.' },
+  { 'Au stand', 'Essayer', '« Essayer vN » met la version dans la voiture, en un clic. Roulez avec : rien n\'est gardé avant '
+    .. '« Valider ».' },
+  { 'Au stand', 'Valider', '« Valider vN » la garde ; refusez un réglage précis ligne par ligne. Elle devient votre référence : '
+    .. 'SetupLab repart d\'elle.' },
+}
+local HELP_MORE = {
+  { 'Course', 'Après un setup de qualif SetupLab (au moins une v1), monté dans la voiture. Saisissez seulement le nombre de tours : '
+    .. 'carburant, usure, relais et trafic suivent.' },
+  { 'Overlay en jeu', '« SetupLab Overlay » (barre d\'apps CSP) : en roulant, mieux ou moins bien que le setup d\'avant sur vos '
+    .. 'tours, et les réglages qui ont changé.' },
+  { 'Fichiers', 'SetupLab_Qualif_v1.ini, _Course_Pluie_v3.ini… Essais et versions non gardées partent à la Corbeille. Vos '
+    .. 'fichiers ne sont jamais touchés.' },
+}
+
+local function helpPage(x, y, w)
+  local c = X.c
+  local wide = w >= K.uiDashWide
+  local cy = y
+  -- le principe
+  local introW = wide and (w - 12 - 76 - 14 - 150 - 14 - 18) or (w - 28)
+  local p1 = L.t('SetupLab calcule un setup pour la voiture et le circuit, puis l\'affine avec vos tours : il apprend votre '
+    .. 'pilotage et propose des versions successives (v1, v2, v3…).')
+  local p2 = L.t('Rien n\'est enregistré sans votre accord. Le setup de la voiture ne change que sur votre confirmation, au stand.')
+  local th = textBox('text', 13, p1, 0, 0, introW, c.light, true) + 6 + textBox('text', 13, p2, 0, 0, introW, c.soft, true)
+  local h = wide and math.max(100, th + 24) or (76 + 12 + th + 24)
+  panel(x, cy, x + w, cy + h)
+  Util.call(X.ui.drawImage, 'icon.png', vec(1, X.ox + x + 12, X.oy + cy + 12), vec(2, X.ox + x + 12 + 76, X.oy + cy + 12 + 76))
+  local tx = x + 12 + 76 + 14
+  local ty = wide and (cy + (h - 36) / 2) or (cy + 30)
+  local lw = text('display', 34, up(L.t('Le')) .. ' ', tx, ty, c.light)
+  text('display', 34, up(L.t('principe')), tx + lw, ty, c.blue)
+  local px = wide and (tx + 150 + 14) or (x + 14)
+  local py = wide and (cy + 12) or (cy + 12 + 76 + 12)
+  if wide then rect(px, cy + 12, px + 1, cy + h - 12, c.line) end
+  local qx = wide and (px + 18) or px
+  local hh = textBox('text', 13, p1, qx, py, introW, c.light)
+  textBox('text', 13, p2, qx, py + hh + 6, introW, c.soft)
+  cy = cy + h + 8
+  -- les 4 étapes
+  local cols = wide and 4 or 2
+  local sw = (w - 6 * (cols - 1)) / cols
+  local stepH = 0
+  for _, s in ipairs(HELP_STEPS) do stepH = math.max(stepH, 74 + textBox('text', 12, L.t(s[3]), 0, 0, sw - 26, c.soft, true)) end
+  for i, s in ipairs(HELP_STEPS) do
+    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    local sx, sy = x + col * (sw + 6), cy + row * (stepH + 6)
+    panel(sx, sy, sx + sw, sy + stepH, i == 4 and c.helpLast or c.panel)
+    text('display', 44, tostring(i), sx + 13, sy + 6, c.blue)
+    local ls = up(L.t(s[1]))
+    lab(s[1], sx + sw - 13 - measure('label', 11, ls), sy + 30, c.blueSoft)
+    text('button', 20, up(L.t(s[2])), sx + 13, sy + 48, c.light)
+    textBox('text', 12, L.t(s[3]), sx + 13, sy + 72, sw - 26, c.soft)
+  end
+  cy = cy + math.ceil(#HELP_STEPS / cols) * (stepH + 6) + 2
+  -- course, overlay, fichiers
+  local cols2 = wide and 3 or 1
+  local mw = (w - 6 * (cols2 - 1)) / cols2
+  local moreH = 0
+  for _, s in ipairs(HELP_MORE) do moreH = math.max(moreH, 40 + textBox('text', 12, L.t(s[2]), 0, 0, mw - 26, c.soft, true)) end
+  for i, s in ipairs(HELP_MORE) do
+    local col, row = (i - 1) % cols2, math.floor((i - 1) / cols2)
+    local mx, my = x + col * (mw + 6), cy + row * (moreH + 6)
+    panel(mx, my, mx + mw, my + moreH)
+    rect(mx + 13, my + 14, mx + 17, my + 28, c.blue)
+    text('section', 14, up(L.t(s[1])), mx + 24, my + 13, c.light)
+    textBox('text', 12, L.t(s[2]), mx + 13, my + 36, mw - 26, c.soft)
+  end
+  cy = cy + math.ceil(#HELP_MORE / cols2) * (moreH + 6) + 2
+  -- mise à jour en jeu (une ligne), notice
+  local up2 = L.t('Une fois par lancement d\'AC, SetupLab regarde sur GitHub si une version plus récente est publiée (réglage dans '
+    .. 'l\'onglet RÉGLAGES). Si oui, « Mettre à jour », en haut de la fenêtre, l\'installe en un clic (au stand, voiture '
+    .. 'arrêtée), après avoir vérifié l\'archive ; CSP recharge alors SetupLab. Aucune donnée de jeu ni personnelle n\'est '
+    .. 'envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.')
+  cy = cy + messageBar(up2, x, cy, w, 'info') + 8
+  local nh = 74
+  panel(x, cy, x + w, cy + nh)
+  lab('Notice complète', x + 16, cy + 12, c.light)
+  text('mono', 11, fitted('mono', 11, 'apps/lua/SetupLab/docs/notice.fr.html · notice.html', w - 32), x + 16, cy + 30, c.soft)
+  local ls = up(L.t('Problèmes et idées')) .. ' · github.com/VincentChevalier44/ACSetupLab/issues'
+  text('section', 11.5, fitted('section', 11.5, ls, w - 32), x + 16, cy + 50, c.blueSoft)
+  return cy + nh + 8 - y
+end
+
+-- ---------------------------------------------------------------------------
+-- Fenêtre « SetupLab Overlay » (planches « en piste — mieux / moins bien », « en veille »)
+-- ---------------------------------------------------------------------------
+
+local OVERLAY_ROWS = 4
+
+-- veille, ou aucun setup de SetupLab en piste : logo, titre, phrase
+local function overlayIdle(W, H, title, s)
+  local c = X.c
+  X.S.panel(X.ox, X.oy, X.ox + W, X.oy + H, c.overlayBg, 12)
+  rect(0, 0, W - 12, 2, c.dim)
+  local logo = math.min(40, H - 24)
+  Util.call(X.ui.drawImage, 'icon.png', vec(1, X.ox + 14, X.oy + (H - logo) / 2), vec(2, X.ox + 14 + logo, X.oy + (H + logo) / 2),
+    c.logoDim)
+  local tx = 14 + logo + 12
+  local tw = text('display', 18, up(L.t(title)), tx, 14, c.light)
+  dot(tx + tw + 10, 23, 3.5, c.dim)
+  textBox('text', 12, L.t(s), tx, 40, W - tx - 14, c.soft)
+end
+
+function M.overlay(host, app, U)
+  local ui = host.ui
+  X.host, X.ui, X.S, X.c, X.app, X.intents, X.U = host, ui, ui.skin, ui.skin.colors, app, {}, U
+  if V == nil or V.host ~= host then
+    V = { host = host }
+    for i = 1, 4 do V[i] = host.vec2(0, 0) end
+  end
+  local okS, size = Util.call(ui.windowSize)
+  if not (okS and size and Util.isFinite(size.x) and Util.isFinite(size.y)) then return false end
+  X.ox, X.oy = 0, 0
+  local W, H = size.x, size.y
+  local c = X.c
+  if app.inert then
+    overlayIdle(W, H, 'SetupLab en veille', tostring(app.inert))
+    return true
+  end
+  local r = app.refine
+  local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
+  local e, pending = U.overlaySetup(app, kind)
+  if e == nil then
+    if not app.auto then
+      overlayIdle(W, H, 'SetupLab en veille', 'Cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de setup.')
+    else
+      overlayIdle(W, H, 'SetupLab actif', 'Chaque setup proposé s\'annonce ici ; l\'essayer au stand, trier ses réglages, puis le '
+        .. 'valider.')
+    end
+    return true
+  end
+  -- verdict sur vos tours (le setup entier)
+  local mine, before = U.versionLaps(app, e), U.realLaps(app, e.originFamily, e.bucket)
+  local tBefore, tMine = U.realTime(before, kind), U.realTime(mine, kind)
+  local gain = (tMine and tBefore) and (tBefore - tMine) or nil
+  local edge = gain and (gain > 0.0005 and c.go or (gain < -0.0005 and c.danger or c.dim)) or c.blue
+  X.S.panel(0, 0, W, H, c.overlayBg, 12)
+  rect(0, 0, W - 12, 2, edge)
+  local px = 14
+  local name = e.version and ('v' .. e.version) or tostring(e.file)
+  local sw = text('display', 14, 'SETUP', px, 10, c.light)
+  sw = sw + text('display', 14, 'LAB', px + sw, 10, c.blue)
+  local where = L.t(kind == 'race' and 'Course' or 'Qualif') .. ' · ' .. L.t(e.bucket == 'pluie' and 'pluie' or 'sec')
+  local vs = L.f('%s en piste', name)
+  local vw = text('section', 12, up(vs), px + sw + 12, 11, c.blueSoft)
+  text('text', 11.5, where, px + sw + 12 + vw + 10, 11, c.grey)
+  local cy = 32
+  -- à droite : meilleur (ou moyenne) et avant
+  local rightW = 118
+  if tMine then
+    lab(kind == 'race' and 'Moyenne' or 'Meilleur', W - 14 - rightW, cy)
+    local ms = X.U.lapTime(tMine)
+    text('display', 18, ms, W - 14 - measure('display', 18, ms), cy - 2, kind == 'race' and c.light or c.best)
+  end
+  if tBefore then
+    lab('Avant', W - 14 - rightW, cy + 22)
+    local bs = X.U.lapTime(tBefore)
+    text('mono', 11, bs, W - 14 - measure('mono', 11, bs), cy + 22, c.grey)
+  end
+  local verdictW = W - 28 - rightW - 10
+  if gain and math.abs(gain) >= 0.0005 then
+    local s = up(L.t(gain > 0 and 'Mieux de' or 'Moins bien de')) .. ' ' .. Util.fmt(math.abs(gain), 3) .. ' s'
+    text('display', W < 360 and 20 or 26, fitted('display', W < 360 and 20 or 26, s, verdictW), px, cy, gain > 0 and c.go or c.danger)
+  elseif gain then
+    text('display', 20, up(L.t('Identique au setup d\'avant')), px, cy + 2, c.grey)
+  else
+    textBox('text', 12, L.f('Un tour propre avec %s : verdict sur vos temps.', name), px, cy + 2, verdictW, c.soft)
+  end
+  cy = cy + 44
+  -- dernier tour
+  local last = app.recorder and app.recorder.laps and app.recorder.laps.last
+  if last and Util.isFinite(last.time) and last.time > 0 then
+    local s = L.t('Dernier tour') .. ' ' .. X.U.lapTime(last.time)
+    local color = c.soft
+    if not last.valid then
+      s = s .. ' · ' .. L.t('non compté') .. ' (' .. L.t(tostring(last.reason or 'non valide')) .. ')'
+      color = c.warn
+    elseif tMine and last.family == e.family then
+      local delta = last.time - tMine
+      s = s .. ' (' .. (math.abs(delta) < 0.0005 and L.t('votre meilleur') or (delta >= 0 and '+' or '-') .. Util.fmt(math.abs(delta), 3))
+        .. ')'
+    end
+    text('text', 11.5, fitted('text', 11.5, s, W - 28), px, cy, color)
+    cy = cy + 18
+  end
+  if e.status == 'écartée' then
+    text('text', 11.5, fitted('text', 11.5, L.f('%s non gardée : charger la référence au stand.', name), W - 28), px, cy, c.warn)
+    cy = cy + 18
+  end
+  -- réglages changés (gain prévu par le modèle)
+  local list = e.fromMemory and {} or U.overlayChanges(e)
+  local roomRows = math.max(0, math.floor((H - cy - 8 - (pending and pending ~= e and 34 or 0) - 16) / 19))
+  local rows = math.min(#list, OVERLAY_ROWS, roomRows)
+  if rows > 0 then rect(px, cy, W - 14, cy + 1, c.line) end
+  cy = cy + 4
+  for i = 1, rows do
+    local ch = list[i]
+    local g = ch.contribution or 0
+    local gs = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3):gsub('^0', '')
+    local gc = ch.atBound and c.warn or (g >= 0 and c.go or c.danger)
+    local gw = measure('mono', 11, gs)
+    local vs2 = fromTo(X.U.physicalText(ch.var.kind, ch.from), X.U.physicalText(ch.var.kind, ch.to))
+    local v2w = measure('mono', 10.5, vs2)
+    local nameW = W - 28 - gw - v2w - 20
+    text('text', 12, fitted('text', 12, L.t(ch.var.label) .. (ch.atBound and ' ?' or ''), nameW), px, cy + 1, c.light)
+    text('mono', 10.5, vs2, W - 14 - gw - 12 - v2w, cy + 2, c.grey)
+    text('mono', 11, gs, W - 14 - gw, cy + 1, gc)
+    cy = cy + 19
+  end
+  if #list > rows and rows > 0 then
+    local rest = 0
+    for i = rows + 1, #list do rest = rest + (list[i].contribution or 0) end
+    local n = #list - rows
+    local s = L.f(n > 1 and '+ %s autres réglages' or '+ %s autre réglage', n)
+    text('text', 11.5, s, px, cy + 1, c.grey)
+    local rs = (rest >= 0 and '-' or '+') .. Util.fmt(math.abs(rest), 3):gsub('^0', '')
+    text('mono', 11, rs, W - 14 - measure('mono', 11, rs), cy + 1, rest >= 0 and c.go or c.danger)
+    cy = cy + 19
+  end
+  -- version en préparation, ou prête
+  if pending and pending ~= e then
+    rect(px, cy + 2, W - 14, cy + 3, c.line)
+    local g = pending.gain or 0
+    local gs = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3) .. ' s'
+    if pending.ready == false then
+      local f = U.realLaps(app, pending.originFamily, pending.bucket)
+      local n = f and f.count or 0
+      local s = L.f('v%s en préparation', pending.version) .. ' · ' .. gs .. ' ' .. L.t('provisoire')
+      text('section', 12, fitted('section', 12, up(s), W - 28), px, cy + 8, c.warn)
+      text('text', 11, fitted('text', 11, L.f(n > 1 and '%s tours analysés' or '%s tour analysé', n) .. ' · '
+        .. L.t('prête à votre retour au stand'), W - 28), px, cy + 24, c.grey)
+    else
+      local s = L.f('v%s prête', pending.version) .. ' · ' .. gs .. ' · ' .. L.t('au stand : Essayer, puis Valider')
+      text('section', 12, fitted('section', 12, up(s), W - 28), px, cy + 8, c.blueSoft)
+    end
+  elseif not e.fromMemory and H - cy > 20 then
+    text('text', 10.5, fitted('text', 10.5, L.t('Par réglage : gain prévu par le modèle · en haut : vos tours'), W - 28), px, H - 18,
+      c.grey)
+  end
+  return true
+end
+
+-- ---------------------------------------------------------------------------
+-- Fenêtre « SetupLab Debug » (planche « fenêtre Debug »)
+-- ---------------------------------------------------------------------------
+
+local LEVEL_COLORS = { INFO = 'blueSoft', WARN = 'warn', ERROR = 'danger', DEBUG = 'grey' }
+
+function M.debug(host, app, U)
+  local ui = host.ui
+  X.host, X.ui, X.S, X.c, X.app, X.intents, X.U = host, ui, ui.skin, ui.skin.colors, app, {}, U
+  if V == nil or V.host ~= host then
+    V = { host = host }
+    for i = 1, 4 do V[i] = host.vec2(0, 0) end
+  end
+  local okC, origin = Util.call(ui.getCursor)
+  local okS, size = Util.call(ui.windowSize)
+  if not (okC and origin and okS and size and Util.isFinite(size.x)) then return false end
+  X.ox, X.oy = origin.x, origin.y
+  local W = size.x - 2 * origin.x
+  local c = X.c
+  rect(-origin.x, -origin.y, size.x - origin.x, size.y - origin.y, c.bg)
+  local s, p = app.scheduler.stats, app.perf
+  local sw = text('display', 18, 'SETUP', 0, 0, c.light)
+  sw = sw + text('display', 18, 'LAB', sw, 0, c.blue)
+  text('section', 13, up(L.t('Debug')), sw + 10, 4, c.grey)
+  local offset = app.utcOffset and app.utcOffset() or nil
+  local info = L.t('horloge') .. ' ' .. (app.clock and tostring(app.clockSource or 'QueryPerformanceCounter')
+    or (L.t('repli quota') .. ' (' .. tostring(app.clockReason) .. ')')) .. ' · ' .. L.t('boucle') .. ' '
+    .. tostring(app.updateSource or L.t('pas encore appelée')) .. ' · ' .. (offset and (L.t('noms de fichiers') .. ' UTC'
+    .. (offset >= 0 and '+' or '-') .. Util.fmt(math.abs(offset) / 3600, 2) .. ' h') or (L.t('noms de fichiers') .. ' UTC'))
+  local cy = 26 + textBox('mono', 10.5, info, 0, 26, W, c.grey) + 8
+  -- trois panneaux de chiffres
+  local cols = W >= 560 and 3 or 1
+  local pw = (W - 8 * (cols - 1)) / cols
+  local panels = {
+    { 'Coût de l\'app par frame', L.f('garde %s ms', app.settings.frameGuardMs or 4), {
+      { 'Dernier', Util.fmt(p.lastMs, 2) .. ' ms' }, { 'Moyen', Util.fmt(p.avgMs, 2) .. ' ms' },
+      { 'Max', Util.fmt(p.maxMs, 2) .. ' ms' } } },
+    { 'Ordonnanceur', nil, {
+      { 'Tranches', tostring(s.slices) }, { 'Dernière · max', Util.fmt(s.lastSliceMs, 2) .. ' · ' .. Util.fmt(s.maxSliceMs, 2) .. ' ms' },
+      { L.f('Au-delà de %s ms', K.sliceAlertMs), tostring(p.slowSlices) }, { 'Unité max', Util.fmt(s.maxUnitMs, 2) .. ' ms' } } },
+    { 'Tâches · garde', nil, {
+      { 'Terminées', tostring(s.completed) }, { 'En échec · annulées', s.failed .. ' · ' .. s.cancelled },
+      { 'Tranches sautées', tostring(p.guardSkips) },
+      { L.f('Réduites (< %s i/s) · erreurs', K.fpsTarget), p.slowFrames .. ' · ' .. p.errors } } },
+  }
+  local ph = 40 + 4 * 20 + 6
+  for i, it in ipairs(panels) do
+    local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+    local px, py = col * (pw + 8), cy + row * (ph + 8)
+    panel(px, py, px + pw, py + ph)
+    lab(it[1], px + 12, py + 10)
+    if it[2] then
+      local gs = up(L.t(it[2]))
+      lab(it[2], px + pw - 12 - measure('label', 11, gs), py + 10)
+    end
+    local ry = py + 32
+    for _, kv in ipairs(it[3]) do
+      text('text', 12, fitted('text', 12, L.t(kv[1]), pw - 120), px + 12, ry, c.soft)
+      text('mono', 11.5, kv[2], px + pw - 12 - measure('mono', 11.5, kv[2]), ry + 1, c.light)
+      ry = ry + 20
+    end
+  end
+  cy = cy + math.ceil(#panels / cols) * (ph + 8)
+  -- journal : du plus récent au plus ancien
+  local js = L.f('%s/%s lignes · %s répétitions filtrées', app.log.count, app.log.capacity, app.log.dropped)
+  lab('Journal', 0, cy + 2)
+  text('mono', 10.5, js, W - measure('mono', 10.5, js), cy + 2, c.grey)
+  cy = cy + 20
+  local entries = Util.logEntries(app.log)
+  for i = #entries, 1, -1 do
+    local e = entries[i]
+    local ts = Util.fmt(e.t, 1) .. ' s'
+    text('mono', 10.5, ts, 0, cy + 1, c.grey)
+    local lx = 70
+    lx = lx + text('section', 10.5, e.level, lx, cy + 1, c[LEVEL_COLORS[e.level] or 'grey']) + 10
+    lx = lx + text('mono', 10.5, up(tostring(e.code)), lx, cy + 1, c.soft) + 10
+    cy = cy + math.max(16, textBox('text', 11.5, L.t(e.text), lx, cy, W - lx, c.light)) + 4
+  end
+  ui.setCursor(vec(1, X.ox, X.oy + cy))
+  ui.dummy(vec(3, W, 1))
+  return true
+end
+
+local PAGES = {
+  ['Tour rapide'] = function(x, y, w) return kindPage('quali', x, y, w) end,
+  ['Course'] = racePage, ['Mémoire'] = memoryPage, ['Mesure'] = measurePage, ['Réglages'] = settingsPage,
+  ['Capacités'] = diagPage, ['Aide'] = helpPage,
+}
+
+-- host, app, intents : comme M.main de src/ui.lua ; U : src/ui.lua (modèles, aides) ; tabs : onglets { libellé###id, … }
+-- (libellés et identifiants)
 function M.main(host, app, intents, U, tabs)
   local ui = host.ui
   X.host, X.ui, X.S, X.c, X.app, X.intents, X.U = host, ui, ui.skin, ui.skin.colors, app, intents, U
@@ -1824,24 +2731,9 @@ function M.main(host, app, intents, U, tabs)
     local w = (okW and Util.isFinite(avail) and avail or (W - 2 * margin)) - 4
     local y = updateRow(0, 0, w)
     local tab = app.ui.tab
-    if tab == 'Tour rapide' or tab == 'Course' then
-      y = y + (tab == 'Course' and racePage(0, y, w) or kindPage('quali', 0, y, w))
-      ui.setCursor(vec(1, X.ox, X.oy + y))
-      ui.dummy(vec(3, w, 1))
-    else
-      if y > 0 then
-        ui.setCursor(vec(1, X.ox, X.oy + y))
-        ui.dummy(vec(3, w, 1))
-      end
-      if app.ui.message then
-        local mh = messageBar(L.t(app.ui.message), 0, y, w, 'info')
-        ui.setCursor(vec(1, X.ox, X.oy + y + mh + 8))
-        ui.dummy(vec(3, w, 1))
-      end
-      for _, t in ipairs(tabs) do
-        if select(2, Skin.split(t[1])) == tab then t[2]() end
-      end
-    end
+    y = y + (PAGES[tab] or PAGES['Tour rapide'])(0, y, w)
+    ui.setCursor(vec(1, X.ox, X.oy + y))
+    ui.dummy(vec(3, w, 1))
   end
   if ui.childWindow then
     ui.childWindow('setuplab_body', body, false, 0, content)
