@@ -45,6 +45,8 @@ EN = {
     'taille illisible': 'unreadable size',
     'sans réponse': 'no response',
     'EN VEILLE': 'STANDBY',
+    'voiture sortie du stand pendant le téléchargement : réessayez au stand, voiture arrêtée':
+        'car left the pits during the download: try again in the pits, car stopped',
     'Mise à jour : au stand, voiture arrêtée (CSP recharge SetupLab juste après).':
         'Update: in the pits, car stopped (CSP reloads SetupLab right after).',
     'Réessayer': 'Try again',

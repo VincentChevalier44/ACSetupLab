@@ -173,6 +173,7 @@ M.K = {
   incidentBrake = 0.1,        -- pédale de frein au-delà : freinage
   incidentLockRatio = 0.5,    -- taux de glissement d'une roue au freinage, en valeur absolue : roue bloquée
   incidentLockTime = 0.3,     -- s de blocage continu
+  incidentMinLoad = 0.3,      -- part de la charge statique d'une roue : en dessous, roue délestée (pas un blocage)
   incidentSlideAngle = 20,    -- ° de dérive moyenne des roues arrière : grosse glissade
   incidentSlideTime = 0.5,    -- s de glissade continue
   incidentDamage = 1.0,       -- hausse des dégâts cumulés (km/h de choc) : choc

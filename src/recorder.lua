@@ -339,10 +339,15 @@ local function incident(rec, car, now)
     local wheels = get(car, 'wheels')
     local braking = (num(car, 'brake') or 0) > K.incidentBrake and bool(car, 'absInAction') ~= true
     local rear, rearN = 0, 0
+    -- roue délestée (vibreur, roue intérieure levée) : un fort glissement n'y est pas un blocage
+    local mass = num(car, 'mass')
+    local minLoad = mass and mass * 9.81 / 4 * K.incidentMinLoad or nil
     for w = 1, 4 do
       local wheel = get(wheels, w - 1)
       local ratio = num(wheel, 'slipRatio')
-      if braking and ratio and abs(ratio) > K.incidentLockRatio then locked = true end
+      local load = num(wheel, 'load')
+      local loaded = not (minLoad and load and load < minLoad)
+      if braking and loaded and ratio and abs(ratio) > K.incidentLockRatio then locked = true end
       local angle = w >= 3 and num(wheel, 'slipAngle') or nil
       if angle then rear, rearN = rear + abs(angle), rearN + 1 end
     end

@@ -860,7 +860,7 @@ local function refreshContext()
     app.loaded, app.pins, app.start, app.lastLoadKind = {}, { quali = {}, race = {} }, {}, nil
     app.refines, app.manualKind = {}, nil
     app.loadCheck, app.loadTest, app.loadVerified = nil, nil, nil
-    app.pitStrategy, app.qualiScan, app.inCar = nil, nil, nil
+    app.pitStrategy, app.qualiScan, app.inCar, app.lastDiscovery = nil, nil, nil, nil
     startDiscovery()
   elseif app.discoveryState == 'idle' then
     startDiscovery()
@@ -2147,6 +2147,7 @@ local function followRename(old, new, path)
     for _, e in ipairs(r.history) do
       move(e)
       move(e.replaced)
+      move(e.before)
     end
   end
   for _, m in pairs(app.memory) do
@@ -2210,10 +2211,7 @@ end
 
 -- À chaque image : un rangement au plus, voiture arrêtée, sans chargement en cours.
 local function fileOpsTick()
-  if #app.fileOps == 0 or app.inert or app.loadCheck or app.perf.skipNext then return end
-  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
-  local speed = okC and Util.get(car, 'speedMs') or nil
-  if not (Util.isFinite(speed) and math.abs(speed) * 3.6 <= K.loadMaxSpeedKmh) then return end
+  if #app.fileOps == 0 or app.inert or app.loadCheck or app.perf.skipNext or not carStopped() then return end
   runFileOp(table.remove(app.fileOps, 1))
 end
 app.fileOpsTick = fileOpsTick
@@ -2295,7 +2293,7 @@ local function setLoadTarget(kind, rec)
     Util.schedulerCancel(app.scheduler, 'validation_' .. kind)
     app.validations[kind] = nil
   end
-  local d = app.discovery
+  local d = app.discovery or app.lastDiscovery
   app.saved[kind] = { path = rec.path, name = rec.file, text = rec.text, signature = rec.signature, hash = rec.hash,
     bucket = rec.bucket, origin = rec.origin, carId = rec.carId or (d and d.car and d.car.id) }
   app.proposals[kind], app.proposalOrigins[kind], app.proposalBuckets[kind] = rec.signature, rec.origin, rec.bucket
@@ -2445,8 +2443,10 @@ local function detectPins(d)
     if d.space.members[sp.name] and not K.signatureIgnored[sp.name] then
       local want = loaded.values[sp.name]
       local pin = pins[sp.name]
-      if pin and not pin.refused and type(want) == 'number' and math.abs(sp.value - want) <= K.setupValueTol then
-        -- retouche revenue à la main à la valeur du setup chargé : libérée
+      if pin and not pin.refused and type(want) == 'number' and type(pin.from) == 'number'
+          and math.abs(sp.value - pin.from) <= K.setupValueTol and math.abs(want - pin.from) <= K.setupValueTol then
+        -- retouche revenue à la main à sa valeur d'origine, celle du setup chargé : libérée (une version calculée qui garde
+        -- la retouche a la valeur retouchée : elle reste gardée)
         pins[sp.name] = nil
         log('INFO', 'pins', 'Retouche libérée (' .. kind .. ') : ' .. sp.name .. ' revenu à ' .. tostring(want))
       elseif pin then
@@ -2575,6 +2575,7 @@ local function loadTick()
         if entry.version and saved and entry.signature == saved.signature then
           r.driven = entry.version
           entry.trialInCar = nil
+          entry.before = entry.before or check.backupFile
           local trial = entry.trial
           if trial and trial.path == check.path and app.written[trial.file] == trial.hash then
             entry.before = check.backupFile or entry.before
@@ -3348,7 +3349,16 @@ local function refineValidate(r, e)
   -- 1.5.3 (décisions de Vincent du 02/11/2026) : « Valider » met toujours la version gardée dans la voiture (après l'essai
   -- avec des effets refusés, ou validée sans essai) : l'affinage repart d'elle et vos tours la jugent
   local okL, liveText = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
-  local loadIt = not (okL and type(liveText) == 'string' and sameSetup(setupValues(liveText), setupValues(e.text)))
+  local live = okL and type(liveText) == 'string' and setupValues(liveText) or nil
+  local keptValues = setupValues(e.text)
+  local same = live ~= nil and sameSetup(live, keptValues)
+  local loaded = app.loaded[r.kind] and app.loaded[r.kind].values
+  if same and loaded and loaded.FRONT_BIAS ~= nil and live.FRONT_BIAS == loaded.FRONT_BIAS
+      and keptValues.FRONT_BIAS ~= nil and keptValues.FRONT_BIAS ~= loaded.FRONT_BIAS then
+    -- répartition de freinage refusée dans « Modifier… » : la voiture a encore celle de l'essai
+    same = false
+  end
+  local loadIt = not same
   app.ui.message = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence (' .. memoryTitle(entry)
     .. ') gardé en mémoire pour ce circuit. ' .. (r.driven == e.version and 'Elle est en piste : l\'affinage repart d\'elle.'
       or 'Au stand, menu de setup ouvert : « Charger » pour l\'essayer ; l\'affinage repartira d\'elle.')
@@ -3413,8 +3423,14 @@ local function refineReject(r, e)
   -- référence, sinon la copie de sauvegarde faite avant l'essai)
   if r.driven == e.version then
     local before = e.before
-    if before and app.written[before.file] == nil then app.written[before.file] = before.hash end
-    if before and app.written[before.file] == before.hash then setLoadTarget(r.kind, before) end
+    if before then
+      local okB, text = Util.call(Util.get(host.io, 'load'), before.path)
+      if not (okB and type(text) == 'string' and Util.hashString(text) == before.hash) then before = nil end
+    end
+    if before then
+      app.written[before.file] = before.hash
+      setLoadTarget(r.kind, before)
+    end
     if app.saved[r.kind] then requestLoad(r.kind) end
   end
 end
@@ -3905,7 +3921,8 @@ local function handleIntents(intents)
     local okT, tempDir = Util.call(Util.get(host.ac, 'getFolder'), Util.get(Util.get(host.ac, 'FolderID'), 'AppDataTemp'))
     local version = app.updater.info and app.updater.info.version
     log('INFO', 'update', 'Mise à jour vers ' .. tostring(version) .. ' : téléchargement')
-    Updater.apply(app.updater, host, { app = okA and appDir or nil, temp = okT and tempDir or nil }, Config.version,
+    Updater.apply(app.updater, host, { app = okA and appDir or nil, temp = okT and tempDir or nil,
+      canWrite = function() return carAtPit() and carStopped() end }, Config.version,
       function(ok, why, mixed)
         if ok then
           app.ui.message = 'Mise à jour ' .. tostring(version) .. ' installée : CSP recharge SetupLab, qui revient en veille.'

@@ -290,6 +290,33 @@ tests['UP07 dossier de sauvegarde créé ; fichier identique jamais réécrit ; 
   T.contains(app3.ui.message, 'au stand')
 end
 
+tests['UP08 échec avant toute écriture (fichier utilisé, voiture sortie du stand) : réessayable, aucune écriture'] = function()
+  local h, app = boot()
+  local body, sha = newZip(h)
+  available(h, app, body, sha)
+  h.inUse[APPDIR .. '/src/util.lua'] = true
+  app.handleIntents({ updateApply = true })
+  h.webCalls[2].callback(nil, { status = 200, body = body, headers = {} })
+  T.eq(app.updater.state, 'failed')
+  T.no(app.updater.wrote, 'rien écrit dans le dossier de l\'app')
+  -- fichier libéré : nouvel essai
+  h.inUse[APPDIR .. '/src/util.lua'] = nil
+  app.handleIntents({ updateApply = true })
+  T.eq(#h.webCalls, 3, 'nouveau téléchargement')
+  -- voiture sortie du stand pendant ce téléchargement : rien n'est écrit, toujours réessayable
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = false, false, 40
+  h.webCalls[3].callback(nil, { status = 200, body = body, headers = {} })
+  T.eq(app.updater.state, 'failed')
+  T.contains(app.updater.why, 'sortie du stand')
+  T.eq(h.written[APPDIR .. '/SetupLab.lua'], '-- ancienne', 'rien remplacé')
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  app.handleIntents({ updateApply = true })
+  T.eq(#h.webCalls, 4)
+  h.webCalls[4].callback(nil, { status = 200, body = body, headers = {} })
+  T.eq(app.updater.state, 'done', tostring(app.updater.why))
+  T.eq(h.written[APPDIR .. '/SetupLab.lua'], '-- nouvelle')
+end
+
 tests['UP06 réglage décoché, ou réseau absent : aucune requête'] = function()
   local h, app = boot({ updateCheck = false })
   frames(h, Config.K.updateCheckFrame + 60)

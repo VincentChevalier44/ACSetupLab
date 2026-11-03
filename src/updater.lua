@@ -207,7 +207,7 @@ end
 -- ne sont pas réécrites) ; copie de sauvegarde de chacun, puis copie des nouveaux, SetupLab.lua en dernier. Un échec
 -- remet les fichiers d'avant (et retire ceux qui n'existaient pas) ; renvoie vrai, ou faux, la raison et vrai si
 -- l'installation est restée mélangée.
-local function replaceChanged(io, staging, appFolder, changed)
+local function replaceChanged(io, staging, appFolder, changed, onFirstWrite)
   table.sort(changed, function(a, b)
     if (a == MAIN) ~= (b == MAIN) then return b == MAIN end
     return a < b
@@ -228,6 +228,7 @@ local function replaceChanged(io, staging, appFolder, changed)
     end
   end
   local touched = {}
+  if #changed > 0 and onFirstWrite then onFirstWrite() end
   for _, rel in ipairs(changed) do
     ensureDirs(io, appFolder, rel)
     touched[#touched + 1] = rel
@@ -333,9 +334,13 @@ function M.apply(u, host, paths, current, onDone)
         local okA, current0 = call(io.load, paths.app .. '/' .. rel)
         if not (okA and current0 == staged) then changed[#changed + 1] = rel end
       end
+      -- la voiture a pu quitter le stand pendant le téléchargement : rien n'est écrit, la mise à jour reste à refaire
+      if paths.canWrite and not paths.canWrite() then
+        finish(false, 'voiture sortie du stand pendant le téléchargement : réessayez au stand, voiture arrêtée')
+        return
+      end
       call(ac.pauseFilesWatching, true)
-      u.wrote = true
-      local okR, whyR, mixed = replaceChanged(io, staging, paths.app, changed)
+      local okR, whyR, mixed = replaceChanged(io, staging, paths.app, changed, function() u.wrote = true end)
       if okR then
         for _, rel in ipairs(stale) do
           if fileExists(io, paths.app .. '/' .. rel) then call(io.recycle, paths.app .. '/' .. rel) end

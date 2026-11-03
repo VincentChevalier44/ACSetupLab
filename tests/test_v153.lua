@@ -420,6 +420,91 @@ tests['FL04 version validée puis « Recommencer » : plus de question « contin
   T.eq(app.perf.errors, 0)
 end
 
+-- Deuxième relecture (nuit du 02 au 03/11/2026) : défauts reproduits par le relecteur, corrigés.
+local function settled(h, app)
+  return waitFor(h, function()
+    return app.loadCheck == nil and app.discoveryState == 'done' and not (app.refine and app.refine.needsDiscovery)
+  end)
+end
+
+tests['FL05 « Recommencer » pendant une découverte : le setup d\'avant revient quand même'] = function()
+  local h, app, r, e = v1Ready()
+  local before = liveValues(app, h)
+  tryLoaded(h, app, r, e)
+  T.ok(settled(h, app))
+  app.handleIntents({ rediscover = true })
+  T.eq(app.discoveryState, 'running')
+  local loads = #h.loadCalls
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'écarter' } })
+  T.eq(#h.loadCalls, loads + 1, 'rechargé pendant la découverte : ' .. tostring(app.ui.message))
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  local same, name = sameValues(liveValues(app, h), before)
+  T.ok(same, 'setup d\'avant revenu, réglage ' .. tostring(name))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL06 répartition de freinage refusée puis « Valider » : la version gardée est rechargée'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  T.ok(settled(h, app))
+  local trialBias = liveValues(app, h).FRONT_BIAS
+  app.handleIntents({ effect = { version = e.version, key = 'brakeBias', keep = false } })
+  local loads = #h.loadCalls
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.eq(e.status, 'validée', tostring(app.ui.message))
+  local keptBias = app.setupValues(e.text).FRONT_BIAS
+  if keptBias ~= trialBias then
+    T.eq(#h.loadCalls, loads + 1, 'version gardée rechargée')
+    T.ok(waitFor(h, function() return app.loadCheck == nil end))
+    T.eq(liveValues(app, h).FRONT_BIAS, keptBias, 'répartition d\'avant revenue')
+  end
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL07 « Valider sans essai » puis « Recommencer » : le setup d\'avant revient'] = function()
+  local h, app, r, e = v1Ready()
+  local before = liveValues(app, h)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.ok(settled(h, app))
+  T.eq(r.driven, e.version, 'validée et dans la voiture')
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'écarter' } })
+  T.ok(waitFor(h, function() return app.loadCheck == nil end))
+  local same, name = sameValues(liveValues(app, h), before)
+  T.ok(same, 'setup d\'avant revenu, réglage ' .. tostring(name))
+  T.eq(app.perf.errors, 0)
+end
+
+tests['FL08 retouche à la main : gardée par la version suivante, et encore après son chargement'] = function()
+  local h, app, r, e = v1Ready()
+  tryLoaded(h, app, r, e)
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.ok(settled(h, app))
+  local sp
+  for _, s in ipairs(h.spinners) do
+    if sp == nil and app.discovery.space.members[s.name] and s.name ~= 'FUEL' then sp = s end
+  end
+  sp.value = sp.value + ((sp.value + (sp.step or 1) <= sp.max) and (sp.step or 1) or -(sp.step or 1))
+  local tweak = sp.value
+  app.handleIntents({ rediscover = true })
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
+  T.ok(app.pins.quali[sp.name], 'retouche gardée')
+  app.handleIntents({ refineChoice = { version = e.version } })
+  r.forceNext = true
+  T.ok(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end), 'v2')
+  local e2
+  for i = #r.history, 1, -1 do
+    if r.history[i].version == 2 then e2 = r.history[i] end
+  end
+  T.ok(e2, 'v2')
+  T.eq(app.setupValues(e2.text)[sp.name], tweak, 'v2 garde la retouche')
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  frames(h, 2)
+  app.handleIntents({ refineJudge = { version = 2, verdict = 'essayer' } })
+  T.ok(settled(h, app))
+  T.ok(app.pins.quali[sp.name], 'retouche toujours gardée après le chargement de v2')
+  T.eq(app.perf.errors, 0)
+end
+
 -- Tranche 5 (décision de Vincent du 02/11/2026) : un setup de SetupLab chargé depuis le menu d'AC devient la référence,
 -- sans retouches.
 tests['PN05 retouche gardée, puis un setup de SetupLab rechargé depuis le menu d\'AC : retouches libérées'] = function()
