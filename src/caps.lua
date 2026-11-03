@@ -108,12 +108,50 @@ function M.makeClock(ffi, preciseClock)
   return nil, why, nil
 end
 
+-- Écart heure locale - heure universelle (s), arrondi au quart d'heure ; absurde : nil.
+local function roundedOffset(diff)
+  if not Util.isFinite(diff) then return nil end
+  local rounded = math.floor(diff / K.utcOffsetStep + 0.5) * K.utcOffsetStep
+  if math.abs(rounded) > K.utcOffsetMax then return nil end
+  return rounded
+end
+
+-- Repli : os.date, passée par la colle (accord de Vincent du 03/11/2026) ; date locale « *t » et universelle « !*t ».
+local function offsetByDate(osDate)
+  if type(osDate) ~= 'function' then return nil end
+  local function epoch(t)
+    return Util.epochFromCivil(t.year, t.month, t.day, t.hour, t.min, t.sec)
+  end
+  local function offset()
+    local okL, l = pcall(osDate, '*t')
+    local okU, u = pcall(osDate, '!*t')
+    if not (okL and okU and type(l) == 'table' and type(u) == 'table') then return nil end
+    local okE, diff = pcall(function() return epoch(l) - epoch(u) end)
+    return okE and roundedOffset(diff) or nil
+  end
+  if offset() == nil then return nil end
+  return offset
+end
+
 -- Décalage de l'heure locale de Windows sur l'heure universelle (s, heure d'été comprise), pour les noms
--- des fichiers enregistrés (os.date interdit, §16.2 ; ac.getTimeZoneOffset est celui du circuit) :
--- GetLocalTime et GetSystemTime de kernel32 lues par FFI, en lecture seule comme l'horloge (A2), écart
--- arrondi au quart d'heure. Renvoie une fonction relue à chaque appel (changement d'heure pendant la
--- séance) qui renvoie le décalage ou nil, ou bien nil et la raison.
-function M.makeUtcOffset(ffi)
+-- des fichiers enregistrés (ac.getTimeZoneOffset, non documentée, est peut-être celui du circuit) :
+-- GetLocalTime et GetSystemTime de kernel32 lues par FFI, en lecture seule comme l'horloge (A2) ; CSP 0.3.1 et
+-- plus les bloque : repli sur os.date, passée par la colle (osDate). Écart arrondi au quart d'heure. Renvoie une
+-- fonction relue à chaque appel (changement d'heure pendant la séance) qui renvoie le décalage ou nil, et sa source
+-- (« GetLocalTime » ou « os.date ») ; ou bien nil et la raison.
+local offsetByFfi
+function M.makeUtcOffset(ffi, osDate)
+  local offset, why = offsetByFfi(ffi)
+  if offset then return offset, nil, 'GetLocalTime' end
+  if osDate ~= nil then
+    local byDate = offsetByDate(osDate)
+    if byDate then return byDate, nil, 'os.date' end
+    why = why .. ' ; os.date incohérente'
+  end
+  return nil, why
+end
+
+offsetByFfi = function(ffi)
   if ffi == nil then return nil, 'FFI indisponible' end
   pcall(ffi.cdef, 'typedef struct { uint16_t wYear, wMonth, wDayOfWeek, wDay, wHour, wMinute, wSecond, wMilliseconds; }'
     .. ' SETUPLAB_SYSTEMTIME;')
@@ -139,10 +177,7 @@ function M.makeUtcOffset(ffi)
   local function offset()
     if not (fill(getLocal, localTime) and fill(getSystem, systemTime)) then return nil end
     local okE, diff = pcall(function() return epoch(localTime[0]) - epoch(systemTime[0]) end)
-    if not (okE and Util.isFinite(diff)) then return nil end
-    local rounded = math.floor(diff / K.utcOffsetStep + 0.5) * K.utcOffsetStep
-    if math.abs(rounded) > K.utcOffsetMax then return nil end
-    return rounded
+    return okE and roundedOffset(diff) or nil
   end
   if offset() == nil then return nil, 'lectures incohérentes' end
   return offset, nil

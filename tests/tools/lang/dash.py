@@ -185,6 +185,9 @@ EN = {
     '+ %s autre réglage': '+ %s other setting',
     'v%s en préparation': 'v%s being prepared',
     'provisoire': 'provisional',
+    'Heure locale de Windows lue par os.date ; GetLocalTime bloquée par CSP':
+        'Windows local time read through os.date; GetLocalTime blocked by CSP',
+    'GetLocalTime introuvable ; os.date incohérente': 'GetLocalTime not found; os.date inconsistent',
     'Moyens': 'Medium',
     'Rapides': 'Fast',
     'Non gardée': 'Not kept',

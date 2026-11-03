@@ -111,6 +111,24 @@ tests['K03b heure locale de Windows (noms des fichiers enregistrés)'] = functio
   T.eq(at({ 2026, 10, 25, 12, 0, 0 }, { 2026, 10, 23, 12, 0, 0 }), nil, 'écart absurde rejeté')
   local broken = { cdef = function() end, new = function() return { [0] = {} } end, C = {} }
   T.eq(select(2, Caps.makeUtcOffset(broken)), 'GetLocalTime introuvable')
+  -- CSP 0.3.1 et plus bloque GetLocalTime (journal de Vincent du 03/11/2026) : os.date, passée par la colle, prend le relais
+  local dates = {}
+  local function osDate(format)
+    local t = format == '*t' and dates['local'] or dates.utc
+    return { year = t[1], month = t[2], day = t[3], hour = t[4], min = t[5], sec = t[6] }
+  end
+  dates['local'], dates.utc = { 2026, 11, 3, 10, 15, 0 }, { 2026, 11, 3, 9, 15, 0 }
+  local fn, why, source = Caps.makeUtcOffset(broken, osDate)
+  T.ok(fn, tostring(why))
+  T.eq(source, 'os.date')
+  T.eq(fn(), 3600, 'Paris en hiver')
+  dates['local'], dates.utc = { 2026, 3, 29, 3, 0, 1 }, { 2026, 3, 29, 1, 0, 0 }
+  T.eq(fn(), 7200, 'passage à l\'heure d\'été pendant la séance : relu à chaque appel')
+  times['local'], times.system = { 2026, 11, 3, 10, 15, 0 }, { 2026, 11, 3, 9, 15, 0 }
+  T.eq(select(3, Caps.makeUtcOffset(fake, osDate)), 'GetLocalTime', 'GetLocalTime d\'abord quand elle répond')
+  local _, why2 = Caps.makeUtcOffset(broken, function() error('bloquée') end)
+  T.eq(why2, 'GetLocalTime introuvable ; os.date incohérente')
+  T.eq(select(2, Caps.makeUtcOffset(nil, nil)), 'FFI indisponible')
 end
 
 tests['K04 sondes statiques'] = function()

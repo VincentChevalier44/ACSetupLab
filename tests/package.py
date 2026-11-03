@@ -19,7 +19,8 @@ DIST = APP / 'dist'
 # Liste blanche : fichiers et dossiers distribués (tout le reste est exclu).
 FILES = ['SetupLab.lua', 'manifest.ini', 'icon.png', 'README.md', 'CHANGELOG.md']
 DIRS = {'src': ('.lua',), 'docs': ('.md', '.html'), 'fonts': ('.ttf', '.txt')}
-# os.preciseClock (horloge officielle de CSP) : seule exception, accord de Vincent du 29/10/2026
+# os.preciseClock (horloge officielle de CSP) : seule exception, accord de Vincent du 29/10/2026 ; os.date (heure locale,
+# accord du 03/11/2026) n'est jamais appelée directement : la colle la lit et la passe (aucun « os.date( » distribué)
 FORBIDDEN = re.compile(r'\b(os\.(?!preciseClock\b)\w+|loadstring|dofile)\s*\(')
 # réseau : mise à jour en jeu seulement (demande de Vincent du 02/11/2026), lecture et téléchargement depuis
 # src/updater.lua ; aucun envoi (post, request, socket)

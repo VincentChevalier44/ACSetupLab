@@ -32,6 +32,9 @@ def lint_self_tests():
         ('src/datasource.lua', 'local t = os.time()\nreturn t\n', 'forbidden global: os'),
         # os.preciseClock : permis dans la colle seulement (accord de Vincent du 29/10/2026) ; os.time reste interdit
         ('src/caps.lua', 'local c = os.preciseClock\nreturn c\n', 'forbidden global: os'),
+        # os.date : permis dans la colle seulement (accord de Vincent du 03/11/2026)
+        ('src/caps.lua', 'local d = os.date\nreturn d\n', 'forbidden global: os'),
+        ('SetupLab.lua', 'local e = os.execute\nreturn e\n', 'forbidden global: os'),
         ('SetupLab.lua', 'local t = os.time()\nreturn t\n', 'forbidden global: os'),
         ('src/caps.lua', 'local f = loadstring("x")\nreturn f\n', 'forbidden global: loadstring'),
         ('src/util.lua', 'x = 1\n', 'global write: x'),

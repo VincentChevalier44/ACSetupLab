@@ -199,10 +199,11 @@ class Checker:
             self.check_string(node)
             return
         if kind == 'Index':
-            # seule exception à l'interdiction d'os (accord de Vincent du 29/10/2026) : os.preciseClock, lu dans la colle
+            # exceptions à l'interdiction d'os, lues dans la colle seulement : os.preciseClock (accord de Vincent du
+            # 29/10/2026) et os.date (heure locale des noms de fichiers, accord du 03/11/2026)
             if (self.role == 'glue' and type(node.value).__name__ == 'Name' and node.value.id == 'os'
                     and not str(node.notation).endswith('SQUARE') and type(node.idx).__name__ == 'Name'
-                    and node.idx.id == 'preciseClock' and not write):
+                    and node.idx.id in ('preciseClock', 'date') and not write):
                 return
             self.visit(node.value)
             if str(node.notation).endswith('SQUARE'):

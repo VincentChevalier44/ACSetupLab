@@ -2,6 +2,7 @@
 
 ## Unreleased (beta 1.5.5, in progress)
 
+- Saved file names use your local time again with CSP 0.3.1 and newer: CSP now blocks the Windows call SetupLab used, so the local time is read through Lua's `os.date` (read only). They were in UTC.
 - Debug window: only the visible log lines are drawn, the others only count for the height.
 - Without the "Racing 26" theme (fallback display): coloured buttons keep readable text when pressed (contrast of at least 5:1), with the theme's colours.
 

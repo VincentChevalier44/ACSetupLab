@@ -30,6 +30,9 @@ local okFfi, ffi = pcall(require, 'ffi')
 -- horloge officielle de CSP, seule fonction os.* utilisée (accord de Vincent du 29/10/2026, A2 amendé) ; absente
 -- (CSP 0.2.11) ou os indisponible : nil
 local okClock, preciseClock = pcall(function() return os.preciseClock end)
+-- heure locale de Windows, en lecture seule, pour les noms des fichiers enregistrés : seconde exception à l'interdiction
+-- d'os.* (accord de Vincent du 03/11/2026), car CSP 0.3.1 et plus bloque GetLocalTime par FFI ; absente : nil
+local okDate, osDate = pcall(function() return os.date end)
 -- réseau : seulement pour la mise à jour en jeu (demande de Vincent du 02/11/2026), depuis src/updater.lua
 local okWeb, webLib = pcall(function() return web end)
 
@@ -38,6 +41,7 @@ local host = {
   vec2 = vec2, vec3 = vec3, rgbm = rgbm,
   ffi = okFfi and ffi or nil,
   preciseClock = okClock and preciseClock or nil,
+  osDate = okDate and type(osDate) == 'function' and osDate or nil,
   web = okWeb and type(webLib) == 'table' and webLib or nil,
 }
 -- Polices de la refonte Racing 26 (fonts/, licence OFL), livrées avec l'app : absentes, le thème garde Segoe UI
@@ -54,7 +58,7 @@ local app = {
   log = Util.logNew(K.logCapacity, K.logMinInterval, K.logMaxChars),
   scheduler = Util.schedulerNew(K.unitDecay),
   clock = nil, clockReason = nil, clockSource = nil,
-  utcOffset = nil, utcOffsetReason = nil, -- décalage heure locale - UTC (noms des fichiers enregistrés)
+  utcOffset = nil, utcOffsetReason = nil, utcOffsetSource = nil, -- décalage heure locale - UTC (noms des fichiers)
   static = nil,
   context = nil, contextKey = nil, nextContextAt = 0,
   conditionsKey = nil, pendingSessionKey = nil, -- séance de la découverte ; nouvelle séance vue une fois
@@ -4057,9 +4061,11 @@ if app.settings.debugLog then app.log.maxLevel = Util.LEVELS.DEBUG end
 log('INFO', 'start', Config.appName .. ' ' .. Config.version .. ' démarré ; CSP ' .. tostring(app.static.version)
   .. ' build ' .. tostring(app.static.versionCode))
 if app.clock == nil then log('WARN', 'clock', 'Horloge précise indisponible (' .. tostring(app.clockReason) .. ') : repli quota') end
-app.utcOffset, app.utcOffsetReason = Caps.makeUtcOffset(host.ffi)
+app.utcOffset, app.utcOffsetReason, app.utcOffsetSource = Caps.makeUtcOffset(host.ffi, host.osDate)
 if app.utcOffset == nil then
   log('WARN', 'clock', 'Heure locale indisponible (' .. tostring(app.utcOffsetReason) .. ') : noms de fichiers en UTC')
+elseif app.utcOffsetSource == 'os.date' then
+  log('INFO', 'clock', 'Heure locale de Windows lue par os.date ; GetLocalTime bloquée par CSP')
 end
 do
   local ok, token = Util.call(Util.get(host.ac, 'onRelease'), release)
