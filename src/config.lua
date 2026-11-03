@@ -8,7 +8,7 @@ local M = {}
 M.appName = 'SetupLab'
 -- Première bêta publique (décision de Vincent du 22/10/2026 : « on la présentera comme la version bêta numéro
 -- un, v1.0 ») ; les versions 1.0.0 à 1.7.0 d'avant étaient internes (CHANGELOG.md).
-M.version = '1.0.0-beta.1.5.4'
+M.version = '1.0.0-beta.1.5.5'
 M.milestone = 'J0 à J8 (qualification, course, mesure, DRS, ERS, interface, persistance), chargement dans la voiture, affinage, pluie, '
   .. 'activation, mémoire du circuit, validation avant enregistrement, vos temps réels, vos retouches gardées'
 M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus récente est ignorée
@@ -20,7 +20,7 @@ M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus
 -- par circuit (plus de réglage global) ; minimum avant une proposition ; langue.
 M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
   'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps',
-  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'updateCheck', 'language' }
+  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'updateCheck', 'language', 'overlayLocked', 'overlayMini' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
 -- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
@@ -113,6 +113,9 @@ M.settings = {
   -- minimum ; les versions suivantes l'attendent
   { key = 'updateCheck', kind = 'boolean', default = true,
     label = 'Vérifier les mises à jour au lancement (GitHub)' },
+  -- barre de l'overlay (demande de Vincent du 03/11/2026) : cadenas (position et taille figées), réduit à la barre
+  { key = 'overlayLocked', kind = 'boolean', default = false, label = 'Overlay verrouillé (position et taille figées)' },
+  { key = 'overlayMini', kind = 'boolean', default = false, label = 'Overlay réduit à sa barre' },
   { key = 'refineInstantFirst', kind = 'boolean', default = false,
     label = 'Premier setup tout de suite, d\'après la voiture et la piste' },
   { key = 'refineMinLaps', kind = 'integer', default = 2, min = 0, max = 10,
@@ -149,6 +152,9 @@ M.help = {
     .. 'puissance, traînée, appui, freinage). À laisser coché.',
   wetAidLevels = 'Sous la pluie, nombre de crans d\'antipatinage et d\'ABS ajoutés aux aides du setup. 0 : aides inchangées.',
   refineLaps = 'Pendant l\'affinage, nombre de tours propres entre deux calculs. 0 : un nouveau calcul à chaque tour propre.',
+  overlayLocked = 'Coché : l\'overlay en jeu garde sa position et sa taille (cadenas de sa barre). Décoché : on le déplace en '
+    .. 'glissant sa barre.',
+  overlayMini = 'Coché : l\'overlay en jeu n\'affiche que sa barre, avec l\'écart sur vos tours (bouton de réduction de sa barre).',
   updateCheck = 'Coché : une fois par lancement d\'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée. '
     .. 'Plus récente : un bouton « Mettre à jour » apparaît ; rien n\'est téléchargé ni installé sans votre clic. Aucune '
     .. 'donnée de jeu ni personnelle n\'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.',

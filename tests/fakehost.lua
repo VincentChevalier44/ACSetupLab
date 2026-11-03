@@ -590,8 +590,22 @@ function F.new(opts)
   local trackFiles = {}
   for name, text in pairs(trackFixture.files) do trackFiles[name:lower()] = text end
 
+  -- fenêtre de l'overlay vue par l'accès aux fenêtres d'app de CSP (barre du 03/11/2026) : déplacements,
+  -- redimensionnements et fermeture comptés
+  local win = { x = 100, y = 80, w = 420, h = 230, visible = true, moves = 0, resizes = 0 }
+  function win.valid() return true end
+  function win.position(self) return { x = self.x, y = self.y } end
+  function win.size(self) return { x = self.w, y = self.h } end
+  function win.move(self, p) self.x, self.y, self.moves = p.x, p.y, self.moves + 1; return self end
+  function win.resize(self, s) self.w, self.h, self.resizes = s.x, s.y, self.resizes + 1; return self end
+  function win.setVisible(self, v) self.visible = v ~= false; return self end
+  h.appWindow = win
   h.ac = {
     FolderID = { UserSetups = 11, ContentCars = 13, CurrentTrackLayoutUI = 1028 },
+    getAppWindows = function()
+      return { { name = 'SetupLab/overlay', title = 'SetupLab Overlay', visible = win.visible } }
+    end,
+    accessAppWindow = function(name) return name == 'SetupLab/overlay' and win or nil end,
     getPatchVersion = function() return '0.3.0-preview675' end,
     getPatchVersionCode = function() return 4210 end,
     log = function(...)
@@ -1071,7 +1085,8 @@ function F.new(opts)
     end
     h.ui.itemRectMin = function() return { x = 8, y = 300 } end
     h.ui.itemRectMax = function() return h.lastRect or { x = 108, y = 326 } end
-    h.ui.itemActive = function() return false end
+    h.ui.itemActive = function() return h.itemActive == true end
+    h.ui.mouseDelta = function() return h.mouseDelta or { x = 0, y = 0 } end
     h.ui.drawCircleFilled = uiCall
     h.ui.drawLine = uiCall
     h.ui.windowSize = function() return { x = h.width + 16, y = 640 } end

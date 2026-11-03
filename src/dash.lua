@@ -10,6 +10,7 @@ local Config = require('src/config')
 local L = require('src/i18n')
 local Skin = require('src/skin')
 local SetupSpace = require('src/setup_space')
+local Window = require('src/window')
 
 local M = { frame = 0 }
 local K = Config.K
@@ -2689,69 +2690,227 @@ local function helpPage(x, y, w)
 end
 
 -- ---------------------------------------------------------------------------
--- Fenêtre « SetupLab Overlay » (planches « en piste — mieux / moins bien », « en veille »)
+-- Fenêtre « SetupLab Overlay » (planches « en piste — mieux / moins bien », « en veille ») ; barre SetupLab (demande
+-- de Vincent du 03/11/2026 : titre coupé par la barre de CSP, retirée ; cadenas pour figer l'overlay à un endroit
+-- précis, réduire à la barre, fermer). La fenêtre elle-même : src/window.lua.
 -- ---------------------------------------------------------------------------
 
 local OVERLAY_ROWS = 4
+local BAR_H = 30
 
--- veille, ou aucun setup de SetupLab en piste : logo, titre, phrase
-local function overlayIdle(W, H, title, s)
-  local c = X.c
-  X.S.panel(X.ox, X.oy, X.ox + W, X.oy + H, c.overlayBg, 12)
-  rect(0, 0, W - 12, 2, c.dim)
-  local logo = math.min(40, H - 24)
-  Util.call(X.ui.drawImage, 'icon.png', vec(1, X.ox + 14, X.oy + (H - logo) / 2), vec(2, X.ox + 14 + logo, X.oy + (H + logo) / 2),
-    c.logoDim)
-  local tx = 14 + logo + 12
-  local tw = text('display', 18, up(L.t(title)), tx, 14, c.light)
-  dot(tx + tw + 10, 23, 3.5, c.dim)
-  textBox('text', 12, L.t(s), tx, 40, W - tx - 14, c.soft)
+-- symboles de la barre, dessinés au trait (mêmes en jeu et hors jeu, sans dépendre des icônes de CSP) ; cx : milieu
+local function glyph(kind, cx, ink)
+  if kind == 'close' then
+    line(cx - 4.5, 10.5, cx + 4.5, 19.5, ink, 1.6)
+    line(cx - 4.5, 19.5, cx + 4.5, 10.5, ink, 1.6)
+  elseif kind == 'reduce' then
+    line(cx - 5, 15, cx + 5, 15, ink, 1.8)
+  elseif kind == 'expand' then
+    line(cx - 5, 12.5, cx, 17.5, ink, 1.6)
+    line(cx, 17.5, cx + 5, 12.5, ink, 1.6)
+  else
+    -- cadenas : corps plein ; anse fermée (locked) ou levée et ouverte à droite
+    rect(cx - 4.5, 14, cx + 4.5, 21, ink)
+    local lift = kind == 'locked' and 0 or 3
+    line(cx - 3, 14, cx - 3, 10.5 - lift, ink, 1.3)
+    line(cx - 3, 10.5 - lift, cx - 1.5, 8.5 - lift, ink, 1.3)
+    line(cx - 1.5, 8.5 - lift, cx + 1.5, 8.5 - lift, ink, 1.3)
+    line(cx + 1.5, 8.5 - lift, cx + 3, 10.5 - lift, ink, 1.3)
+    line(cx + 3, 10.5 - lift, cx + 3, kind == 'locked' and 14 or (11.5 - lift), ink, 1.3)
+  end
 end
 
-function M.overlay(host, app, U)
-  local ui = host.ui
-  X.host, X.ui, X.S, X.c, X.app, X.intents, X.U = host, ui, ui.skin, ui.skin.colors, app, {}, U
-  if V == nil or V.host ~= host then
-    V = { host = host }
-    for i = 1, 4 do V[i] = host.vec2(0, 0) end
-  end
-  local okS, size = Util.call(ui.windowSize)
-  if not (okS and size and Util.isFinite(size.x) and Util.isFinite(size.y)) then return false end
-  X.ox, X.oy = 0, 0
-  local W, H = size.x, size.y
+-- bouton à symbole de la barre ; renvoie le clic
+local function barButton(id, kind, x, color, tipText)
   local c = X.c
+  X.ui.setCursor(vec(1, X.ox + x, X.oy + 4))
+  local clicked = X.ui.invisibleButton('###' .. id, vec(3, 26, 22))
+  local hot = hovered()
+  if hot then rect(x, 4, x + 26, 26, kind == 'close' and c.danger or c.controlHover) end
+  glyph(kind, x + 13, hot and (kind == 'close' and c.dangerText or c.light) or color)
+  tip(tipText)
+  return clicked
+end
+
+-- état de l'overlay pour la barre et le corps (table réutilisée)
+local INFO = {}
+local function overlayInfo(app, U)
+  local c, info = X.c, INFO
+  for k in pairs(info) do info[k] = nil end
+  info.edge, info.stateColor = c.dim, c.grey
   if app.inert then
-    overlayIdle(W, H, 'SetupLab en veille', tostring(app.inert))
-    return true
+    info.state, info.idle = 'En veille', tostring(app.inert)
+    return info
   end
   local r = app.refine
   local kind = (r and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
   local e, pending = U.overlaySetup(app, kind)
-  if e == nil then
-    if not app.auto then
-      overlayIdle(W, H, 'SetupLab en veille', 'Cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de setup.')
+  -- ce qu'il reste à faire avant la prochaine proposition (affinage en cours, aucune version à essayer)
+  if r and r.active and r.waiting and not pending then info.waiting = r.waiting end
+  if e == nil and pending then
+    -- départ de votre setup ou du setup par défaut : la version proposée s'annonce
+    info.kind, info.pending = kind, pending
+    local g = pending.gain or 0
+    info.summary = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3) .. ' s'
+    info.summaryColor = g >= 0 and c.go or c.danger
+    if pending.ready == false then
+      info.state, info.stateColor = L.f('v%s en préparation', pending.version), c.warn
     else
-      overlayIdle(W, H, 'SetupLab actif', 'Chaque setup proposé s\'annonce ici ; l\'essayer au stand, trier ses réglages, puis le '
-        .. 'valider.')
+      info.state, info.stateColor, info.edge = L.f('v%s prête', pending.version), c.blueSoft, c.blue
     end
-    return true
+    return info
   end
+  if e == nil then
+    if app.auto then
+      info.state, info.stateColor = 'Actif', c.go
+      info.idle = 'Chaque setup proposé s\'annonce ici ; l\'essayer au stand, trier ses réglages, puis le valider.'
+    else
+      info.state = 'En veille'
+      info.idle = 'Cochez « SetupLab actif » dans la fenêtre SetupLab, sur l\'écran de setup.'
+    end
+    return info
+  end
+  info.kind, info.e, info.pending = kind, e, pending
+  info.name = e.version and ('v' .. e.version) or tostring(e.file)
   -- verdict sur vos tours (le setup entier)
   local mine, before = U.versionLaps(app, e), U.realLaps(app, e.originFamily, e.bucket)
-  local tBefore, tMine = U.realTime(before, kind), U.realTime(mine, kind)
-  local gain = (tMine and tBefore) and (tBefore - tMine) or nil
-  local edge = gain and (gain > 0.0005 and c.go or (gain < -0.0005 and c.danger or c.dim)) or c.blue
-  X.S.panel(0, 0, W, H, c.overlayBg, 12)
-  rect(0, 0, W - 12, 2, edge)
+  info.tBefore, info.tMine = U.realTime(before, kind), U.realTime(mine, kind)
+  local gain = (info.tMine and info.tBefore) and (info.tBefore - info.tMine) or nil
+  info.gain = gain
+  info.edge = gain and (gain > 0.0005 and c.go or (gain < -0.0005 and c.danger or c.dim)) or c.blue
+  info.state, info.stateColor = L.f('%s en piste', info.name), c.blueSoft
+  info.where = L.t(kind == 'race' and 'Course' or 'Qualif') .. ' · ' .. L.t(e.bucket == 'pluie' and 'pluie' or 'sec')
+  -- résumé de la barre réduite : l'écart sur vos tours, sinon le dernier tour
+  if gain and math.abs(gain) >= 0.0005 then
+    info.summary = (gain > 0 and '-' or '+') .. Util.fmt(math.abs(gain), 3) .. ' s'
+    info.summaryColor = gain > 0 and c.go or c.danger
+  else
+    local last = app.recorder and app.recorder.laps and app.recorder.laps.last
+    if last and Util.isFinite(last.time) and last.time > 0 then
+      info.summary, info.summaryColor = X.U.lapTime(last.time), last.valid and c.soft or c.warn
+    end
+  end
+  return info
+end
+
+-- Barre : logo, SETUPLAB, état (et où, s'il reste de la place) ; résumé quand l'overlay est réduit ; à droite cadenas,
+-- réduire, fermer. Glisser la barre déplace l'overlay (cadenas ouvert). Renvoie le glissement (dx, dy).
+local function overlayBar(W, info, win)
+  local c, app = X.c, X.app
+  local locked = app.settings.overlayLocked == true
+  local mini = app.settings.overlayMini == true
+  local found = win.accessor ~= nil
+  X.S.panel(X.ox, X.oy, X.ox + W, X.oy + BAR_H, c.overlayBar, 12)
+  rect(0, BAR_H, W, BAR_H + 2, info.edge)
+  -- boutons, de droite à gauche
+  local bx = W - 6 - 26
+  if found then
+    if barButton('overlay_close', 'close', bx, c.soft,
+        'Fermer l\'overlay. Pour le rouvrir : barre d\'apps de CSP, SetupLab Overlay.') then
+      Window.close(win)
+    end
+    bx = bx - 28
+  end
+  if barButton('overlay_mini', mini and 'expand' or 'reduce', bx, c.soft,
+      mini and 'Afficher le détail de l\'overlay.' or 'Réduire l\'overlay à sa barre (l\'écart sur vos tours reste affiché).') then
+    X.intents.overlayPref = { key = 'overlayMini', value = not mini }
+  end
+  bx = bx - 28
+  if barButton('overlay_lock', locked and 'locked' or 'unlocked', bx, locked and c.blue or c.grey,
+      locked and 'Overlay verrouillé : position et taille figées. Cliquer pour le déverrouiller.'
+        or 'Verrouiller l\'overlay ici : sa position et sa taille ne bougent plus.') then
+    X.intents.overlayPref = { key = 'overlayLocked', value = not locked }
+  end
+  local right = bx - 8
+  -- logo, nom, état
+  Util.call(X.ui.drawImage, 'icon.png', vec(1, X.ox + 8, X.oy + 5), vec(2, X.ox + 28, X.oy + 25))
+  local tx = 34
+  tx = tx + text('display', 13, 'SETUP', tx, 8, c.light)
+  tx = tx + text('display', 13, 'LAB', tx, 8, c.blue) + 10
+  local summaryW = (mini and info.summary) and (measure('mono', 11.5, info.summary) + 12) or 0
+  local st = up(L.t(info.state or ''))
+  local sw = measure('section', 11.5, st)
+  if tx + sw <= right - summaryW then
+    text('section', 11.5, st, tx, 9, info.stateColor or c.grey)
+    tx = tx + sw + 8
+    if info.where and tx + measure('text', 11, info.where) <= right - summaryW then text('text', 11, info.where, tx, 9, c.grey) end
+  end
+  if summaryW > 0 then text('mono', 11.5, info.summary, right - summaryW + 12, 9, info.summaryColor or c.soft) end
+  -- glisser la barre : déplace l'overlay ; cadenas fermé, la zone retient le clic (rien ne bouge)
+  local dx, dy = 0, 0
+  if found or locked then
+    X.ui.setCursor(vec(1, X.ox, X.oy))
+    X.ui.invisibleButton('###overlay_drag', vec(3, math.max(1, right), BAR_H))
+    if locked then
+      tip('Overlay verrouillé : cliquer sur le cadenas pour le déplacer.')
+    else
+      local okA, active = Util.call(X.ui.itemActive)
+      local okD, d = Util.call(X.ui.mouseDelta)
+      if okA and active and okD and d then dx, dy = tonumber(d.x) or 0, tonumber(d.y) or 0 end
+    end
+  end
+  return dx, dy
+end
+
+-- texte de l'overlay : sur plusieurs lignes s'il tient en hauteur (jusqu'à bottom), sinon sur une ligne coupée « … » ;
+-- renvoie sa hauteur (rien s'il ne reste pas une ligne)
+local function overlayText(size, s, x, y, w, color, bottom)
+  local _, h = measure('text', size, s, w)
+  if y + h <= bottom then return textBox('text', size, s, x, y, w, color) end
+  local _, one = measure('text', size, s)
+  if y + one > bottom then return 0 end
+  text('text', size, fitted('text', size, s, w), x, y, color)
+  return one
+end
+
+-- corps sans setup de SetupLab en piste (veille, actif) : la phrase, puis ce qu'il reste à faire
+local function overlayIdle(W, info, top, H)
+  local h = overlayText(12, L.t(info.idle), 14, top + 10, W - 28, X.c.soft, H - 6)
+  if info.waiting then overlayText(12, L.t(info.waiting), 14, top + 10 + h + 8, W - 28, X.c.warn, H - 6) end
+end
+
+-- réglages changés, triés par gain prévu (OVERLAY_ROWS au plus, autant que la place le permet ; reserve : place gardée
+-- dessous) ; renvoie la position sous la liste
+local function overlayChanges(list, px, cy, W, H, reserve)
+  local c = X.c
+  local roomRows = math.max(0, math.floor((H - cy - 8 - reserve - 16) / 19))
+  local rows = math.min(#list, OVERLAY_ROWS, roomRows)
+  if rows > 0 then rect(px, cy, W - 14, cy + 1, c.line) end
+  cy = cy + 4
+  for i = 1, rows do
+    local ch = list[i]
+    local g = ch.contribution or 0
+    local gs = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3):gsub('^0', '')
+    local gc = ch.atBound and c.warn or (g >= 0 and c.go or c.danger)
+    local gw = measure('mono', 11, gs)
+    local vs2 = fromTo(X.U.physicalText(ch.var.kind, ch.from), X.U.physicalText(ch.var.kind, ch.to))
+    local v2w = measure('mono', 10.5, vs2)
+    local nameW = W - 28 - gw - v2w - 20
+    text('text', 12, fitted('text', 12, L.t(ch.var.label) .. (ch.atBound and ' ?' or ''), nameW), px, cy + 1, c.light)
+    text('mono', 10.5, vs2, W - 14 - gw - 12 - v2w, cy + 2, c.grey)
+    text('mono', 11, gs, W - 14 - gw, cy + 1, gc)
+    cy = cy + 19
+  end
+  if #list > rows and rows > 0 then
+    local rest = 0
+    for i = rows + 1, #list do rest = rest + (list[i].contribution or 0) end
+    local n = #list - rows
+    local s = L.f(n > 1 and '+ %s autres réglages' or '+ %s autre réglage', n)
+    text('text', 11.5, s, px, cy + 1, c.grey)
+    local rs = (rest >= 0 and '-' or '+') .. Util.fmt(math.abs(rest), 3):gsub('^0', '')
+    text('mono', 11, rs, W - 14 - measure('mono', 11, rs), cy + 1, rest >= 0 and c.go or c.danger)
+    cy = cy + 19
+  end
+  return cy
+end
+
+-- corps avec un setup en piste : verdict, dernier tour, réglages changés, version suivante ; H : bas du corps
+local function overlayBody(app, U, info, W, top, H)
+  local c = X.c
+  local e, pending, kind, name = info.e, info.pending, info.kind, info.name
+  local tMine, tBefore, gain = info.tMine, info.tBefore, info.gain
   local px = 14
-  local name = e.version and ('v' .. e.version) or tostring(e.file)
-  local sw = text('display', 14, 'SETUP', px, 10, c.light)
-  sw = sw + text('display', 14, 'LAB', px + sw, 10, c.blue)
-  local where = L.t(kind == 'race' and 'Course' or 'Qualif') .. ' · ' .. L.t(e.bucket == 'pluie' and 'pluie' or 'sec')
-  local vs = L.f('%s en piste', name)
-  local vw = text('section', 12, up(vs), px + sw + 12, 11, c.blueSoft)
-  text('text', 11.5, where, px + sw + 12 + vw + 10, 11, c.grey)
-  local cy = 32
+  local cy = top + 10
   -- à droite : meilleur (ou moyenne) et avant
   local rightW = 118
   if tMine then
@@ -2796,34 +2955,7 @@ function M.overlay(host, app, U)
   end
   -- réglages changés (gain prévu par le modèle)
   local list = e.fromMemory and {} or U.overlayChanges(e)
-  local roomRows = math.max(0, math.floor((H - cy - 8 - (pending and pending ~= e and 34 or 0) - 16) / 19))
-  local rows = math.min(#list, OVERLAY_ROWS, roomRows)
-  if rows > 0 then rect(px, cy, W - 14, cy + 1, c.line) end
-  cy = cy + 4
-  for i = 1, rows do
-    local ch = list[i]
-    local g = ch.contribution or 0
-    local gs = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3):gsub('^0', '')
-    local gc = ch.atBound and c.warn or (g >= 0 and c.go or c.danger)
-    local gw = measure('mono', 11, gs)
-    local vs2 = fromTo(X.U.physicalText(ch.var.kind, ch.from), X.U.physicalText(ch.var.kind, ch.to))
-    local v2w = measure('mono', 10.5, vs2)
-    local nameW = W - 28 - gw - v2w - 20
-    text('text', 12, fitted('text', 12, L.t(ch.var.label) .. (ch.atBound and ' ?' or ''), nameW), px, cy + 1, c.light)
-    text('mono', 10.5, vs2, W - 14 - gw - 12 - v2w, cy + 2, c.grey)
-    text('mono', 11, gs, W - 14 - gw, cy + 1, gc)
-    cy = cy + 19
-  end
-  if #list > rows and rows > 0 then
-    local rest = 0
-    for i = rows + 1, #list do rest = rest + (list[i].contribution or 0) end
-    local n = #list - rows
-    local s = L.f(n > 1 and '+ %s autres réglages' or '+ %s autre réglage', n)
-    text('text', 11.5, s, px, cy + 1, c.grey)
-    local rs = (rest >= 0 and '-' or '+') .. Util.fmt(math.abs(rest), 3):gsub('^0', '')
-    text('mono', 11, rs, W - 14 - measure('mono', 11, rs), cy + 1, rest >= 0 and c.go or c.danger)
-    cy = cy + 19
-  end
+  cy = overlayChanges(list, px, cy, W, H, (pending and pending ~= e) and 34 or (info.waiting and 18 or 0))
   -- version en préparation, ou prête
   if pending and pending ~= e then
     rect(px, cy + 2, W - 14, cy + 3, c.line)
@@ -2840,10 +2972,79 @@ function M.overlay(host, app, U)
       local s = L.f('v%s prête', pending.version) .. ' · ' .. gs .. ' · ' .. L.t('au stand : Essayer, puis Valider')
       text('section', 12, fitted('section', 12, up(s), W - 28), px, cy + 8, c.blueSoft)
     end
+  elseif info.waiting and H - cy > 18 then
+    text('text', 11, fitted('text', 11, L.t(info.waiting), W - 28), px, cy + 4, c.grey)
   elseif not e.fromMemory and H - cy > 20 then
     text('text', 10.5, fitted('text', 10.5, L.t('Par réglage : gain prévu par le modèle · en haut : vos tours'), W - 28), px, H - 18,
       c.grey)
   end
+end
+
+-- Version proposée sans setup de SetupLab en piste (départ de votre setup ou du setup par défaut) : l'annonce, en
+-- grand ; ses réglages changés dessous.
+local function overlayPending(app, U, info, W, top, H)
+  local c, p = X.c, info.pending
+  local px, cy = 14, top + 10
+  local g = p.gain or 0
+  local gs = (g >= 0 and '-' or '+') .. Util.fmt(math.abs(g), 3) .. ' s'
+  if p.ready == false then
+    local s = up(L.f('v%s en préparation', p.version))
+    text('display', 22, fitted('display', 22, s, W - 28), px, cy, c.warn)
+    cy = cy + 30
+    local f = U.realLaps(app, p.originFamily, p.bucket)
+    local n = f and f.count or 0
+    cy = cy + overlayText(12, L.f('Gain provisoire %s', gs) .. ' · ' .. L.f(n > 1 and '%s tours analysés' or '%s tour analysé', n),
+      px, cy, W - 28, c.soft, H - 6) + 4
+    cy = cy + overlayText(12, L.f('Rentrez au stand quand vous voulez : v%s y sera prête, « Essayer v%s » la met dans la voiture.',
+      p.version, p.version), px, cy, W - 28, c.light, H - 6) + 8
+  else
+    local gw = measure('display', 22, gs)
+    text('display', 26, fitted('display', 26, up(L.f('v%s prête', p.version)), W - 28 - gw - 12), px, cy, c.blue)
+    text('display', 22, gs, W - 14 - gw, cy + 3, g >= 0 and c.go or c.danger)
+    cy = cy + 34
+    cy = cy + overlayText(12, L.f('Rentrez au stand : « Essayer v%s » la met dans la voiture, puis roulez avec elle.', p.version),
+      px, cy, W - 28, c.light, H - 6) + 8
+  end
+  overlayChanges(U.overlayChanges(p), px, cy, W, H, 0)
+end
+
+-- intents : préférences de l'overlay (overlayPref : cadenas, réduit), gardées par la colle
+function M.overlay(host, app, U, intents)
+  local ui = host.ui
+  X.host, X.ui, X.S, X.c, X.app, X.intents, X.U = host, ui, ui.skin, ui.skin.colors, app, intents or {}, U
+  if V == nil or V.host ~= host then
+    V = { host = host }
+    for i = 1, 4 do V[i] = host.vec2(0, 0) end
+  end
+  local okS, size = Util.call(ui.windowSize)
+  if not (okS and size and Util.isFinite(size.x) and Util.isFinite(size.y)) then return false end
+  X.ox, X.oy = 0, 0
+  local W, H = size.x, size.y
+  local c = X.c
+  app.ui.overlayWin = app.ui.overlayWin or {}
+  local win = app.ui.overlayWin
+  Window.find(host, win)
+  local locked, mini = app.settings.overlayLocked == true, app.settings.overlayMini == true
+  local info = overlayInfo(app, U)
+  -- fond : la barre seule quand l'overlay est réduit
+  if not mini then X.S.panel(0, 0, W, H, c.overlayBg, 12) end
+  local dx, dy = overlayBar(W, info, win)
+  local top = BAR_H + 2
+  if not mini and H > top + 20 then
+    if info.e then
+      overlayBody(app, U, info, W, top, H)
+    elseif info.pending then
+      overlayPending(app, U, info, W, top, H)
+    else
+      overlayIdle(W, info, top, H)
+    end
+    -- cadenas fermé : le corps retient le clic (rien ne déplace l'overlay)
+    if locked then
+      X.ui.setCursor(vec(1, X.ox, X.oy + top))
+      X.ui.invisibleButton('###overlay_cover', vec(3, W, H - top))
+    end
+  end
+  Window.frame(host, win, { locked = locked, mini = mini, barH = BAR_H, dx = dx, dy = dy })
   return true
 end
 

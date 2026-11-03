@@ -2746,11 +2746,11 @@ local function arrow(host, up, color)
   if icon ~= nil and Util.call(ui.icon, icon, K.uiIconSize, color) then ui.sameLine() end
 end
 
-function M.overlay(host, app)
+function M.overlay(host, app, intents)
   host = hostFor(host, app)
   local ui = host.ui
-  -- thème Racing 26 : planches « Overlay en piste » (src/dash.lua)
-  if ui.skin and Dash.overlay(host, app, M) then return end
+  -- thème Racing 26 : planches « Overlay en piste » et barre SetupLab (src/dash.lua, src/window.lua)
+  if ui.skin and Dash.overlay(host, app, M, intents) then return end
   local palette = colors(app.ui, host)
   local okS, size = Util.call(ui.windowSize)
   local origin = vec(host, app.ui, 'overlayOrigin')

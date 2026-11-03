@@ -3833,6 +3833,20 @@ app.autoTick = function()
 end
 app.autoKind, app.memoryGroupOf, app.customName = autoKind, memoryGroup, customName
 
+-- Un réglage changé : validé, gardé (réglages modifiables), journalisé.
+local function applySetting(key, value)
+  for _, def in ipairs(Config.settings) do
+    if def.key == key then
+      local valid = Config.validateOne(def, value)
+      app.settings[key] = valid
+      local editable = {}
+      for _, name in ipairs(Config.EDITABLE) do editable[name] = app.settings[name] end
+      Store.put(app.store, 'settings', editable)
+      log('INFO', 'setting', def.label .. ' : ' .. tostring(valid))
+    end
+  end
+end
+
 local function handleIntents(intents)
   loadTick()
   -- calcul en attente de la découverte : lancé à sa fin
@@ -4004,19 +4018,7 @@ local function handleIntents(intents)
   end
   -- un clic (1.5.3)
   if intents.load then requestLoad(intents.load) end
-  if intents.setting then
-    local key, value = intents.setting.key, intents.setting.value
-    for _, def in ipairs(Config.settings) do
-      if def.key == key then
-        local valid = Config.validateOne(def, value)
-        app.settings[key] = valid
-        local editable = {}
-        for _, name in ipairs(Config.EDITABLE) do editable[name] = app.settings[name] end
-        Store.put(app.store, 'settings', editable)
-        log('INFO', 'setting', def.label .. ' : ' .. tostring(valid))
-      end
-    end
-  end
+  if intents.setting then applySetting(intents.setting.key, intents.setting.value) end
   if intents.validate then
     if not startValidation(intents.validate) then
       app.ui.message = 'Validation en jeu (§14.1) : 1. un tour propre avec le setup d\'origine ; 2. enregistrer le setup '
@@ -4135,11 +4137,15 @@ end
 -- Overlay en jeu (bêta 1.3) : verdict sur vos tours, réglages changés et leur gain prévu.
 function script.SETUPLAB__OVERLAY(_)
   if app.released then return end
-  local ok, err = measure(Ui.overlay, host, app)
+  local intents = {}
+  local ok, err = measure(Ui.overlay, host, app, intents)
   if not ok then
     app.perf.errors = app.perf.errors + 1
     log('ERROR', 'ui_overlay', err)
   end
+  -- barre de l'overlay (03/11/2026) : cadenas et réduit, deux préférences d'affichage (même en veille)
+  local pref = intents.overlayPref
+  if pref and (pref.key == 'overlayLocked' or pref.key == 'overlayMini') then applySetting(pref.key, pref.value == true) end
 end
 
 function script.SETUPLAB__DEBUG(_)

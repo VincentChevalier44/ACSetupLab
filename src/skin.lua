@@ -33,7 +33,7 @@ M.COLORS = {
   badInk = hex('#FFB4AD'), errBg = hex('#2A1412'), bar = hex('#15181D'), tile = hex('#17191E'), selLine = hex('#0E4258'),
   best = hex('#B26CFF'), fast = hex('#8C7BFF'), langBg = hex('#1B1E24'), langLine = hex('#343943'), pillGo = hex('#0E251C'),
   pillRec = hex('#310B11'), pillIdle = hex('#1B1D21'), rec = hex('#FF6B72'), stripe = hex('#118EB8'), keepBg = hex('#173E2A'),
-  overlayBg = hex('#090A0D', 0.88), logoDim = hex('#9A9A9A'), helpLast = hex('#0C1D25'),
+  overlayBg = hex('#090A0D', 0.88), logoDim = hex('#9A9A9A'), helpLast = hex('#0C1D25'), overlayBar = hex('#14171C', 0.97),
 }
 
 -- Tailles de texte (px).

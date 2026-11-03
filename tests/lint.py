@@ -40,13 +40,15 @@ GLUE_NETWORK = {'web'}
 CORE = {'util', 'config', 'track_model', 'car_model', 'setup_space', 'laptime_sim', 'stint_sim', 'ers', 'ers_plan', 'explain',
         'optimizer', 'calibration', 'i18n', 'lang_en'}
 IO = {'caps', 'datasource', 'recorder', 'exporter', 'store', 'updater'}
-UI = {'ui', 'skin', 'dash'}
+UI = {'ui', 'skin', 'dash', 'window'}
 
 # Fonctions d'écriture : seulement là où le PDR les place. D8 amendé le 22/10/2026 (décision de Vincent) : Corbeille
 # et renommage des fichiers écrits par SetupLab, depuis l'exporteur seulement ; suppression définitive jamais.
 WRITE_API = {
     'save': {'exporter', 'store'}, 'saveAsync': {'exporter', 'store'}, 'createDir': {'exporter', 'updater'},
-    'createFileDir': {'exporter'}, 'deleteFile': set(), 'deleteDir': set(), 'move': {'exporter'},
+    'createFileDir': {'exporter'}, 'deleteFile': set(), 'deleteDir': set(),
+    # move : fichiers (exporteur) ; fenêtre de l'overlay (window, barre du 03/11/2026 : glisser, cadenas)
+    'move': {'exporter', 'window'},
     'copyFile': {'updater'}, 'replaceFile': set(), 'recycle': {'exporter', 'updater'}, 'setAndSave': set(),
     'extractFromZipAsync': {'updater'},
     'setClipboardText': {'SetupLab', 'exporter'}, 'setActiveSetupName': set(), 'refreshSetups': {'exporter'},

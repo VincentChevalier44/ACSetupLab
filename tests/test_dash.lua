@@ -3,6 +3,7 @@
 -- sans erreur ni identifiant ImGui en double (le faux hôte les refuse) ; les actions gardent leurs identifiants.
 local T = require('t')
 local Fake = require('fakehost')
+local Config = require('src/config')
 
 local tests = {}
 
@@ -114,6 +115,13 @@ for _, lang in ipairs({ 'fr', 'en' }) do
   end
 end
 
+-- une image de l'overlay
+local function overlayFrame(h)
+  h.texts = {}
+  h.ids, h.idScope = {}, ''
+  script.SETUPLAB__OVERLAY(1 / 60)
+end
+
 local function shownText(h, needle)
   for _, s in ipairs(h.texts) do
     if type(s) == 'string' and s:find(needle, 1, true) then return true end
@@ -149,6 +157,108 @@ tests['DS02 pages Racing 26 : résultat d\'un calcul à la main à l\'étape 1, 
   T.no(shownText(h, 'ENREGISTRÉ · PAS ENCORE DANS LA VOITURE'), 'dans la voiture : plus de barre de chargement')
   T.eq(app.perf.errors, 0, 'aucune erreur de dessin')
   h.tab = nil
+end
+
+-- Barre de l'overlay (demande de Vincent du 03/11/2026 : titre coupé par la barre de CSP ; cadenas pour figer l'overlay à
+-- un endroit précis, réduire, fermer) : la barre de CSP retirée, la barre SetupLab dessinée ; cadenas (position et taille
+-- figées), glisser la barre (déplace, sauf verrouillé), réduire (hauteur de la barre) puis déplier (hauteur d'avant),
+-- fermer ; cadenas et réduit gardés d'une séance à l'autre.
+tests['DS03 barre de l\'overlay : cadenas, glisser, réduire, fermer, gardés'] = function()
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  local w = h.appWindow
+  overlayFrame(h)
+  T.ok(shownText(h, 'SETUP') and shownText(h, 'LAB'), 'barre : nom')
+  T.ok(shownText(h, 'EN VEILLE'), 'barre : état')
+  T.ok(shownText(h, 'Cochez « SetupLab actif »'), 'corps : la phrase de la veille')
+  T.eq(w.moves + w.resizes, 0, 'rien ne bouge tout seul')
+  -- glisser la barre : la fenêtre suit
+  h.itemActive, h.mouseDelta = true, { x = 12, y = -4 }
+  overlayFrame(h)
+  h.itemActive, h.mouseDelta = nil, nil
+  T.eq(w.x, 112)
+  T.eq(w.y, 76, 'glisser la barre déplace l\'overlay')
+  -- cadenas : position et taille figées, glisser ne bouge plus rien
+  h.click = 'overlay_lock'
+  overlayFrame(h)
+  T.eq(app.settings.overlayLocked, true, 'cadenas fermé')
+  overlayFrame(h)
+  w.x, w.y, w.w = 300, 300, 500
+  overlayFrame(h)
+  T.eq(w.x, 112)
+  T.eq(w.y, 76, 'verrouillé : remis à sa place')
+  T.eq(w.w, 420, 'verrouillé : taille gardée')
+  h.itemActive, h.mouseDelta = true, { x = 40, y = 40 }
+  overlayFrame(h)
+  h.itemActive, h.mouseDelta = nil, nil
+  T.eq(w.x, 112, 'verrouillé : glisser ne déplace pas')
+  -- réduire : la barre seule (avec l'état) ; déplier : la hauteur d'avant
+  h.click = 'overlay_mini'
+  overlayFrame(h)
+  T.eq(app.settings.overlayMini, true, 'réduit')
+  overlayFrame(h)
+  T.eq(w.h, 30, 'réduit : hauteur de la barre')
+  T.ok(shownText(h, 'EN VEILLE'), 'réduit : la barre reste')
+  T.no(shownText(h, 'Cochez « SetupLab actif »'), 'réduit : plus de corps')
+  h.click = 'overlay_mini'
+  overlayFrame(h)
+  overlayFrame(h)
+  T.eq(app.settings.overlayMini, false)
+  T.eq(w.h, 230, 'déplié : la hauteur d\'avant')
+  -- gardés d'une séance à l'autre (réglages modifiables)
+  local saved = false
+  for _, key in ipairs(Config.EDITABLE) do if key == 'overlayLocked' then saved = true end end
+  T.ok(saved, 'cadenas gardé avec les réglages')
+  -- déverrouiller, puis fermer
+  h.click = 'overlay_lock'
+  overlayFrame(h)
+  T.eq(app.settings.overlayLocked, false, 'cadenas ouvert')
+  h.click = 'overlay_close'
+  overlayFrame(h)
+  T.eq(w.visible, false, 'fermé (la barre d\'apps de CSP le rouvre)')
+  -- en veille (session en ligne) aussi, la barre répond
+  T.eq(app.perf.errors, 0, 'aucune erreur de dessin')
+end
+
+-- Sans accès aux fenêtres d'app (CSP qui ne le permet pas) : la barre est dessinée, sans Fermer ; rien ne casse.
+tests['DS04 barre de l\'overlay sans accès aux fenêtres d\'app'] = function()
+  local h, app = boot('en')
+  h.ac.getAppWindows, h.ac.accessAppWindow = nil, nil
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  overlayFrame(h)
+  T.ok(shownText(h, 'STANDBY'), 'barre en anglais : état')
+  T.no(h.ids and h.ids['overlay_close'], 'pas de bouton Fermer')
+  h.click = 'overlay_lock'
+  overlayFrame(h)
+  T.eq(app.settings.overlayLocked, true, 'cadenas : préférence gardée même sans accès')
+  T.eq(app.perf.errors, 0)
+end
+
+-- Constat de Vincent du 03/11/2026 : parti de son setup (ou du setup par défaut), tour propre fait, rien dans l'overlay
+-- alors que v1 était prête. Aucune version de SetupLab dans la voiture : la version proposée s'annonce quand même, avec
+-- ce qu'il faut faire (rentrer au stand, « Essayer ») ; avant elle, ce qu'il reste à faire.
+tests['DS05 overlay : v1 annoncée quand la voiture a votre setup ou celui par défaut'] = function()
+  for _, mode in ipairs({ 'mine', 'default' }) do
+    local h, app = boot('fr')
+    T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+    pits(h)
+    app.settings.compoundChoice = app.discovery.compoundIndex
+    app.settings.refineMinLaps = 1
+    app.handleIntents({ start = { kind = 'quali', mode = mode } })
+    T.ok(waitFor(h, function() return app.loadCheck == nil end), mode .. ' : départ dans la voiture')
+    local r = app.refine
+    T.ok(r and r.active, mode .. ' : affinage lancé')
+    if r.version == 0 and r.waiting then
+      overlayFrame(h)
+      T.ok(shownText(h, r.waiting), mode .. ' : ce qu\'il reste à faire est affiché')
+    end
+    app.settings.refineMinLaps = 0
+    T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), mode .. ' : v1')
+    overlayFrame(h)
+    T.ok(shownText(h, 'V1 PRÊTE'), mode .. ' : v1 annoncée dans l\'overlay')
+    T.ok(shownText(h, 'Rentrez au stand'), mode .. ' : ce qu\'il faut faire')
+    T.eq(app.perf.errors, 0, mode .. ' : aucune erreur de dessin')
+  end
 end
 
 return tests
