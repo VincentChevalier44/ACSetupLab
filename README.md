@@ -80,7 +80,7 @@ This beta is built and checked on an **offline test bench** (394 tests: models, 
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
-- the 1.5.4 flow (one-click loading, race start of your choice) and the in-game update, which can only be tried end to end once a newer release exists.
+- the 1.5.4 flow (one-click loading, race start of your choice) and the new page layouts. The in-game update itself has been tried end to end in game, from 1.5.3 to 1.5.4;
 - with cars whose data is packed (`data.acd`): gear ratio files are read through CSP (see the J0 report, DIAGNOSTICS tab); with layout tracks: the layout's own `data` folder (surfaces, DRS zones).
 
 Some settings are deliberately kept, with their reason shown: toe, coast and preload differential (transient effects outside the model), packers and bump stops (reference to confirm), springs and dampers until a valid dry lap has measured the track roughness, ride height until a load in the pits has verified the height reference, settings defined by a car's script (unknown effect).
