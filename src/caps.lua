@@ -613,6 +613,13 @@ function M.buildReport(info, d, logEntries, tick)
   end
   out('Durée de la découverte : ' .. v2s(d.durationMs, 1) .. ' ms de calcul')
   out('Boucle de calcul appelée par : ' .. tostring(info.updateSource or '—'))
+  local o = info.online
+  if o then
+    out('Mode en ligne : séance en ligne ' .. tostring(o.session) .. ' ; réglage « Actif en ligne » ' .. tostring(o.active)
+      .. ' ; type de séance ' .. v2s(o.sessionType) .. ' ; voitures ' .. v2s(o.cars) .. ' ; tours rejetés pour trafic '
+      .. v2s(o.trafficRejects) .. ' (seuils : ' .. v2s(K.trafficAheadM) .. ' m devant, ' .. v2s(K.trafficBesideM)
+      .. ' m derrière, ' .. v2s(K.trafficMaxTime) .. ' s)')
+  end
   local p = info.perf
   if p then
     out('Tranches : ' .. v2s(p.slices) .. ' ; max ' .. v2s(p.maxSliceMs, 3) .. ' ms ; au-delà de '

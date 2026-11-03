@@ -9,7 +9,8 @@
 -- est rejeté, avec sa raison, si AC
 -- l'invalide, si la voiture passe par la voie des stands ou sort de la piste, si la couverture de la
 -- piste a un trou ou recule (retour au stand, téléportation), si la mémoire est pleine, si le setup
--- est illisible ou change pendant le tour, ou si la répartition de freinage change en roulant.
+-- est illisible ou change pendant le tour, si la répartition de freinage change en roulant, ou, en ligne,
+-- si une autre voiture roule juste devant ou à côté (trafic).
 -- L'origine de la ligne IA peut s'écarter de la ligne de chronométrage : les écarts de couverture se
 -- mesurent en tenant compte du bouclage de la progression.
 --
@@ -76,7 +77,7 @@ function M.new(capacity)
     lastLapCount = nil, nextSampleAt = nil, lastP = nil, maxGap = 0, invalid = nil, pending = nil,
     signatureStart = nil, sums = nil, laps = { last = nil, best = {}, order = {}, family = {}, familyOrder = {} }, finished = 0,
     protected = {},
-    lapTimeRef = nil, lapTimePeak = nil, peakArmed = false, startTime = nil, drsPairs = {}, drsPrev = nil,
+    lapTimeRef = nil, lapTimePeak = nil, peakArmed = false, startTime = nil, drsPairs = {}, drsPrev = nil, trafficTime = 0,
     window = { n = 0, v = {}, load = { {}, {}, {}, {} } },
   }
   for _, name in ipairs(M.CHANNELS) do rec.buf[name] = {} end
@@ -85,14 +86,14 @@ end
 
 -- Abandonne le tour en cours (le prochain passage de ligne en démarrera un nouveau).
 function M.abort(rec, reason)
-  rec.n, rec.maxGap, rec.lastP, rec.invalid = 0, 0, nil, nil
+  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.trafficTime = 0, 0, nil, nil, 0
   rec.state = 'attente'
   rec.abortReason = reason
   rec.drsPrev = nil
 end
 
 local function startLap(rec, signature, lapCount, now, family)
-  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.inc = 0, 0, nil, nil, nil
+  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.inc, rec.trafficTime = 0, 0, nil, nil, nil, 0
   rec.state = 'enregistrement'
   rec.signatureStart, rec.familyStart = signature, family
   rec.lapIndex = lapCount
@@ -360,10 +361,43 @@ local function incident(rec, car, now)
   return nil
 end
 
+-- Trafic (mode en ligne, demande de Vincent du 03/11/2026) : une autre voiture juste devant (aspiration, gêne) ou à côté
+-- fausse la mesure du tour, qui ne doit compter ni pour la calibration ni pour le minimum de tours propres. Distance le
+-- long de la ligne IA (progression), bouclage compris ; voitures déconnectées, inactives ou dans la voie des stands
+-- ignorées. Une voiture proche à l'échantillon ajoute sa durée (1/K.recorderHz) au tour ; au-delà de K.trafficMaxTime
+-- cumulées, le tour est rejeté. Renvoie la raison, ou nil.
+M.TRAFFIC_REASON = 'trafic : une autre voiture à moins de ' .. K.trafficAheadM .. ' m devant ou à côté'
+
+local function traffic(rec, host, p, context)
+  local length, count = context.trackLength, context.carsCount
+  if not (length and length > 0 and count and count > 1) then return nil end
+  local getCar = get(host.ac, 'getCar')
+  local near = false
+  for i = 1, min(floor(count) - 1, K.trafficMaxCars) do
+    local ok, other = call(getCar, i)
+    if ok and other ~= nil and bool(other, 'isConnected') ~= false and bool(other, 'isActive') ~= false
+        and bool(other, 'isInPitlane') ~= true then
+      local q = num(other, 'splinePosition')
+      if q then
+        local d = q - p
+        if d < -0.5 then d = d + 1 elseif d > 0.5 then d = d - 1 end
+        d = d * length
+        if d > -K.trafficBesideM and d < K.trafficAheadM then
+          near = true
+          break
+        end
+      end
+    end
+  end
+  if near then rec.trafficTime = rec.trafficTime + 1 / K.recorderHz end
+  if rec.trafficTime >= K.trafficMaxTime then return M.TRAFFIC_REASON end
+  return nil
+end
+
 -- À appeler à chaque frame (lecture seule). now : temps de simulation (s). signatureFn : signature
 -- des crans de setup (nil si illisible), appelée seulement au passage de la ligne. context :
--- { trackLength, conditions (températures, grip), keepPositions, paused }. Renvoie le tour terminé
--- (temps officiel confirmé), s'il y en a un.
+-- { trackLength, conditions (températures, grip), keepPositions, paused, traffic, carsCount }.
+-- Renvoie le tour terminé (temps officiel confirmé), s'il y en a un.
 function M.update(rec, host, now, signatureFn, context)
   local ok, car = call(get(host.ac, 'getCar'), 0)
   if not ok or car == nil then return nil end
@@ -422,6 +456,8 @@ function M.update(rec, host, now, signatureFn, context)
   local p = num(car, 'splinePosition')
   local v = num(car, 'speedMs')
   if p == nil or v == nil then return finished end
+  -- trafic : en ligne seulement (context.traffic) ; hors ligne, les courses contre l'IA sont inchangées
+  if rec.invalid == nil and context.traffic then rec.invalid = traffic(rec, host, p, context) end
   if rec.lastP then
     local d = p - rec.lastP
     if d < -0.5 then d = d + 1 elseif d > 0.5 then d = d - 1 end

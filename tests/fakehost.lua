@@ -55,6 +55,14 @@ local function strict(t, name)
 end
 F.strict = strict
 
+-- Autre voiture d'une séance (mode en ligne, filtre de trafic) : structure stricte comme ac.StateCar ; fields remplace
+-- les valeurs par défaut (connectée, active, hors de la voie des stands).
+function F.otherCar(spline, fields)
+  local t = { splinePosition = spline, isConnected = true, isActive = true, isInPitlane = false, isInPit = false }
+  for k, v in pairs(fields or {}) do t[k] = v end
+  return strict(t, 'ac.StateCar')
+end
+
 local function trim(s)
   return (s:gsub('^%s+', ''):gsub('%s+$', ''))
 end
@@ -615,7 +623,11 @@ function F.new(opts)
     end,
     getSim = function() return h.sim end,
     getSession = function(i) if i == 0 then return h.session end return nil end,
-    getCar = function(i) if i == 0 then return h.car end return nil end,
+    -- autres voitures (mode en ligne, filtre de trafic) : h.others[i], 1 à carsCount - 1
+    getCar = function(i)
+      if i == 0 then return h.car end
+      return rawget(h, 'others') and h.others[i] or nil
+    end,
     getCarPhysics = function(i) if i == 0 then return h.physicsState end return nil end,
     getCarID = function(i) if i == 0 then return h.carId end return nil end,
     getCarName = function(i) if i == 0 then return carFixture.name end return nil end,

@@ -36,7 +36,6 @@ EN = {
     'eau sur la piste %s -> %s %': 'water on track %s -> %s %',
     'piste %s -> %s °C': 'track %s -> %s °C',
     'adhérence %s -> %s %': 'grip %s -> %s %',
-    'Session en ligne : SetupLab est inactif.': 'Online session: SetupLab is inactive.',
     'Replay : SetupLab est inactif.': 'Replay: SetupLab is inactive.',
     'Piste mouillée : setups pluie (humidité %s %, eau %s %)': 'Wet track: wet setups (wetness %s %, water %s %)',
     'Piste sèche : setups secs': 'Dry track: dry setups',

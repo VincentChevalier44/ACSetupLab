@@ -703,6 +703,53 @@ tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists, getSetupTabs 
   T.eq(app.perf.errors, 0)
 end
 
+-- Mode en ligne (demande de Vincent du 03/11/2026) : « Actif en ligne » coché, en essais sur un serveur, le parcours
+-- complet marche comme hors ligne : découverte, v1, Valider, chargement au stand ; setup imposé par le serveur :
+-- chargement refusé.
+tests['AU20 en ligne, « Actif en ligne » coché : cycle complet en essais ; setup imposé par le serveur : refusé'] = function()
+  local h, app = boot(nil, 1)
+  h.sim.isOnlineRace = true
+  app.settings.onlineActive = true
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte en ligne')
+  T.eq(app.inert, nil, 'actif en ligne')
+  app.settings.compoundChoice = app.discovery.compoundIndex
+  h.click = 'Affinage automatique (tour rapide)'
+  frames(h, 1)
+  local r = app.refine
+  T.ok(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end), 'v1')
+  h.click = 'Valider v1'
+  frames(h, 1)
+  T.eq(r.history[1].status, 'validée', tostring(app.ui.message))
+  T.eq(setupFiles(h), 1, 'fichier écrit et relu')
+  -- validée au stand : mise dans la voiture tout de suite (1.5.3), chargement constaté
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'constat du chargement')
+  T.ok(app.loadTest and app.loadTest.ok, tostring(app.ui.message))
+  T.eq(#h.loadCalls, 1, 'chargée en ligne')
+  -- setup imposé par le serveur : aucun chargement, avec sa raison
+  h.sim.fixedSetup = true
+  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+  h.driver = nil
+  frames(h, 40)
+  h.click = 'Charger le setup tour rapide dans la voiture'
+  frames(h, 2)
+  T.eq(#h.loadCalls, 1, 'setup imposé : aucun chargement de plus')
+  T.contains(app.ui.message, 'imposé')
+  h.sim.fixedSetup = false
+  T.eq(app.inert, nil)
+  -- course en ligne vue dès l'image, avant la relecture du contexte (1 Hz) : chargement refusé
+  app.nextContextAt = app.now + 30
+  h.sim.raceSessionType = 3
+  frames(h, 40)
+  h.click = 'Charger le setup tour rapide dans la voiture'
+  frames(h, 2)
+  T.eq(app.inert, nil, 'contexte pas encore relu')
+  T.eq(#h.loadCalls, 1, 'course en ligne : refusé dès l\'image')
+  T.contains(app.ui.message, 'en ligne')
+  h.sim.raceSessionType = 1
+  app.nextContextAt = 0
+  T.eq(app.perf.errors, 0)
+end
+
 -- Décision de Vincent du 22/10/2026 : « quand on a appliqué la V1, on retourne en piste pour rouler [...] qu'il donne
 -- juste un message en disant j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les
 -- stands, on continue d'analyser les données ». En piste : une annonce « en préparation » par version, mises à jour

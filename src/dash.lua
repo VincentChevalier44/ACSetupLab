@@ -2524,7 +2524,7 @@ local function settingsPage(x, y, w)
   local proposal = { 'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'refineLaps' }
   local compute = { 'optBudgetEvalsQ', 'optBudgetEvalsC' }
   local strategy = { 'perfStab', 'fuelMarginPct', 'fuelQualiLaps', 'drsTrafficPct', 'driverMarginPct', 'compoundChoice',
-    'wetAidLevels', 'calibrationAuto', 'updateCheck' }
+    'wetAidLevels', 'calibrationAuto', 'updateCheck', 'onlineActive' }
   local estimate = X.U.estimateSeconds(app, app.settings.optBudgetEvalsQ, X.U.KIND.quali.lapsPerEval, 'quali')
   local dur = estimate and (L.t(app.settings.optBudgetEvalsQ .. X.U.KIND.quali.unit)
     .. L.t((X.U.durationText(estimate, K.computeTargetQ, X.U.slowFrames(app))))) or nil

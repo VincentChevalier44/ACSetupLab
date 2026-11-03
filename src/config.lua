@@ -8,7 +8,7 @@ local M = {}
 M.appName = 'SetupLab'
 -- Première bêta publique (décision de Vincent du 22/10/2026 : « on la présentera comme la version bêta numéro
 -- un, v1.0 ») ; les versions 1.0.0 à 1.7.0 d'avant étaient internes (CHANGELOG.md).
-M.version = '1.0.0-beta.1.5.6'
+M.version = '1.0.0-beta.1.5.6.1'
 M.milestone = 'J0 à J8 (qualification, course, mesure, DRS, ERS, interface, persistance), chargement dans la voiture, affinage, pluie, '
   .. 'activation, mémoire du circuit, validation avant enregistrement, vos temps réels, vos retouches gardées'
 M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus récente est ignorée
@@ -17,10 +17,12 @@ M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus
 -- (app active, tranche de calcul, garde de frame…) gardent leur valeur par défaut, un stockage ne peut
 -- donc ni désactiver l'app ni casser le budget de frame.
 -- 1.5 (décision de Vincent du 26/10/2026) : le nombre de tours de course se saisit dans l'onglet Course et se garde
--- par circuit (plus de réglage global) ; minimum avant une proposition ; langue.
+-- par circuit (plus de réglage global) ; minimum avant une proposition ; langue. Mode en ligne (demande de Vincent du
+-- 03/11/2026) : onlineActive.
 M.EDITABLE = { 'compoundChoice', 'fuelMarginPct', 'fuelQualiLaps', 'perfStab', 'drsTrafficPct',
   'driverMarginPct', 'optBudgetEvalsQ', 'optBudgetEvalsC', 'calibrationAuto', 'wetAidLevels', 'refineLaps',
-  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'updateCheck', 'language', 'overlayLocked', 'overlayMini' }
+  'refineInstantFirst', 'refineMinLaps', 'refineMinMinutes', 'updateCheck', 'language', 'overlayLocked', 'overlayMini',
+  'onlineActive' }
 
 -- Noms des fichiers de setup produits (§12.3) ; l'horodatage est ajouté au préfixe : heure locale de
 -- Windows (demande de Vincent du 21/10/2026), sinon UTC dit dans le nom. Décision de Vincent du 22/10/2026
@@ -113,6 +115,8 @@ M.settings = {
   -- minimum ; les versions suivantes l'attendent
   { key = 'updateCheck', kind = 'boolean', default = true,
     label = 'Vérifier les mises à jour au lancement (GitHub)' },
+  -- mode en ligne (demande de Vincent du 03/11/2026) : décoché par défaut ; essais et qualification seulement
+  { key = 'onlineActive', kind = 'boolean', default = false, label = 'Actif en ligne (essais et qualification)' },
   -- barre de l'overlay (demande de Vincent du 03/11/2026) : cadenas (position et taille figées), réduit à la barre
   { key = 'overlayLocked', kind = 'boolean', default = false, label = 'Overlay verrouillé (position et taille figées)' },
   { key = 'overlayMini', kind = 'boolean', default = false, label = 'Overlay réduit à sa barre' },
@@ -166,6 +170,10 @@ M.help = {
   refineMinMinutes = 'Durée minimum de roulage, en minutes, avec le setup actuellement dans la voiture avant une proposition '
     .. '(en piste, voiture en mouvement). 0 : pas de durée minimum. Les tours et la durée doivent être atteints tous les deux.',
   language = 'Langue de toute l\'application : menus, messages, aides et overlay.',
+  onlineActive = 'Coché : SetupLab fonctionne aussi sur un serveur en ligne, en essais et en qualification ; en course en '
+    .. 'ligne, il reste en pause. Un tour passé derrière ou à côté d\'une autre voiture (aspiration, gêne) n\'est pas '
+    .. 'compté. Un setup imposé par le serveur ne se charge pas. Rien n\'est envoyé au serveur. Décoché : SetupLab se '
+    .. 'met en pause en ligne.',
 }
 
 -- Constantes internes (réglables ici uniquement).
@@ -183,6 +191,13 @@ M.K = {
   incidentSlideAngle = 20,    -- ° de dérive moyenne des roues arrière : grosse glissade
   incidentSlideTime = 0.5,    -- s de glissade continue
   incidentDamage = 1.0,       -- hausse des dégâts cumulés (km/h de choc) : choc
+  -- trafic en ligne (mode en ligne, demande de Vincent du 03/11/2026) : autre voiture juste devant ou à côté, le long
+  -- de la ligne IA
+  trafficAheadM = 40,         -- m devant : aspiration, gêne
+  trafficBesideM = 8,         -- m derrière : à côté (roue dans roue)
+  trafficMaxTime = 2.0,       -- s cumulées dans le tour au-delà desquelles le tour est rejeté
+  trafficMaxCars = 64,        -- voitures examinées au plus par échantillon
+  onlineSessions = { [1] = true, [2] = true }, -- types de séance actifs en ligne : essais (1), qualification (2)
   updateCheckFrame = 300,    -- mise à jour : vérifiée après ~5 s (images), une fois par lancement
   contextPeriod = 1.0,        -- détection de contexte (s)
   fpsTarget = 60,             -- en dessous, la tranche est réduite

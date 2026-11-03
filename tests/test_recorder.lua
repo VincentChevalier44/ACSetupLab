@@ -30,12 +30,14 @@ local function setup(trackId)
   return { h = h, track = track, profile = profile, simTime = result.time, raw = raw, files = files }
 end
 
--- Fait rouler n tours (plus la fin du tour de départ) ; hook(i, h) appelé à chaque frame.
-local function drive(env, laps, rec, hook, signatureFn)
+-- Fait rouler n tours (plus la fin du tour de départ) ; hook(i, h) appelé à chaque frame ; extra : champs ajoutés au
+-- contexte de l'enregistreur (trafic du mode en ligne).
+local function drive(env, laps, rec, hook, signatureFn, extra)
   local h, dt, now = env.h, 1 / 60, 0
   local finished = {}
   local context = { trackLength = env.track.length, conditions = { airTemp = 25, roadTemp = 32, roadGrip = 0.98 },
     keepPositions = env.keepPositions }
+  for k, v in pairs(extra or {}) do context[k] = v end
   local startCount = h.car.lapCount
   local frame = 0
   local extra = 0
@@ -70,6 +72,8 @@ local function env(trackId)
   -- champs d'incidents posés par un test (absents du faux hôte) : retirés
   for _, key in ipairs({ 'localVelocity', 'resetCounter', 'damage', 'lapCutsCount' }) do rawset(e.h.car, key, nil) end
   for w = 0, 3 do e.h.car.wheels[w].slipRatio, e.h.car.wheels[w].slipAngle = 0, 0 end
+  -- autres voitures (trafic du mode en ligne) posées par un test : retirées
+  rawset(e.h, 'others', nil)
   return e
 end
 
@@ -186,6 +190,89 @@ tests['R20 incidents : glissements normaux, compteur de coupes du tour précéde
   rawset(h.car, 'absInAction', nil)
   T.eq(#laps, 2)
   for _, lap in ipairs(laps) do T.ok(lap.valid, tostring(lap.reason)) end
+end
+
+-- Mode en ligne (demande de Vincent du 03/11/2026) : une autre voiture juste devant ou à côté pendant plus de
+-- K.trafficMaxTime cumulées rejette le tour ; loin, déconnectée, inactive, dans la voie des stands, ou croisée un
+-- instant : tour gardé. Hors ligne (context.traffic absent), rien ne change.
+tests['R21 trafic en ligne : voiture proche rejetée ; loin, déconnectée, aux stands, croisée, hors ligne : gardée'] = function()
+  local function follow(meters, fields, window)
+    return function(_, h, rec)
+      local length = cache.monza.track.length
+      local on = window == nil or (rec.state == 'enregistrement' and rec.n >= window[1] and rec.n < window[2])
+      local q = (h.car.splinePosition + (on and meters or 0.5 * length) / length) % 1
+      local other = rawget(h, 'others') and h.others[1]
+      if other == nil then
+        h.others = { Fake.otherCar(q, fields) }
+      else
+        other.splinePosition = q
+      end
+    end
+  end
+  local online = { traffic = true, carsCount = 2 }
+  local cases = {
+    { 'à 20 m devant', follow(20), online, false },
+    { 'à 5 m derrière (à côté)', follow(-5), online, false },
+    { 'à 200 m devant', follow(200), online, true },
+    { 'à 20 m derrière', follow(-20), online, true },
+    { 'déconnectée', follow(20, { isConnected = false }), online, true },
+    { 'inactive', follow(20, { isActive = false }), online, true },
+    { 'dans la voie des stands', follow(20, { isInPitlane = true }), online, true },
+    -- croisée pendant 45 échantillons (1,5 s) : sous le seuil de 2 s
+    { 'croisée un instant', follow(20, nil, { 1500, 1545 }), online, true },
+    -- 75 échantillons (2,5 s) : au-delà
+    { 'gêne de 2,5 s', follow(20, nil, { 1500, 1575 }), online, false },
+    { 'hors ligne', follow(20), { carsCount = 2 }, true },
+  }
+  env('monza')
+  for _, case in ipairs(cases) do
+    local e = env('monza')
+    local rec = Recorder.new()
+    local laps = drive(e, 1, rec, case[2], nil, case[3])
+    T.eq(#laps, 1, case[1])
+    if case[4] then
+      T.ok(laps[1].valid, case[1] .. ' : ' .. tostring(laps[1].reason))
+    else
+      T.no(laps[1].valid, case[1])
+      T.eq(laps[1].reason, Recorder.TRAFFIC_REASON, case[1])
+    end
+  end
+  -- le trafic d'un tour ne se reporte pas sur le suivant
+  local e = env('monza')
+  local rec = Recorder.new()
+  local laps = drive(e, 2, rec, function(i, h, r)
+    if h.car.lapCount <= 1 then return follow(20)(i, h, r) end
+    h.others[1].splinePosition = (h.car.splinePosition + 0.5) % 1
+  end, nil, online)
+  T.eq(#laps, 2)
+  T.no(laps[1].valid, 'premier tour en trafic')
+  T.ok(laps[2].valid, 'second tour libre : ' .. tostring(laps[2].reason))
+end
+
+-- Coût du filtre de trafic : 30 autres voitures examinées à chaque échantillon (30 Hz). Différence entre un tour avec
+-- et sans le filtre, rapportée à l'image ; borne large (mesure en temps réel, préemption du système).
+tests['R22 trafic en ligne : 30 autres voitures, surcoût par image < 0,05 ms'] = function()
+  local others = {}
+  for i = 1, 30 do others[i] = Fake.otherCar((i * 0.0313) % 1) end
+  local function run(extra)
+    local e = env('monza')
+    e.h.others = others
+    local count = 0
+    collectgarbage('collect')
+    local t0 = PY.clock()
+    drive(e, 1, Recorder.new(), function() count = count + 1 end, nil, extra)
+    return (PY.clock() - t0) * 1000, count
+  end
+  run({ traffic = true, carsCount = 31 }) -- chauffe (compilation JIT)
+  local best
+  for _ = 1, 3 do
+    local without, n = run({ carsCount = 31 })
+    local with = run({ traffic = true, carsCount = 31 })
+    local extra = (with - without) / n
+    best = best and math.min(best, extra) or extra
+  end
+  PY.note('R22', string.format('surcoût du filtre de trafic : %.4f ms par image', best))
+  T.ok(best < 0.05, 'surcoût ' .. best .. ' ms par image')
 end
 
 tests['R03 mémoire bornée : dernier tour et meilleur tour par setup'] = function()

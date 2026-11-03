@@ -562,6 +562,12 @@ local function scheduleReport(d)
       slices = stats.slices, maxSliceMs = stats.maxSliceMs, maxUnitMs = stats.maxUnitMs,
       slowSlices = app.perf.slowSlices, avgMs = app.perf.avgMs, clock = app.clock ~= nil, clockSource = app.clockSource,
     },
+    -- mode en ligne (test du 03/11/2026) : de quoi régler les seuils d'après le rapport
+    online = {
+      session = app.context and app.context.online == true, active = app.settings.onlineActive == true,
+      sessionType = app.context and app.context.sessionType, cars = app.context and app.context.carsCount,
+      trafficRejects = app.trafficRejects or 0,
+    },
   }
   local entries = Util.logEntries(app.log)
   Util.schedulerAdd(app.scheduler, 'report', function(ctx)
@@ -810,6 +816,23 @@ local function conditionsDrift(ref)
   return nil
 end
 
+-- Mode en ligne (demande de Vincent du 03/11/2026) : seule décision de la pause en ligne, prise à l'image (inertNow,
+-- chargement) comme à la relecture du contexte. Réglage « Actif en ligne » décoché : pause ; coché : essais et
+-- qualification seulement (K.onlineSessions), la course en ligne reste en pause, comme un type de séance inconnu.
+-- Renvoie la raison de la pause, ou nil.
+local function onlinePause(online, sessionType)
+  if not online then return nil end
+  if not app.settings.onlineActive then
+    return 'Session en ligne : SetupLab est en pause (cocher « Actif en ligne », onglet RÉGLAGES).'
+  end
+  sessionType = tonumber(sessionType)
+  if sessionType and K.onlineSessions[sessionType] then return nil end
+  if sessionType == 3 then
+    return 'Course en ligne : SetupLab reste en pause (en ligne : essais et qualification seulement).'
+  end
+  return 'Séance en ligne autre qu\'essais ou qualification : SetupLab reste en pause.'
+end
+
 local function refreshContext()
   local c = Datasource.readContext(host)
   -- voiture ou circuit illisible sur une seule relecture : pas de mode inerte (un calcul en cours serait
@@ -822,10 +845,11 @@ local function refreshContext()
   end
   app.context = c
   local inert = nil
+  local onlineReason = c.ok and onlinePause(c.online, c.sessionType) or nil
   if not c.ok then
     inert = 'Contexte illisible : ' .. tostring(c.reason)
-  elseif c.online then
-    inert = 'Session en ligne : SetupLab est inactif.'
+  elseif onlineReason then
+    inert = onlineReason
   elseif c.replay then
     inert = 'Replay : SetupLab est inactif.'
   end
@@ -1157,6 +1181,8 @@ local function onLap(lap)
   log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (lap.valid and 'valide' or
     ('rejeté (' .. tostring(lap.reason) .. ')')))
   if not lap.valid then
+    -- mode en ligne : tours rejetés pour trafic comptés (rapport J0, réglage des seuils)
+    if lap.reason == Recorder.TRAFFIC_REASON then app.trafficRejects = (app.trafficRejects or 0) + 1 end
     -- affinage en attente de son minimum : le tour rejeté est dit à l'écran, avec sa raison (constat du 29/10/2026)
     local r = app.refine
     if r and r.active and r.phase == 'tours' and app.refineMinReached and not app.refineMinReached(r) then
@@ -1247,18 +1273,25 @@ local function recordFrame()
   -- aile mobile du DRS (mesure de son effet, H8), dès que drs.ini en désigne une
   rc.drsWing = d and d.drs and d.drs.wing or nil
   rc.ers = d ~= nil and d.ers ~= nil and d.ers.enabled == true
+  -- trafic (mode en ligne) : autres voitures examinées en ligne seulement
+  rc.traffic = app.context ~= nil and app.context.online == true
+  rc.carsCount = app.context and app.context.carsCount or nil
   local lap = Recorder.update(app.recorder, host, app.now, liveSignature, rc)
   if lap then onLap(lap) end
 end
 
--- Mode inerte vu dès la frame (le contexte n'est relu qu'à 1 Hz) : en ligne ou en replay, rien n'est
--- enregistré et le tour en cours est abandonné.
+-- Mode inerte vu dès la frame (le contexte n'est relu qu'à 1 Hz) : en ligne (sauf mode en ligne permis pour cette
+-- séance, onlinePause) ou en replay, rien n'est enregistré et le tour en cours est abandonné.
 local function inertNow(sim)
   if app.inert then return true end
+  local online = false
   for _, guard in ipairs(Datasource.CONTEXT_GUARDS) do
-    if Util.get(sim, guard.key) == true then return true end
+    if Util.get(sim, guard.key) == true then
+      if guard.kind ~= 'online' then return true end
+      online = true
+    end
   end
-  return false
+  return online and onlinePause(true, Util.get(sim, 'raceSessionType')) ~= nil
 end
 
 local function update(dt)
@@ -3843,6 +3876,12 @@ local function applySetting(key, value)
       for _, name in ipairs(Config.EDITABLE) do editable[name] = app.settings[name] end
       Store.put(app.store, 'settings', editable)
       log('INFO', 'setting', def.label .. ' : ' .. tostring(valid))
+      -- mode en ligne : changé même en pause (seule exception), écrit tout de suite (en pause, le stockage n'est pas
+      -- écrit : la case décochée en ligne serait sinon perdue) et pris en compte dès l'image suivante
+      if key == 'onlineActive' then
+        Store.flush(app.store)
+        app.nextContextAt = 0
+      end
     end
   end
 end
@@ -3925,7 +3964,10 @@ local function handleIntents(intents)
     app.names[intents.name.kind] = Util.truncate(tostring(intents.name.text), K.nameMaxChars * 4)
   end
   if intents.autoToggle then autoToggle() end
-  if app.inert and (intents.calibrate or intents.validate or intents.setting or intents.copyLap or intents.load
+  -- en pause, le seul réglage « Actif en ligne » reste modifiable (on le coche une fois connecté au serveur)
+  local onlineSetting = intents.setting and intents.setting.key == 'onlineActive'
+  if app.inert and (intents.calibrate or intents.validate or (intents.setting and not onlineSetting) or intents.copyLap
+      or intents.load
       or intents.refineStart or intents.refineJudge or intents.refineLock or intents.memoryLoad or intents.memoryLock
       or intents.start or intents.refineChoice or intents.raceFrom or intents.raceResume or intents.updateApply) then
     app.ui.message = 'Indisponible : ' .. app.inert

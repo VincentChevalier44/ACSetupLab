@@ -313,6 +313,55 @@ tests['DS07 réglages : tableau des réglages du setup repliable, fermé par dé
   h.tab = nil
 end
 
+-- Mode en ligne (demande de Vincent du 03/11/2026) : en ligne, pause par défaut ; la case « Actif en ligne » (onglet
+-- RÉGLAGES) se coche pendant la pause, seul réglage permis, et s'écrit tout de suite ; essais et qualification
+-- actifs ; course en ligne en pause, où la case se décoche et s'écrit aussi ; hors ligne : reprise.
+tests['DS09 en ligne : pause par défaut, case cochée en pause, essais actifs, course en pause, case décochée gardée'] = function()
+  local Store = require('src/store')
+  local LABEL = Config.byKey.onlineActive.label
+  local function storedOnline(h)
+    local entries = Store.parse(h.stored['setuplab:data'])
+    return entries.settings and entries.settings.onlineActive
+  end
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  T.eq(app.settings.onlineActive, false, 'décochée par défaut')
+  h.sim.isOnlineRace = true
+  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'en ligne : pause par défaut')
+  T.contains(app.inert, 'Actif en ligne')
+  -- un autre réglage reste refusé en pause
+  h.tab = 'Réglages'
+  frames(h, 1)
+  T.ok(shownText(h, 'Actif en ligne'), 'case affichée dans RÉGLAGES')
+  h.click = Config.byKey.calibrationAuto.label
+  frames(h, 1)
+  T.eq(app.settings.calibrationAuto, true, 'autre réglage refusé en pause')
+  -- la case se coche en pause, s'écrit tout de suite, et l'app reprend en essais
+  h.click = LABEL
+  frames(h, 1)
+  T.eq(app.settings.onlineActive, true, 'cochée en pause')
+  T.eq(storedOnline(h), true, 'écrite tout de suite')
+  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'essais en ligne : actif')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte en ligne')
+  -- qualification : actif ; course : pause, avec sa raison
+  h.sim.raceSessionType = 2
+  frames(h, 120)
+  T.eq(app.inert, nil, 'qualification en ligne : actif')
+  h.sim.raceSessionType = 3
+  T.ok(waitFor(h, function() return app.inert ~= nil end, 300), 'course en ligne : pause')
+  T.contains(app.inert, 'Course en ligne')
+  -- décochée pendant la pause : écrite aussi (le stockage n'est pas écrit en pause)
+  h.click = LABEL
+  frames(h, 1)
+  T.eq(app.settings.onlineActive, false)
+  T.eq(storedOnline(h), false, 'décochée et écrite en pause')
+  -- hors ligne : reprise
+  h.sim.isOnlineRace, h.sim.raceSessionType = false, 1
+  T.ok(waitFor(h, function() return app.inert == nil end, 300), 'hors ligne : reprise')
+  T.eq(app.perf.errors, 0)
+  h.tab = nil
+end
+
 -- Demande de Vincent du 03/11/2026 : en replay, l'overlay ne s'affiche pas ; dès l'image où le replay commence, et
 -- de nouveau après.
 tests['DS08 overlay : rien en replay'] = function()
