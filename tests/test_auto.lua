@@ -749,6 +749,81 @@ tests['AU20 en ligne par défaut : cycle complet ; setup imposé par le serveur,
   T.eq(app.perf.errors, 0)
 end
 
+-- Demande de Vincent du 03/11/2026 : « revérifie bien que le fonctionnement en hors ligne soit exactement le même que en
+-- ligne ». Le même parcours rejoué hors ligne puis en ligne (« Actif en ligne » coché par défaut, aucune autre voiture),
+-- horloge simulée (découpe du calcul identique) : découverte, v1 proposée, Valider (chargée au stand), tours réels avec
+-- un pincement changé, v2, retour au stand. Tout ce qui en sort est comparé : images de chaque étape, versions et leur
+-- statut, fichiers écrits (chemins et contenus), annonces à l'écran, chargements, stockage, journal, tours enregistrés.
+tests['AU21 hors ligne et en ligne : parcours identique (setups, fichiers, annonces, chargements, stockage, journal)'] = function()
+  local function run(online)
+    local h, app = boot(nil, 1)
+    h.clockNow = 0
+    app.clock = function()
+      h.clockNow = h.clockNow + 2e-5
+      return h.clockNow
+    end
+    h.sim.isOnlineRace = online
+    local out = { steps = {} }
+    local function step(n) out.steps[#out.steps + 1] = tostring(n) end
+    step(waitFor(h, function() return app.discoveryState == 'done' end))
+    app.settings.compoundChoice = app.discovery.compoundIndex
+    h.click = 'Affinage automatique (tour rapide)'
+    frames(h, 1)
+    local r = app.refine
+    step(waitFor(h, function() return r.version >= 1 and r.phase == 'tours' end))
+    h.click = 'Valider v1'
+    frames(h, 1)
+    step(waitFor(h, function() return app.loadCheck == nil end))
+    if app.refine and app.refine.choice then app.handleIntents({ refineChoice = { version = app.refine.choice } }) end
+    toe(h)
+    local profile = drivenProfile(h, app)
+    step(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end, nil, profile))
+    -- tours complets enregistrés (l'enregistreur porte le filtre de trafic du mode en ligne)
+    step(waitFor(h, function() return app.recorder.finished >= 3 end, 150000, profile))
+    h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
+    h.driver = nil
+    frames(h, 120)
+    out.inert = tostring(app.inert)
+    local last = app.recorder.laps.last
+    out.lastLap = last and string.format('%.4f %s %s', last.time or -1, tostring(last.valid), tostring(last.reason)) or 'nil'
+    out.history = {}
+    for _, e in ipairs(r.history) do
+      out.history[#out.history + 1] = table.concat({ tostring(e.version), tostring(e.status), tostring(e.signature),
+        tostring(e.ready), tostring(e.updates) }, '|')
+    end
+    out.files = {}
+    for path, text in pairs(h.written) do out.files[#out.files + 1] = path .. '\n' .. text end
+    table.sort(out.files)
+    out.messages = {}
+    for _, m in ipairs(h.messages) do out.messages[#out.messages + 1] = tostring(m.title) .. ' | ' .. tostring(m.description) end
+    out.loads = table.concat(h.loadCalls, ' ; ')
+    out.stored = tostring(h.stored and h.stored['setuplab:data'])
+    out.log = {}
+    for _, e in ipairs(Util.logEntries(app.log)) do
+      out.log[#out.log + 1] = string.format('%.3f %s %s %s', e.t, e.level, e.code, e.text)
+    end
+    out.laps = tostring(app.recorder.finished)
+    out.message = tostring(app.ui.message)
+    out.errors = app.perf.errors
+    return out
+  end
+  local off, on = run(false), run(true)
+  T.eq(on.inert, 'nil', 'en ligne : jamais en pause')
+  T.ok(#off.history >= 2 and #off.files >= 1 and #off.messages >= 2, 'parcours complet hors ligne')
+  for _, key in ipairs({ 'steps', 'history', 'files', 'messages', 'log' }) do
+    T.eq(#on[key], #off[key], key .. ' : même nombre')
+    for i = 1, math.max(#on[key], #off[key]) do
+      T.eq(on[key][i], off[key][i], key .. ' n° ' .. i .. ' identique')
+    end
+  end
+  for _, key in ipairs({ 'inert', 'loads', 'stored', 'laps', 'lastLap', 'message', 'errors' }) do
+    T.eq(on[key], off[key], key .. ' identique')
+  end
+  T.ok(tonumber(on.laps) >= 3, 'tours enregistrés : ' .. on.laps)
+  PY.note('AU21', string.format('%d étapes, %d versions, %d fichiers, %d annonces, %d lignes de journal, %s tours (dernier : %s) : '
+    .. 'identiques', #on.steps, #on.history, #on.files, #on.messages, #on.log, on.laps, on.lastLap))
+end
+
 -- Décision de Vincent du 22/10/2026 : « quand on a appliqué la V1, on retourne en piste pour rouler [...] qu'il donne
 -- juste un message en disant j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les
 -- stands, on continue d'analyser les données ». En piste : une annonce « en préparation » par version, mises à jour
