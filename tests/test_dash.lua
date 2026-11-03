@@ -261,4 +261,56 @@ tests['DS05 overlay : v1 annoncée quand la voiture a votre setup ou celui par d
   end
 end
 
+-- Constat de Vincent du 03/11/2026 : qualif v1 chargée, affinage de course lancé, « À faire : saisir le nombre de tours »
+-- mais aucune saisie sur la page COURSE. Le nombre de tours est sous la carte d'étape pendant l'affinage de course.
+tests['DS06 course : nombre de tours saisissable pendant l\'affinage de course'] = function()
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  pits(h)
+  app.settings.compoundChoice = app.discovery.compoundIndex
+  app.handleIntents({ start = { kind = 'quali', mode = 'mine' } })
+  local r = app.refine
+  T.ok(waitFor(h, function() return r and r.version >= 1 and r.phase == 'tours' end), 'v1')
+  local e = r.history[#r.history]
+  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
+  T.ok(waitFor(h, function() return app.loadCheck == nil end), 'v1 validée dans la voiture')
+  app.raceLaps = nil
+  app.handleIntents({ refineStart = 'race' })
+  local rr = app.refine
+  T.ok(rr and rr.active and rr.kind == 'race', 'affinage de course lancé : ' .. tostring(app.ui.message))
+  h.tab = 'Course'
+  frames(h, 2)
+  T.ok(shownText(h, 'TOURS DE LA COURSE'), 'le nombre de tours est sur la page')
+  h.click = 'race_laps_plus'
+  frames(h, 2)
+  T.eq(app.raceLaps, 1, 'le + règle le nombre de tours')
+  h.click = 'race_laps_plus'
+  frames(h, 2)
+  T.eq(app.raceLaps, 2)
+  h.width = 404
+  frames(h, 2)
+  T.ok(shownText(h, 'TOURS DE LA COURSE'), 'en étroit aussi')
+  T.eq(app.perf.errors, 0, 'aucune erreur de dessin')
+  h.tab = nil
+end
+
+-- Demande de Vincent du 03/11/2026 : « Réglages du setup » (onglet RÉGLAGES) se replie, fermé par défaut.
+tests['DS07 réglages : tableau des réglages du setup repliable, fermé par défaut'] = function()
+  local h, app = boot('fr')
+  T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+  h.tab = 'Réglages'
+  frames(h, 2)
+  T.ok(shownText(h, 'RÉGLAGES DU SETUP'), 'en-tête')
+  T.no(shownText(h, 'Survol d\'une ligne'), 'fermé par défaut')
+  T.no(h.ids and h.ids['status_1'], 'lignes absentes')
+  h.click = 'setup_status_toggle'
+  frames(h, 2)
+  T.ok(shownText(h, 'Survol d\'une ligne'), 'ouvert d\'un clic')
+  h.click = 'setup_status_toggle'
+  frames(h, 2)
+  T.no(shownText(h, 'Survol d\'une ligne'), 'refermé')
+  T.eq(app.perf.errors, 0)
+  h.tab = nil
+end
+
 return tests

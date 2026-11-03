@@ -2,6 +2,8 @@
 
 ## Unreleased (beta 1.5.5, in progress)
 
+- RACE tab: the number of race laps can be set under the step card while the race refinement runs (it was only in the start card, so a race refinement waiting for its laps had nowhere to enter them).
+- SETTINGS tab: the "Setup settings" table folds, closed by default (click its header).
 - In-game overlay: new SetupLab bar instead of CSP's title bar, which cut the top of the overlay. It shows the setup on track (or SetupLab's state) and three buttons: a padlock that locks the overlay in place (position and size), reduce (the bar alone, with the gap on your laps) and close (the CSP app bar opens it again). Drag the bar to move the overlay. The padlock and the reduced state are kept from one session to the next. AC must be restarted once for the window to lose CSP's title bar.
 - In-game overlay: a proposed version is announced ("v1 ready", predicted gain, "back to the pits: Try v1") even when the car still has your own setup or the default one. Before it, the overlay shows what is left to do (for example the clean laps still needed).
 - Saved file names use your local time again with CSP 0.3.1 and newer: CSP now blocks the Windows call SetupLab used, so the local time is read through Lua's `os.date` (read only). They were in UTC.

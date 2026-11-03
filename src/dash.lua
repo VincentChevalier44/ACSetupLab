@@ -1727,6 +1727,51 @@ local function noQualiCard(model, x, y, w, dry)
 end
 
 -- départ de la course : qualifs validées au choix, nombre de tours, partir ; ou reprendre une course validée
+-- Nombre de tours de la course : − curseur + (Ctrl + clic pour saisir), et ce que prévoit la séance ; renvoie la hauteur
+-- (40, ou 58 quand la ligne d'aide passe dessous). dry : hauteur seule.
+local function lapsRow(px, cy, pw, dry)
+  local app, c = X.app, X.c
+  local below = pw - 330 < 120
+  local h = below and 58 or 40
+  if dry then return h end
+  lab('Tours de la course', px, cy + 8)
+  local laps = app.raceLaps or 0
+  local sx = px + 150
+  if button('−###race_laps_minus', sx, cy, 30, 28, nil, 16) and laps > 1 then X.intents.raceLaps = laps - 1 end
+  if X.ui.slider then
+    X.ui.setCursor(vec(1, X.ox + sx + 34, X.oy + cy + 2))
+    Util.call(X.ui.setNextItemWidth, 90)
+    local ok, value, changed = Util.call(X.ui.slider, '###race_laps', laps, 0, 150, '%.0f', true)
+    if ok and changed then
+      local n = math.floor((tonumber(value) or 0) + 0.5)
+      if n >= 1 and n ~= laps then X.intents.raceLaps = n end
+    end
+    tip('Nombre de tours de la course à préparer (carburant, usure, relais), gardé pour cette voiture sur ce circuit. '
+      .. 'Ctrl + clic pour saisir une valeur au clavier.')
+  end
+  if button('+###race_laps_plus', sx + 128, cy, 30, 28, nil, 16) then X.intents.raceLaps = math.max(1, laps + 1) end
+  local hint = X.U.sessionRaceLaps(app)
+  local hs = hint and L.f('prévu par la séance : %s tours · gardé pour ce circuit', hint) or L.t('gardé pour ce circuit')
+  if below then
+    text('text', 11, fitted('text', 11, hs, pw), px, cy + 36, c.grey)
+  else
+    text('text', 11, fitted('text', 11, hs, pw - 330), sx + 170, cy + 7, c.grey)
+  end
+  return h
+end
+
+-- Pendant l'affinage de course : le nombre de tours sous la carte d'étape (filet ambre tant qu'il manque).
+local function lapsPanel(x, y, w, dry)
+  local c = X.c
+  local missing = not (Util.isFinite(X.app.raceLaps) and X.app.raceLaps >= 1)
+  local h = 12 + lapsRow(x + 14, 0, w - 28, true) + 8
+  if dry then return h end
+  panel(x, y, x + w, y + h)
+  if missing then rect(x, y, x + 3, y + h, c.warn) end
+  lapsRow(x + 14, y + 12, w - 28)
+  return h
+end
+
 local function raceStartCard(x, y, w, wide, dry)
   local app, c = X.app, X.c
   local choices = app.raceChoices and app.raceChoices() or {}
@@ -1753,7 +1798,8 @@ local function raceStartCard(x, y, w, wide, dry)
   local othersH = others and (textBox('text', 12, others, 0, 0, pw, c.soft, true) + 8) or 0
   local whyH = whyS and (textBox('text', 11.5, whyS, 0, 0, pw, c.warn, true) + 6) or 0
   local titleH = textBox('display', wide and 30 or 26, up(L.t('De quelle qualif part-on ?')), 0, 0, pw, c.light, true) + 8
-  local h = 14 + 15 + titleH + (others and othersH or math.max(1, #list) * (rowH + 4)) + 12 + 40 + (#list > 0 and 52 or 0)
+  local h = 14 + 15 + titleH + (others and othersH or math.max(1, #list) * (rowH + 4)) + 12 + lapsRow(0, 0, pw, true)
+    + (#list > 0 and 52 or 0)
     + whyH + (resume and 70 or 0) + 12
   if dry then return h end
   panel(x, y, x + w, y + h)
@@ -1794,26 +1840,7 @@ local function raceStartCard(x, y, w, wide, dry)
   end
   -- nombre de tours : − curseur +
   cy = cy + 8
-  lab('Tours de la course', px, cy + 8)
-  local laps = app.raceLaps or 0
-  local sx = px + 150
-  if button('−###race_laps_minus', sx, cy, 30, 28, nil, 16) and laps > 1 then X.intents.raceLaps = laps - 1 end
-  if X.ui.slider then
-    X.ui.setCursor(vec(1, X.ox + sx + 34, X.oy + cy + 2))
-    Util.call(X.ui.setNextItemWidth, 90)
-    local ok, value, changed = Util.call(X.ui.slider, '###race_laps', laps, 0, 150, '%.0f', true)
-    if ok and changed then
-      local n = math.floor((tonumber(value) or 0) + 0.5)
-      if n >= 1 and n ~= laps then X.intents.raceLaps = n end
-    end
-    tip('Nombre de tours de la course à préparer (carburant, usure, relais), gardé pour cette voiture sur ce circuit. '
-      .. 'Ctrl + clic pour saisir une valeur au clavier.')
-  end
-  if button('+###race_laps_plus', sx + 128, cy, 30, 28, nil, 16) then X.intents.raceLaps = math.max(1, laps + 1) end
-  local hint = X.U.sessionRaceLaps(app)
-  local hs = hint and L.f('prévu par la séance : %s tours · gardé pour ce circuit', hint) or L.t('gardé pour ce circuit')
-  text('text', 11, fitted('text', 11, hs, pw - 330), sx + 170, cy + 7, c.grey)
-  cy = cy + 40
+  cy = cy + lapsRow(px, cy, pw)
   -- partir
   if selected then
     local label = 'Partir de la qualif v' .. tostring(selected.version) .. '###race_from_' .. selected.file
@@ -1975,6 +2002,7 @@ local function racePage(x, y, w)
   elseif model then
     cy = cy + stepCard(model, 'race', x, cy, w, wide) + 8
   end
+  if r and r.active then cy = cy + lapsPanel(x, cy, w) + 8 end
   local hl = loadBar('race', x, cy, w)
   if hl > 0 then cy = cy + hl + 8 end
   cy = cy + pinsBar('race', x, cy, w)
@@ -2425,12 +2453,27 @@ local function setupStatusPanel(x, y, w)
   local optimized = 0
   for _, row in ipairs(rows) do if row.status == 'optimisé' then optimized = optimized + 1 end end
   local extra = 2
-  local h = 40 + 22 + (#rows + extra) * 22 + 12
+  -- repliable (fermé par défaut) : l'en-tête seul, ou le tableau entier
+  local open = app.ui.setupStatusOpen == true
+  local h = open and (40 + 22 + (#rows + extra) * 22 + 12) or 40
   panel(x, y, x + w, y + h)
   X.cw = x + w
+  X.ui.setCursor(vec(1, X.ox + x, X.oy + y))
+  if X.ui.invisibleButton('###setup_status_toggle', vec(3, w, 38)) then app.ui.setupStatusOpen = not open end
+  local hot = hovered()
+  tip(open and 'Replier le tableau.' or 'Déplier : le statut de chaque réglage du setup, sur piste sèche et mouillée.')
+  local ink = hot and c.light or c.soft
+  if open then
+    line(x + 14, y + 17, x + 18.5, y + 21.5, ink, 1.6)
+    line(x + 18.5, y + 21.5, x + 23, y + 17, ink, 1.6)
+  else
+    line(x + 16.5, y + 14.5, x + 21, y + 19, ink, 1.6)
+    line(x + 21, y + 19, x + 16.5, y + 23.5, ink, 1.6)
+  end
   local s = L.f('%s optimisés · %s conservés', optimized, #rows - optimized)
-  panelTitle('Réglages du setup', x + 14, y + 12)
+  panelTitle('Réglages du setup', x + 30, y + 12)
   text('text', 11.5, s, x + w - 14 - measure('text', 11.5, s), y + 12, c.grey)
+  if not open then return h end
   local c1, c2 = x + w - 14 - 230, x + w - 14 - 110
   local ry = y + 38
   lab('Réglage', x + 14, ry)
@@ -2505,7 +2548,7 @@ local function settingsPage(x, y, w)
   end
   local hs = setupStatusPanel(x, cy, w)
   if hs > 0 then cy = cy + hs + 8 end
-  text('text', 11, L.t('Survol d\'une ligne : la raison de son statut.'), x, cy, c.grey)
+  if app.ui.setupStatusOpen then text('text', 11, L.t('Survol d\'une ligne : la raison de son statut.'), x, cy, c.grey) end
   return cy + 18 - y
 end
 

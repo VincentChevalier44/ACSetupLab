@@ -185,6 +185,9 @@ EN = {
     '+ %s autre réglage': '+ %s other setting',
     'v%s en préparation': 'v%s being prepared',
     'provisoire': 'provisional',
+    'Replier le tableau.': 'Fold the table.',
+    'Déplier : le statut de chaque réglage du setup, sur piste sèche et mouillée.':
+        'Unfold: the status of each setup setting, on a dry and a wet track.',
     'Rentrez au stand quand vous voulez : v%s y sera prête, « Essayer v%s » la met dans la voiture.':
         'Back to the pits whenever you like: v%s will be ready there, "Try v%s" puts it in the car.',
     'Gain provisoire %s': 'Provisional gain %s',
