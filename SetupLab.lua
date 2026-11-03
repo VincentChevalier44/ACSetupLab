@@ -721,7 +721,9 @@ local function onDiscovered(ok, result, cpuMs)
       rememberSetup(result.signature, known)
     end
     app.recorder.protected = protectedSignatures()
-    if app.detectPins and (app.discoverySeq or 0) == (app.loadSeq or 0) then app.detectPins(result) end
+    -- chargement demandé et pas encore constaté : la voiture a peut-être déjà le nouveau setup, comparé à l'ancien il
+    -- donnerait de fausses retouches ; la découverte qui suit le constat les détecte
+    if app.detectPins and (app.discoverySeq or 0) == (app.loadSeq or 0) and app.loadCheck == nil then app.detectPins(result) end
     restoreStored(result)
     scheduleReport(result)
     local counts = Caps.countByStatus(result.caps)
@@ -1606,7 +1608,11 @@ local function startCompute(kind, fromPending)
     -- n'est plus proposé (jusqu'à « Libérer vos retouches »)
     local pins = app.pins[kind] or {}
     for _, section in ipairs({ 'ABS', 'TRACTION_CONTROL' }) do
-      if pins['aid:' .. section] and aids[section] then aids[section].to = nil end
+      local aid = aids[section]
+      if pins['aid:' .. section] and aid and aid.to then
+        aid.to, aid.assistNote = nil, nil
+        aid.note = 'niveau refusé : gardé (« Libérer vos retouches » pour le reproposer)'
+      end
     end
     if aids.ABS.to and assists.abs ~= 'off' then absActive = aids.ABS.to > 0 end
     local pinned, pinnedLabels = {}, {}
@@ -2438,39 +2444,6 @@ local function adoptMenuLoad(d)
         log('INFO', 'pins', 'Setup de SetupLab chargé depuis le menu d\'AC : ' .. f.name .. ' devient la référence'
           .. (had and ', retouches libérées' or '') .. '.')
         return true
-      end
-    end
-  end
-  -- essai en cours chargé depuis le menu d'AC : la version est dans la voiture (ses écarts ne sont pas vos retouches) ;
-  -- son fichier part à la Corbeille, comme après un chargement par SetupLab
-  for kind, r in pairs(app.refines) do
-    for _, e in ipairs(r.history or {}) do
-      local trial = e.trial
-      if e.version and e.status == 'essai' and trial and app.written[trial.file] == trial.hash and r.driven ~= e.version then
-        local okT, text = Util.call(Util.get(host.io, 'load'), trial.path)
-        if okT and type(text) == 'string' and Util.hashString(text) == trial.hash then
-          if live == nil then
-            local ok, liveText = Util.call(Util.get(host.ac, 'stringifyCurrentSetup'), true, false)
-            if not (ok and type(liveText) == 'string') then return false end
-            live = setupValues(liveText)
-          end
-          local values = setupValues(text)
-          if sameSetup(live, values) then
-            app.loaded[kind] = { values = values, name = trial.file }
-            app.lastLoadKind = kind
-            r.driven = e.version
-            local kept = {}
-            for name, pin in pairs(app.pins[kind] or {}) do
-              if pin.refused then kept[name] = pin end
-            end
-            app.pins[kind] = kept
-            if app.saved[kind] and app.saved[kind].path == trial.path then app.saved[kind] = nil end
-            queueFileOp({ op = 'corbeille', name = trial.file, hash = trial.hash,
-              why = 'essai de v' .. e.version .. ' chargé dans la voiture' })
-            log('INFO', 'pins', 'Essai de v' .. e.version .. ' chargé depuis le menu d\'AC : il est dans la voiture.')
-            return true
-          end
-        end
       end
     end
   end

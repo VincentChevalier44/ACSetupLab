@@ -47,7 +47,8 @@ EN = {
     'EN VEILLE': 'STANDBY',
     "niveau d'ABS": 'ABS level',
     "niveau d'antipatinage": 'traction control level',
-    "Essai de v%s chargé depuis le menu d'AC : il est dans la voiture.": "v%s trial loaded from AC's menu: it is in the car.",
+    'niveau refusé : gardé (« Libérer vos retouches » pour le reproposer)':
+        'level refused: kept ("Release your changes" to propose it again)',
     'Départ de la course impossible : découverte en cours.': 'Cannot start the race: discovery in progress.',
     "Thème de l'interface : %s ; polices de l'app": 'Interface theme: %s; app fonts',
     "Thème de l'interface : %s ; polices absentes : Segoe UI": 'Interface theme: %s; fonts missing: Segoe UI',
@@ -55,8 +56,8 @@ EN = {
         'Start: your reference %s; it goes into the car (in the pits, setup menu open) and the refinement will start from it.',
     'Départ : votre référence %s, déjà dans la voiture.': 'Start: your reference %s, already in the car.',
     '%s en essai : dans la voiture': '%s on trial: in the car',
-    '%s en essai : plus dans la voiture': '%s on trial: no longer in the car',
-    '« Essayer %s » la remet dans la voiture (un clic, au stand).': '"Try %s" puts it back in the car (one click, in the pits).',
+    '%s en essai : pas dans la voiture': '%s on trial: not in the car',
+    '« Essayer %s » la met dans la voiture (un clic, au stand).': '"Try %s" puts it in the car (one click, in the pits).',
     "v%s validée et enregistrée : %s ; setup de référence (%s) gardé en mémoire pour ce circuit.":
         'v%s validated and saved: %s; reference setup (%s) kept in memory for this track.',
     "Au stand, menu de setup ouvert : « Charger » pour la mettre dans la voiture ; l'affinage repartira d'elle.":

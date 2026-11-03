@@ -1163,13 +1163,13 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     elseif fileThere then
       wrapped(host, v .. ' en essai : ' .. tostring(e.trial.file) .. ' — à charger au stand', palette.accent)
     else
-      wrapped(host, v .. ' en essai : plus dans la voiture', palette.accent)
+      wrapped(host, v .. ' en essai : pas dans la voiture', palette.accent)
     end
     timesLine()
     if not driven and fileThere then
       small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
     elseif not driven then
-      small(host, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).', palette.accent)
+      small(host, '« Essayer ' .. v .. ' » la met dans la voiture (un clic, au stand).', palette.accent)
       if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', false) then
         intents.refineJudge = { version = e.version, verdict = 'essayer' }
       end
@@ -2262,7 +2262,7 @@ local function stepCard(host, app, intents, palette, selected)
     local fileThere = trial.trial ~= nil and app.written[trial.trial.file] == trial.trial.hash and saved ~= nil
       and saved.path == trial.trial.path
     if r.driven ~= trial.version and not fileThere then
-      title, text = 'Étape 3/4 · Essayer ' .. v, '« Essayer ' .. v .. ' » la remet dans la voiture (un clic, au stand).'
+      title, text = 'Étape 3/4 · Essayer ' .. v, '« Essayer ' .. v .. ' » la met dans la voiture (un clic, au stand).'
       actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,
         verdict = 'essayer' } }, style = 'primary' }
     elseif r.driven ~= trial.version then

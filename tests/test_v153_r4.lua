@@ -275,35 +275,6 @@ tests['LR08 aides refusées : reproposées au calcul suivant'] = function()
 end
 
 -- C2. Une version chargée par SetupLab d'abord, puis l'essai de v2 chargé depuis le menu d'AC.
-tests['LR09 essai chargé depuis le menu d\'AC après un chargement SetupLab : retouches'] = function()
-  local h, app, r, e = v1Ready()
-  app.handleIntents({ refineJudge = { version = e.version, verdict = 'essayer' } })
-  T.ok(settled(h, app))
-  app.handleIntents({ refineJudge = { version = e.version, verdict = 'valider' } })
-  T.ok(settled(h, app))
-  app.handleIntents({ refineChoice = { version = e.version } })
-  r.forceNext = true
-  T.ok(waitFor(h, function() return r.version >= 2 and r.phase == 'tours' end), 'v2')
-  local e2 = entry(r, 2)
-  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = false, false, 30
-  app.handleIntents({ refineJudge = { version = 2, verdict = 'essayer' } })
-  T.eq(e2.status, 'essai')
-  local values = app.setupValues(e2.trial.text)
-  for _, sp in ipairs(h.spinners) do
-    if type(values[sp.name]) == 'number' then sp.value = values[sp.name] end
-  end
-  h.car.isInPit, h.car.isInPitlane, h.car.speedMs = true, true, 0
-  app.handleIntents({ rediscover = true })
-  T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
-  local names = {}
-  for name in pairs(app.pins.quali) do names[#names + 1] = name end
-  table.sort(names)
-  PY.note('R4C2 retouches', #names .. ' : ' .. table.concat(names, ', ') .. ' ; loaded=' .. tostring(app.loaded.quali and app.loaded.quali.name))
-  T.eq(#names, 0, 'pas de retouche : ce sont les réglages de v2')
-end
-
--- E. Essai chargé puis remplacé (fichier d'essai à la Corbeille) : « Essayer v2 » dans la carte d'étape et dans le bloc,
--- même image, sans identifiant en double ; un clic le remet dans la voiture.
 tests['LR10 essai plus dans la voiture, fichier recyclé : deux boutons Essayer'] = function()
   local h, app, r, e = v1Ready()
   app.handleIntents({ refineJudge = { version = e.version, verdict = 'essayer' } })
