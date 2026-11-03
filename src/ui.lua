@@ -1086,37 +1086,28 @@ local function effectsList(host, app, intents, e, palette, kind)
 end
 
 -- Une version de l'affinage (décision de Vincent du 26/10/2026) : proposée (rien d'enregistré), essayée (fichier
--- d'essai chargé au stand, roulé), validée (fichier des réglages gardés). Un seul bouton principal à la fois ; les
--- autres choix en petit dessous. suffix : libellés de la version en piste quand ce n'est pas la dernière.
-local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
-  local ui = host.ui
+-- d'essai chargé au stand, roulé), validée (fichier des réglages gardés). Modèle (données seules, pour les deux rendus) :
+-- temps, état de l'essai, actions (libellé ImGui avec son identifiant, intention, infobulle). suffix : libellés de la
+-- version en piste quand ce n'est pas la dernière.
+function M.versionModel(app, r, e, kind, suffix)
   local v = 'v' .. e.version
-  local driven = r.driven == e.version
-  local no = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix
+  local m = { v = v, e = e, driven = r.driven == e.version, status = e.status }
   -- version partielle : vos tours ont été faits avec son essai complet
   local mine, before = versionLaps(app, e), realLaps(app, e.originFamily, e.bucket)
   local tMine, tBefore = realTime(mine, kind), realTime(before, kind)
-  if e.status == 'écartée' then
-    small(host, v .. ' non gardée : pas reproposée.' .. (driven and ' Encore dans la voiture : charger la référence au stand.' or ''),
-      palette[driven and 'pending' or 'muted'])
-    return
-  end
-  local verdict = nil
-  local function timesLine()
-    if not (driven or tMine) then return end
+  m.mine, m.before, m.tMine, m.tBefore = mine, before, tMine, tBefore
+  if e.status == 'écartée' then return m end
+  if m.driven or tMine then
     local line = 'Vos temps : ' .. v .. ' ' .. realText(mine, kind) .. ' ; avant ' .. realText(before, kind)
     if tMine and tBefore then
       local diff = tBefore - tMine
+      m.realGain = diff
       line = line .. ' ; gain réel ' .. gainText(diff) .. ' (prévu ' .. gainText(e.gain) .. ')'
       if mine.count >= 2 and before.count >= 2 and math.abs(diff) > K.validateTolAbs then
-        verdict = diff > 0 and 'faster' or 'slower'
+        m.verdict = diff > 0 and 'faster' or 'slower'
       end
     end
-    wrapped(host, line, palette[verdict == 'slower' and 'unavailable' or (verdict == 'faster' and 'available' or 'muted')])
-    if verdict == 'slower' then
-      wrapped(host, v .. ' est plus lente en réalité que votre setup d\'avant : ne pas la garder (Recommencer) ?',
-        palette.unavailable)
-    end
+    m.timesLine = line
   end
   local kept, total = 0, 0
   for _, g in ipairs(e.groups or {}) do
@@ -1125,9 +1116,70 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
       if item.keep then kept = kept + 1 end
     end
   end
+  m.kept, m.total = kept, total
   local partial = kept < total and (' (' .. kept .. '/' .. total .. ' réglages)') or ''
   local base = app.fileBase and app.fileBase(kind, e.bucket) .. '_v' .. e.version or v
-  local laps = mine and mine.count or 0
+  m.base, m.laps = base, mine and mine.count or 0
+  local acts = {}
+  m.actions = acts
+  if e.status == nil then
+    local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
+    acts.try = { label = 'Essayer ' .. v .. suffix, intent = { refineJudge = { version = e.version, verdict = 'essayer' } },
+      tip = 'Écrit ' .. trial .. '.ini (le setup proposé entier) et le met dans la voiture, au stand ; ce fichier part à la '
+        .. 'Corbeille une fois chargé. Rien n\'est gardé avant la validation.' }
+    acts.validate = { label = 'Valider sans essai' .. partial .. ' · la met dans la voiture###Valider ' .. v .. suffix,
+      intent = { refineJudge = { version = e.version, verdict = 'valider' } },
+      tip = 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer, et le met dans la voiture ; il '
+        .. 'devient le setup de référence de cette séance, gardé en mémoire pour ce circuit.' }
+  elseif e.status == 'essai' then
+    local saved = app.saved and app.saved[kind]
+    m.fileThere = e.trial ~= nil and app.written[e.trial.file] == e.trial.hash and saved ~= nil and saved.path == e.trial.path
+    if not m.driven and not m.fileThere then
+      acts.try = { label = 'Essayer ' .. v .. suffix, intent = { refineJudge = { version = e.version, verdict = 'essayer' } } }
+    end
+    acts.validate = { label = 'Valider ' .. v .. partial .. '###Valider ' .. v .. suffix,
+      intent = { refineJudge = { version = e.version, verdict = 'valider' } },
+      tip = 'Enregistre ' .. base .. '.ini avec les réglages gardés et en fait le setup de référence de cette séance, gardé en '
+        .. 'mémoire pour ce circuit.' }
+  end
+  -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») et Figer
+  acts.restart = { label = 'Recommencer (ne pas garder ' .. v .. ')' .. suffix,
+    intent = { refineJudge = { version = e.version, verdict = 'écarter' } }, style = m.verdict == 'slower' and 'danger' or nil,
+    tip = e.status == 'validée'
+      and ('Cette version n\'est plus réutilisée : la référence d\'avant revient, et le setup d\'avant retourne dans la voiture si '
+        .. 'elle y est ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant '
+        .. 'CSP 0.3).')
+      or ('Cette version n\'est ni gardée ni réutilisée ; si elle est dans la voiture, le setup d\'avant y revient (un clic, au '
+        .. 'stand). SetupLab propose ensuite autre chose avec vos prochains tours. Son fichier d\'essai part à la Corbeille.') }
+  acts.lock = { label = 'Figer ' .. v .. suffix .. ' (cadenas)', intent = { refineLock = e.version },
+    tip = 'Valide (réglages gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, '
+      .. 'proposé à chaque visite ; l\'affinage automatique s\'arrête. Déverrouillable (onglet Mémoire).' }
+  return m
+end
+
+local function apply(intents, intent)
+  for k, value in pairs(intent) do intents[k] = value end
+end
+
+-- Rendu ImGui d'une version : un seul bouton principal à la fois ; les autres choix en petit dessous.
+local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
+  local ui = host.ui
+  local m = M.versionModel(app, r, e, kind, suffix)
+  local v, driven, acts = m.v, m.driven, m.actions
+  if e.status == 'écartée' then
+    small(host, v .. ' non gardée : pas reproposée.' .. (driven and ' Encore dans la voiture : charger la référence au stand.' or ''),
+      palette[driven and 'pending' or 'muted'])
+    return
+  end
+  local function timesLine()
+    if m.timesLine == nil then return end
+    wrapped(host, m.timesLine, palette[m.verdict == 'slower' and 'unavailable' or (m.verdict == 'faster' and 'available' or 'muted')])
+    if m.verdict == 'slower' then
+      wrapped(host, v .. ' est plus lente en réalité que votre setup d\'avant : ne pas la garder (Recommencer) ?',
+        palette.unavailable)
+    end
+  end
+  local before, tBefore, laps = m.before, m.tBefore, m.laps
   if e.status == nil then
     -- en piste : provisoire, l'analyse continue jusqu'au retour au stand (décision de Vincent du 22/10/2026)
     local ready = e.ready ~= false
@@ -1141,47 +1193,32 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
         .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, nil, true) then
-      intents.refineJudge = { version = e.version, verdict = 'essayer' }
-    end
-    local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
-    tip(host, 'Écrit ' .. trial .. '.ini (le setup proposé entier) et le met dans la voiture, au stand ; ce fichier part à la '
-      .. 'Corbeille une fois chargé. Rien n\'est gardé avant la validation.')
-    if ui.button('Valider sans essai' .. partial .. ' · la met dans la voiture###Valider ' .. v .. suffix) then
-      intents.refineJudge = { version = e.version, verdict = 'valider' }
-    end
-    tip(host, 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), sans l\'essayer, et le met dans la voiture ; il '
-      .. 'devient le setup de '
-      .. 'référence de cette séance, gardé en mémoire pour ce circuit.')
-    nextInline(host, no)
+    if actionButton(host, app.ui, palette, acts.try.label, nil, true) then apply(intents, acts.try.intent) end
+    tip(host, acts.try.tip)
+    if ui.button(acts.validate.label) then apply(intents, acts.validate.intent) end
+    tip(host, acts.validate.tip)
+    nextInline(host, acts.restart.label)
   elseif e.status == 'essai' then
     stepsLine(host, palette, (driven and laps > 0) and 3 or 2)
-    local saved = app.saved and app.saved[kind]
-    local fileThere = e.trial ~= nil and app.written[e.trial.file] == e.trial.hash and saved ~= nil and saved.path == e.trial.path
     if driven then
       wrapped(host, v .. ' en essai : dans la voiture', palette.available)
-    elseif fileThere then
+    elseif m.fileThere then
       wrapped(host, v .. ' en essai : ' .. tostring(e.trial.file) .. ' — à charger au stand', palette.accent)
     else
       wrapped(host, v .. ' en essai : pas dans la voiture', palette.accent)
     end
     timesLine()
-    if not driven and fileThere then
+    if not driven and m.fileThere then
       small(host, 'Étape suivante : la charger au stand (bouton vert ci-dessous) et rouler.', palette.accent)
     elseif not driven then
       small(host, '« Essayer ' .. v .. ' » la met dans la voiture (un clic, au stand).', palette.accent)
-      if actionButton(host, app.ui, palette, 'Essayer ' .. v .. suffix, 'primary', false) then
-        intents.refineJudge = { version = e.version, verdict = 'essayer' }
-      end
+      if actionButton(host, app.ui, palette, acts.try.label, 'primary', false) then apply(intents, acts.try.intent) end
     elseif laps == 0 then
       small(host, 'Roulez au moins un tour propre avec elle, puis validez-la.', palette.accent)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, 'Valider ' .. v .. partial .. '###Valider ' .. v .. suffix, nil, true) then
-      intents.refineJudge = { version = e.version, verdict = 'valider' }
-    end
-    tip(host, 'Enregistre ' .. base .. '.ini avec les réglages gardés et en fait le setup de référence de cette séance, gardé en '
-      .. 'mémoire pour ce circuit.')
+    if actionButton(host, app.ui, palette, acts.validate.label, nil, true) then apply(intents, acts.validate.intent) end
+    tip(host, acts.validate.tip)
   else
     stepsLine(host, palette, 4)
     wrapped(host, v .. ' : ' .. tostring(e.file) .. ' — ' .. e.status .. (driven and not e.trialInCar and ' (en piste)' or ''),
@@ -1194,23 +1231,12 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     end
     effectsList(host, app, intents, e, palette, kind)
   end
-  -- Recommencer (décision de Vincent du 22/10/2026, plus parlant qu'« Écarter ») et Figer : en petit, sous le bouton
-  -- principal
-  local lock = 'Figer ' .. v .. suffix .. ' (cadenas)'
-  if actionButton(host, app.ui, palette, no, verdict == 'slower' and 'danger' or nil, false) then
-    intents.refineJudge = { version = e.version, verdict = 'écarter' }
-  end
-  tip(host, e.status == 'validée'
-    and ('Cette version n\'est plus réutilisée : la référence d\'avant revient, et le setup d\'avant retourne dans la voiture si '
-      .. 'elle y est ; son fichier part à la Corbeille de Windows dès que la voiture est arrêtée (suppression définitive avant '
-      .. 'CSP 0.3).')
-    or ('Cette version n\'est ni gardée ni réutilisée ; si elle est dans la voiture, le setup d\'avant y revient (un clic, au '
-      .. 'stand). SetupLab propose ensuite autre chose avec vos prochains tours. Son fichier d\'essai part à la Corbeille.'))
-  nextInline(host, lock)
+  if actionButton(host, app.ui, palette, acts.restart.label, acts.restart.style, false) then apply(intents, acts.restart.intent) end
+  tip(host, acts.restart.tip)
+  nextInline(host, acts.lock.label)
   padlock(host, true)
-  if ui.button(lock) then intents.refineLock = e.version end
-  tip(host, 'Valide (réglages gardés) et verrouille : gardé en mémoire pour ce circuit, cette séance et cet état de piste, '
-    .. 'proposé à chaque visite ; l\'affinage automatique s\'arrête. Déverrouillable (onglet Mémoire).')
+  if ui.button(acts.lock.label) then apply(intents, acts.lock.intent) end
+  tip(host, acts.lock.tip)
 end
 
 -- Carte du mode affinage : phase et raison d'attente, dernière version et son chargement au stand,
@@ -2154,16 +2180,18 @@ end
 local START_NAMES = { mine = 'votre setup actuel', default = 'setup par défaut de la voiture', reference = 'votre référence' }
 -- selected : onglet affiché ; la carte ne se montre que dans l'onglet de son genre (constat de Vincent du 02/11/2026 :
 -- « Étape 3/4 · Essayer v3 » de la qualification apparaissait aussi dans les onglets COURSE et MÉMOIRE) ; nil : partout.
-local function stepCard(host, app, intents, palette, selected)
-  if app.inert then return end
+function M.stepModel(app, selected)
+  if app.inert then return nil end
   local r = app.refine
   local kind = (r and r.active and r.kind) or (app.autoKind and app.autoKind()) or 'quali'
   if r and r.kind ~= kind then r = nil end
   local tabName = kind == 'race' and 'COURSE' or 'QUALIF'
   local tabId = kind == 'race' and 'Course' or 'Tour rapide'
-  if selected ~= nil and selected ~= tabId then return end
+  if selected ~= nil and selected ~= tabId then return nil end
   local start = app.start and app.start[kind]
-  local title, text, color, actions = nil, nil, palette.accent, {}
+  -- step : étape (1 à 4) de la barre, ou nil ; done : les 4 faites (validée ou figée) ; pendingLoad : à mettre dans la
+  -- voiture (4 segments, pas finis)
+  local title, text, color, actions, step, done, pendingLoad = nil, nil, 'accent', {}, nil, false, false
   local pending, trial, validated, keptInCar, rejectedInCar = nil, nil, nil, nil, nil
   for _, e in ipairs(r and r.history or {}) do
     if e.version and e.status == nil and e.version == r.version then pending = e end
@@ -2190,7 +2218,7 @@ local function stepCard(host, app, intents, palette, selected)
   end
   if kind == 'race' and raceWhy then
     -- course : elle part de la qualification validée (pas de départ à choisir)
-    title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. '.', palette.pending
+    title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. '.', 'pending'
     if raceAction == 'qualif' then
       text = text .. ' Le setup de course se fait après un setup de qualification de SetupLab (au moins une v1, validée ou à '
         .. 'l\'essai).'
@@ -2201,6 +2229,7 @@ local function stepCard(host, app, intents, palette, selected)
     end
   elseif start == nil and kind ~= 'race' then
     -- 1. Départ (demande de Vincent du 26/10/2026) : de quel setup partir ; le choix active SetupLab
+    step = 1
     title, text = 'Étape 1/4 · Départ', 'De quel setup SetupLab part-il ? Il le fait évoluer avec vos tours, version après '
       .. 'version (v1, v2…).'
     if locked then
@@ -2222,21 +2251,23 @@ local function stepCard(host, app, intents, palette, selected)
       intent = withUnlock({ start = { kind = kind, mode = 'default' } }),
       tip = 'Le setup d\'origine de la voiture : écrit dans un fichier SetupLab, chargé au stand, puis affiné.' }
   elseif kind ~= 'race' and not start.ready then
+    step = 1
     title, text, color = 'Étape 1/4 · Charger le départ', 'Au stand, menu de setup ouvert : bouton vert « Charger » (onglet '
-      .. tabName .. ') pour mettre ' .. tostring(start.file) .. ' dans la voiture.', palette.pending
+      .. tabName .. ') pour mettre ' .. tostring(start.file) .. ' dans la voiture.', 'pending'
   elseif locked then
+    done = true
     title, text, color = 'Setup figé', tostring(memory.file) .. ' est figé (cadenas) : SetupLab ne propose plus rien pour '
-      .. 'cette séance. Déverrouillez-le pour reprendre l\'affinage.', palette.muted
+      .. 'cette séance. Déverrouillez-le pour reprendre l\'affinage.', 'muted'
     actions[1] = { label = 'Déverrouiller###step_unlock', intent = { memoryLock = { key = memoryKey, locked = false } },
       style = 'primary' }
   elseif not app.auto and not (r and r.active) then
-    title, text, color = 'SetupLab en veille', 'Cochez « SetupLab actif » pour reprendre l\'affinage.', palette.muted
+    title, text, color = 'SetupLab en veille', 'Cochez « SetupLab actif » pour reprendre l\'affinage.', 'muted'
   elseif rejectedInCar and not (app.saved and app.saved[kind]) then
     local backups = app.backups or {}
     local backup = backups[#backups] and backups[#backups].name
     title, text, color = 'v' .. rejectedInCar.version .. ' non gardée · encore dans la voiture', 'Au stand, menu de setup '
       .. 'd\'AC : chargez votre setup d\'avant' .. (backup and (' (' .. backup .. ')') or '') .. ', ou changez de départ '
-      .. 'ci-dessous. SetupLab repart du setup qui sera dans la voiture.', palette.pending
+      .. 'ci-dessous. SetupLab repart du setup qui sera dans la voiture.', 'pending'
   elseif r and r.choice then
     -- 1.5.3 (décision de Vincent du 02/11/2026) : après chaque validation, continuer l'affinage ou figer
     local v, chosen = 'v' .. r.choice, nil
@@ -2244,8 +2275,10 @@ local function stepCard(host, app, intents, palette, selected)
       if e.version == r.choice then chosen = e end
     end
     local file = tostring(chosen and chosen.file or v)
+    step, pendingLoad = 4, r.driven ~= r.choice
+    done = not pendingLoad
     title, text, color = 'Étape 4/4 · ' .. v .. ' validée', 'Enregistrée : ' .. file .. '. Continuer l\'affinage (une '
-      .. 'nouvelle version avec vos prochains tours), ou la figer ?', palette.available
+      .. 'nouvelle version avec vos prochains tours), ou la figer ?', 'available'
     if r.driven ~= r.choice then
       text = 'Enregistrée : ' .. file .. '. Elle n\'est pas encore dans la voiture (bouton vert « Charger »). Continuer '
         .. 'l\'affinage, ou la figer ?'
@@ -2262,37 +2295,46 @@ local function stepCard(host, app, intents, palette, selected)
     local fileThere = trial.trial ~= nil and app.written[trial.trial.file] == trial.trial.hash and saved ~= nil
       and saved.path == trial.trial.path
     if r.driven ~= trial.version and not fileThere then
+      step = 3
       title, text = 'Étape 3/4 · Essayer ' .. v, '« Essayer ' .. v .. ' » la met dans la voiture (un clic, au stand).'
       actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,
         verdict = 'essayer' } }, style = 'primary' }
     elseif r.driven ~= trial.version then
+      step = 3
       title, text = 'Étape 3/4 · Essayer ' .. v, 'Fichier d\'essai écrit : au stand, menu de setup ouvert, bouton vert '
         .. '« Charger » (onglet ' .. tabName .. '), puis roulez.'
     elseif f and f.count > 0 then
+      step = 4
       title, text = 'Étape 4/4 · Valider ' .. v, 'Elle vous convient : validez-la. Pour refuser un réglage précis : « Modifier… » '
         .. '(onglet ' .. tabName .. ').'
       actions[1] = { label = 'Valider ' .. v .. '###step_action', intent = { refineJudge = { version = trial.version,
         verdict = 'valider' } }, style = 'primary' }
     else
+      step = 3
       title, text = 'Étape 3/4 · Essayer ' .. v, 'Roulez au moins un tour propre avec elle.'
     end
   elseif keptInCar then
+    step, pendingLoad = 4, true
     title, text = 'v' .. keptInCar.version .. ' validée · à charger au stand', 'L\'essai complet est encore dans la voiture : '
       .. 'au stand, bouton vert « Charger » (onglet ' .. tabName .. ') pour mettre v' .. keptInCar.version .. ' (réglages '
       .. 'gardés), puis roulez.'
   elseif pending and pending.ready == false then
+    step = 2
     title, text, color = 'Étape 2/4 · Rouler', 'v' .. pending.version .. ' en préparation : SetupLab continue d\'analyser vos '
-      .. 'tours ; elle sera prête à votre retour au stand.', palette.pending
+      .. 'tours ; elle sera prête à votre retour au stand.', 'pending'
   elseif pending then
     local v = 'v' .. pending.version
+    step = 3
     title, text = 'Étape 3/4 · Essayer ' .. v, 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s. « Essayer » la met dans la '
       .. 'voiture, au stand, en un clic.'
     actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = pending.version,
       verdict = 'essayer' } }, style = 'primary' }
   elseif validated then
+    step, pendingLoad = 4, true
     title, text = 'v' .. validated.version .. ' validée · à charger au stand', 'Au stand, bouton vert « Charger », puis roulez : '
       .. 'l\'affinage repart d\'elle (étape 2).'
   else
+    step = 2
     title, text = 'Étape 2/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
     local last = app.recorder and app.recorder.laps and app.recorder.laps.last
     if last and last.valid == false and r and r.phase == 'tours' then
@@ -2302,14 +2344,21 @@ local function stepCard(host, app, intents, palette, selected)
       text = text .. ' (réglable : onglet RÉGLAGES, « Quand SetupLab propose un setup »)'
     end
   end
+  return { kind = kind, tabName = tabName, tabId = tabId, title = title, text = text, color = color, actions = actions,
+    step = step, done = done, pendingLoad = pendingLoad, start = kind ~= 'race' and start or nil, refine = r,
+    pending = pending, trial = trial, validated = validated, keptInCar = keptInCar, rejectedInCar = rejectedInCar,
+    memory = memory, memoryKey = memoryKey, locked = locked }
+end
+
+local function stepCard(host, app, intents, palette, selected)
+  local model = M.stepModel(app, selected)
+  if model == nil then return end
+  local title, text, color, actions, kind, start = model.title, model.text, palette[model.color], model.actions, model.kind,
+    model.start
   card(host, app.ui, color, function()
     withFont(host, 'Title', function() colored(host, title, color) end)
     -- Racing 26 : barre d'étapes (4 segments inclinés) ; validée ou figée : les 4 en vert
-    local n = tonumber(tostring(title):match('^Étape (%d)/4'))
-    local pendingLoad = tostring(title):find('à charger', 1, true) ~= nil
-      or (r ~= nil and r.choice ~= nil and r.driven ~= r.choice and tostring(title):find('validée', 1, true) ~= nil)
-    local done = not pendingLoad and (tostring(title):find('validée', 1, true) ~= nil or tostring(title):find('figé', 1, true) ~= nil)
-    if pendingLoad and n == nil then n = 4 end
+    local n, done = model.step, model.done
     local S = host.ui.skin
     if S and (n or done) then
       local okC, at = Util.call(host.ui.getCursor)
