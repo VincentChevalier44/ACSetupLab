@@ -1000,8 +1000,11 @@ function M.readSession(host)
   return s
 end
 
+-- absentIsFalse : champ absent de la structure = drapeau faux. isAltOnlineRace n'existe pas en CSP 0.2.11 (la
+-- version gratuite ; issue GitHub n° 1, 03/11/2026) : une course alt-online passe par un script New Modes,
+-- donc par une CSP qui connaît ce champ. Présent mais illisible : inerte, comme les trois autres.
 M.CONTEXT_GUARDS = {
-  { key = 'isOnlineRace', kind = 'online' }, { key = 'isAltOnlineRace', kind = 'online' },
+  { key = 'isOnlineRace', kind = 'online' }, { key = 'isAltOnlineRace', kind = 'online', absentIsFalse = true },
   { key = 'isReplayActive', kind = 'replay' }, { key = 'isReplayOnlyMode', kind = 'replay' },
 }
 
@@ -1023,6 +1026,7 @@ function M.readContext(host)
   -- Garde en ligne / replay : un drapeau illisible rend l'app inerte (comportement prudent, §0.6).
   for _, guard in ipairs(M.CONTEXT_GUARDS) do
     local value = bool(sim, guard.key)
+    if value == nil and guard.absentIsFalse and get(sim, guard.key) == nil then value = false end
     if value == nil then
       c.reason = 'drapeau illisible : ' .. guard.key
       return c

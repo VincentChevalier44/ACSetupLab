@@ -350,10 +350,25 @@ tests['D13 session, conditions et contexte'] = function()
   T.no(Datasource.readSession(broken).ok)
   -- Constat n° 8 : drapeau illisible = inerte ; drapeau numérique (uint8_t) accepté.
   local unreadable = host('formula_k', 'spa')
-  rawset(unreadable.sim, 'isAltOnlineRace', nil)
+  rawset(unreadable.sim, 'isOnlineRace', nil)
   local cu = Datasource.readContext(unreadable)
   T.no(cu.ok)
-  T.eq(cu.reason, 'drapeau illisible : isAltOnlineRace')
+  T.eq(cu.reason, 'drapeau illisible : isOnlineRace')
+  for _, key in ipairs({ 'isReplayActive', 'isReplayOnlyMode' }) do
+    local absent = host('formula_k', 'spa')
+    rawset(absent.sim, key, nil)
+    T.eq(Datasource.readContext(absent).reason, 'drapeau illisible : ' .. key, key .. ' absent : inerte')
+  end
+  -- Issue GitHub n° 1 (03/11/2026) : isAltOnlineRace n'existe pas en CSP 0.2.11 (gratuite) ; absent = pas
+  -- d'alt-online. Présent mais illisible : inerte, comme avant.
+  local free = host('formula_k', 'spa')
+  rawset(free.sim, 'isAltOnlineRace', nil)
+  local cf = Datasource.readContext(free)
+  T.ok(cf.ok, tostring(cf.reason))
+  T.no(cf.online)
+  local odd = host('formula_k', 'spa')
+  rawset(odd.sim, 'isAltOnlineRace', 'oui')
+  T.eq(Datasource.readContext(odd).reason, 'drapeau illisible : isAltOnlineRace')
   local numeric = host('formula_k', 'spa')
   rawset(numeric.sim, 'isOnlineRace', 1)
   rawset(numeric.sim, 'isReplayActive', 0)

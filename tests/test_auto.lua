@@ -680,10 +680,15 @@ tests['AU11 retouche au stand après un chargement : gardée par les calculs sui
 end
 
 -- CSP gratuite (0.2.11 ; décision de Vincent du 22/10/2026 : l'app doit fonctionner sans la preview payante).
--- SDK comparé : io.available, ac.getAssists et ac.getSetupTabs y sont absents, comme le champ isTrackOpen. Le
+-- SDK comparé : io.available, ac.getAssists et ac.getSetupTabs y sont absents, comme les champs isTrackOpen et
+-- isAltOnlineRace de ac.StateSim (issue GitHub n° 1 du 03/11/2026 : sans ce dernier, l'app restait inerte ; SDK
+-- relu dans patch-0.2.11.zip, les autres champs simulés de la séance, de la voiture et des roues y sont). Le
 -- cycle complet marche : découverte, calcul, Valider (fichier écrit puis relu), chargement au stand.
-tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists ni getSetupTabs, le cycle complet marche'] = function()
-  local h, app = ready(nil, 2, { missing = { 'io.available', 'ac.getAssists', 'ac.getSetupTabs' } })
+tests['AU12 CSP 0.2.11 (gratuite) : sans io.available, getAssists, getSetupTabs ni isAltOnlineRace, le cycle complet marche'] = function()
+  local h, app = ready(nil, 2, { missing = {
+    'io.available', 'ac.getAssists', 'ac.getSetupTabs', 'sim.isAltOnlineRace', 'sim.isTrackOpen',
+  } })
+  T.no(app.inert, tostring(app.inert))
   T.ok(app.static.ioAvailable and app.static.ioAssumed, 'accès fichiers supposé')
   h.click = 'Affinage automatique (tour rapide)'
   frames(h, 1)
