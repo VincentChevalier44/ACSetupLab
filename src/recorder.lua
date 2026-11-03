@@ -9,8 +9,8 @@
 -- est rejeté, avec sa raison, si AC
 -- l'invalide, si la voiture passe par la voie des stands ou sort de la piste, si la couverture de la
 -- piste a un trou ou recule (retour au stand, téléportation), si la mémoire est pleine, si le setup
--- est illisible ou change pendant le tour, si la répartition de freinage change en roulant, ou, en ligne,
--- si une autre voiture roule juste devant ou à côté (trafic).
+-- est illisible ou change pendant le tour, si la répartition de freinage change en roulant, ou si une autre
+-- voiture roule juste devant ou à côté (trafic), en ligne comme hors ligne.
 -- L'origine de la ligne IA peut s'écarter de la ligne de chronométrage : les écarts de couverture se
 -- mesurent en tenant compte du bouclage de la progression.
 --
@@ -361,7 +361,8 @@ local function incident(rec, car, now)
   return nil
 end
 
--- Trafic (mode en ligne, demande de Vincent du 03/11/2026) : une autre voiture juste devant (aspiration, gêne) ou à côté
+-- Trafic (demande de Vincent du 03/11/2026 ; même règle en ligne et hors ligne, voitures de l'IA comprises, choisie par
+-- Vincent le même jour) : une autre voiture juste devant (aspiration, gêne) ou à côté
 -- fausse la mesure du tour, qui ne doit compter ni pour la calibration ni pour le minimum de tours propres. Distance le
 -- long de la ligne IA (progression), bouclage compris ; voitures déconnectées, inactives ou dans la voie des stands
 -- ignorées. Une voiture proche à l'échantillon ajoute sa durée (1/K.recorderHz) au tour ; au-delà de K.trafficMaxTime
@@ -396,7 +397,7 @@ end
 
 -- À appeler à chaque frame (lecture seule). now : temps de simulation (s). signatureFn : signature
 -- des crans de setup (nil si illisible), appelée seulement au passage de la ligne. context :
--- { trackLength, conditions (températures, grip), keepPositions, paused, traffic, carsCount }.
+-- { trackLength, conditions (températures, grip), keepPositions, paused, carsCount }.
 -- Renvoie le tour terminé (temps officiel confirmé), s'il y en a un.
 function M.update(rec, host, now, signatureFn, context)
   local ok, car = call(get(host.ac, 'getCar'), 0)
@@ -456,8 +457,8 @@ function M.update(rec, host, now, signatureFn, context)
   local p = num(car, 'splinePosition')
   local v = num(car, 'speedMs')
   if p == nil or v == nil then return finished end
-  -- trafic : en ligne seulement (context.traffic) ; hors ligne, les courses contre l'IA sont inchangées
-  if rec.invalid == nil and context.traffic then rec.invalid = traffic(rec, host, p, context) end
+  -- trafic : dès qu'il y a d'autres voitures (context.carsCount), en ligne comme hors ligne
+  if rec.invalid == nil then rec.invalid = traffic(rec, host, p, context) end
   if rec.lastP then
     local d = p - rec.lastP
     if d < -0.5 then d = d + 1 elseif d > 0.5 then d = d - 1 end

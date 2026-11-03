@@ -824,6 +824,46 @@ tests['AU21 hors ligne et en ligne : parcours identique (setups, fichiers, annon
     .. 'identiques', #on.steps, #on.history, #on.files, #on.messages, #on.log, on.laps, on.lastLap))
 end
 
+-- Trafic (choix de Vincent du 03/11/2026 : le filtre partout, en ligne comme hors ligne) : une autre voiture à 20 m
+-- devant pendant tout le roulage fait rejeter les tours hors ligne (voiture de l'IA) comme en ligne, avec la même raison,
+-- et les deux parcours restent identiques (tours, raisons, compteur du rapport J0, journal).
+tests['AU22 trafic : voiture juste devant, hors ligne (IA) comme en ligne : tours rejetés, parcours identiques'] = function()
+  local Recorder = require('src/recorder')
+  local function run(online)
+    local h, app = boot(nil, 1)
+    h.clockNow = 0
+    app.clock = function()
+      h.clockNow = h.clockNow + 2e-5
+      return h.clockNow
+    end
+    h.sim.isOnlineRace = online
+    h.sim.carsCount = 2
+    h.others = { Fake.otherCar(0.5) }
+    T.ok(waitFor(h, function() return app.discoveryState == 'done' end), 'découverte')
+    local profile = drivenProfile(h, app)
+    local length = app.discovery.trackModel.length
+    for _ = 1, 150000 do
+      h.others[1].splinePosition = (h.car.splinePosition + 20 / length) % 1
+      frames(h, 1, profile)
+      if app.recorder.finished >= 2 then break end
+    end
+    local out = { laps = app.recorder.finished, rejects = app.trafficRejects or 0, inert = tostring(app.inert), log = {} }
+    local last = app.recorder.laps.last
+    out.last = last and (tostring(last.valid) .. ' | ' .. tostring(last.reason)) or 'nil'
+    for _, e in ipairs(Util.logEntries(app.log)) do
+      out.log[#out.log + 1] = string.format('%.3f %s %s %s', e.t, e.level, e.code, e.text)
+    end
+    return out
+  end
+  local off, on = run(false), run(true)
+  T.eq(off.laps, 2, 'deux tours enregistrés')
+  T.eq(off.rejects, 2, 'hors ligne : tours derrière la voiture de l\'IA rejetés')
+  T.eq(off.last, 'false | ' .. Recorder.TRAFFIC_REASON)
+  for _, key in ipairs({ 'laps', 'rejects', 'last', 'inert' }) do T.eq(on[key], off[key], key .. ' identique') end
+  T.eq(#on.log, #off.log, 'journal : même nombre de lignes')
+  for i = 1, math.max(#on.log, #off.log) do T.eq(on.log[i], off.log[i], 'journal n° ' .. i) end
+end
+
 -- Décision de Vincent du 22/10/2026 : « quand on a appliqué la V1, on retourne en piste pour rouler [...] qu'il donne
 -- juste un message en disant j'ai le minimum d'informations et tant que l'utilisateur n'est pas retourné dans les
 -- stands, on continue d'analyser les données ». En piste : une annonce « en préparation » par version, mises à jour

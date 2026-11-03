@@ -1174,7 +1174,7 @@ local function onLap(lap)
   log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (lap.valid and 'valide' or
     ('rejeté (' .. tostring(lap.reason) .. ')')))
   if not lap.valid then
-    -- mode en ligne : tours rejetés pour trafic comptés (rapport J0, réglage des seuils)
+    -- tours rejetés pour trafic comptés (rapport J0, réglage des seuils)
     if lap.reason == Recorder.TRAFFIC_REASON then app.trafficRejects = (app.trafficRejects or 0) + 1 end
     -- affinage en attente de son minimum : le tour rejeté est dit à l'écran, avec sa raison (constat du 29/10/2026)
     local r = app.refine
@@ -1266,8 +1266,7 @@ local function recordFrame()
   -- aile mobile du DRS (mesure de son effet, H8), dès que drs.ini en désigne une
   rc.drsWing = d and d.drs and d.drs.wing or nil
   rc.ers = d ~= nil and d.ers ~= nil and d.ers.enabled == true
-  -- trafic (mode en ligne) : autres voitures examinées en ligne seulement
-  rc.traffic = app.context ~= nil and app.context.online == true
+  -- trafic : autres voitures examinées en ligne comme hors ligne (IA comprise)
   rc.carsCount = app.context and app.context.carsCount or nil
   local lap = Recorder.update(app.recorder, host, app.now, liveSignature, rc)
   if lap then onLap(lap) end

@@ -172,8 +172,8 @@ M.help = {
     .. '(en piste, voiture en mouvement). 0 : pas de durée minimum. Les tours et la durée doivent être atteints tous les deux.',
   language = 'Langue de toute l\'application : menus, messages, aides et overlay.',
   onlineActive = 'Coché (par défaut) : en ligne, SetupLab fonctionne exactement comme hors ligne, dans toutes les séances. '
-    .. 'Seule différence : un tour passé derrière ou à côté d\'une autre voiture (aspiration, gêne) n\'est pas compté. Un '
-    .. 'setup imposé par le serveur ne se charge pas. Rien n\'est envoyé au serveur. Décoché : SetupLab se met en pause en '
+    .. 'Comme hors ligne, un setup imposé par le serveur ne se charge pas, et un tour passé derrière ou à côté d\'une autre '
+    .. 'voiture (aspiration, gêne) n\'est pas compté. Rien n\'est envoyé au serveur. Décoché : SetupLab se met en pause en '
     .. 'ligne (par exemple si le règlement d\'une ligue interdit les apps).',
 }
 
@@ -192,7 +192,7 @@ M.K = {
   incidentSlideAngle = 20,    -- ° de dérive moyenne des roues arrière : grosse glissade
   incidentSlideTime = 0.5,    -- s de glissade continue
   incidentDamage = 1.0,       -- hausse des dégâts cumulés (km/h de choc) : choc
-  -- trafic en ligne (mode en ligne, demande de Vincent du 03/11/2026) : autre voiture juste devant ou à côté, le long
+  -- trafic (demande de Vincent du 03/11/2026, en ligne comme hors ligne) : autre voiture juste devant ou à côté, le long
   -- de la ligne IA
   trafficAheadM = 40,         -- m devant : aspiration, gêne
   trafficBesideM = 8,         -- m derrière : à côté (roue dans roue)

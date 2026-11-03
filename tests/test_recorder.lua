@@ -192,10 +192,10 @@ tests['R20 incidents : glissements normaux, compteur de coupes du tour précéde
   for _, lap in ipairs(laps) do T.ok(lap.valid, tostring(lap.reason)) end
 end
 
--- Mode en ligne (demande de Vincent du 03/11/2026) : une autre voiture juste devant ou à côté pendant plus de
--- K.trafficMaxTime cumulées rejette le tour ; loin, déconnectée, inactive, dans la voie des stands, ou croisée un
--- instant : tour gardé. Hors ligne (context.traffic absent), rien ne change.
-tests['R21 trafic en ligne : voiture proche rejetée ; loin, déconnectée, aux stands, croisée, hors ligne : gardée'] = function()
+-- Trafic (demande de Vincent du 03/11/2026, même règle en ligne et hors ligne) : une autre voiture juste devant ou à côté
+-- pendant plus de K.trafficMaxTime cumulées rejette le tour ; loin, déconnectée, inactive, dans la voie des stands, ou
+-- croisée un instant : tour gardé ; seule en piste (carsCount = 1) : aucun examen.
+tests['R21 trafic : voiture proche rejetée ; loin, déconnectée, aux stands, croisée, seule en piste : gardée'] = function()
   local function follow(meters, fields, window)
     return function(_, h, rec)
       local length = cache.monza.track.length
@@ -209,7 +209,7 @@ tests['R21 trafic en ligne : voiture proche rejetée ; loin, déconnectée, aux 
       end
     end
   end
-  local online = { traffic = true, carsCount = 2 }
+  local online = { carsCount = 2 }
   local cases = {
     { 'à 20 m devant', follow(20), online, false },
     { 'à 5 m derrière (à côté)', follow(-5), online, false },
@@ -222,7 +222,7 @@ tests['R21 trafic en ligne : voiture proche rejetée ; loin, déconnectée, aux 
     { 'croisée un instant', follow(20, nil, { 1500, 1545 }), online, true },
     -- 75 échantillons (2,5 s) : au-delà
     { 'gêne de 2,5 s', follow(20, nil, { 1500, 1575 }), online, false },
-    { 'hors ligne', follow(20), { carsCount = 2 }, true },
+    { 'seule en piste', follow(20), { carsCount = 1 }, true },
   }
   env('monza')
   for _, case in ipairs(cases) do
@@ -251,7 +251,7 @@ end
 
 -- Coût du filtre de trafic : 30 autres voitures examinées à chaque échantillon (30 Hz). Différence entre un tour avec
 -- et sans le filtre, rapportée à l'image ; borne large (mesure en temps réel, préemption du système).
-tests['R22 trafic en ligne : 30 autres voitures, surcoût par image < 0,05 ms'] = function()
+tests['R22 trafic : 30 autres voitures, surcoût par image < 0,05 ms'] = function()
   local others = {}
   for i = 1, 30 do others[i] = Fake.otherCar((i * 0.0313) % 1) end
   local function run(extra)
@@ -263,11 +263,11 @@ tests['R22 trafic en ligne : 30 autres voitures, surcoût par image < 0,05 ms'] 
     drive(e, 1, Recorder.new(), function() count = count + 1 end, nil, extra)
     return (PY.clock() - t0) * 1000, count
   end
-  run({ traffic = true, carsCount = 31 }) -- chauffe (compilation JIT)
+  run({ carsCount = 31 }) -- chauffe (compilation JIT)
   local best
   for _ = 1, 3 do
-    local without, n = run({ carsCount = 31 })
-    local with = run({ traffic = true, carsCount = 31 })
+    local without, n = run({ carsCount = 1 })
+    local with = run({ carsCount = 31 })
     local extra = (with - without) / n
     best = best and math.min(best, extra) or extra
   end
