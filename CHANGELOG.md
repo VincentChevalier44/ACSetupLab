@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.1.5.6 — 2026-11-03 — beta 1.5.6: no longer inactive with the free CSP 0.2.11
+
+Why this update: with Custom Shaders Patch 0.2.11 (the free version installed by Content Manager), SetupLab stayed inactive and showed "Context unreadable: flag unreadable: isAltOnlineRace" ([issue #1](https://github.com/VincentChevalier44/ACSetupLab/issues/1)). This CSP does not have that flag at all. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
+
+- CSP 0.2.11: the alt-online flag (`isAltOnlineRace`: a fake online race driven by a New Modes script) does not exist in this CSP, so SetupLab now reads it as "not an alt-online race" instead of staying inactive. Such a race needs a newer CSP, which has the flag. The three other safety flags (online race, replay, replay-only mode) exist in 0.2.11 and still make SetupLab inactive when they cannot be read.
+- Offline test bench: the simulated CSP 0.2.11 now lacks this flag, like the real one (checked against the 0.2.11 SDK), and the full cycle runs on it: discovery, computation, Validate, load in the pits.
+
 ## 1.0.0-beta.1.5.5 — 2026-11-03 — beta 1.5.5: overlay bar (lock, reduce, close), version announced from your own setup, local time in file names
 
 Why this update: CSP's title bar cut the top of the overlay, which could not be locked in place; starting from your own setup or the default one, the overlay did not say when v1 was ready; saved file names were in UTC with CSP 0.3.1 and newer; a race refinement waiting for its number of laps had nowhere to enter it; the overlay showed during replays. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).

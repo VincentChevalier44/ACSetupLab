@@ -2,7 +2,7 @@
 
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5.5** (`1.0.0-beta.1.5.5`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.6** (`1.0.0-beta.1.5.6`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
 SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits in one click, keep or refuse each of its settings, and validate it.
 
@@ -80,6 +80,7 @@ This beta is built and checked on an **offline test bench** (400 tests: models, 
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
+- the free CSP 0.2.11: SetupLab is checked against its SDK and on the bench (simulated 0.2.11), not yet in game;
 - the 1.5.5 race laps entry during the race refinement, the folding setup settings table and the overlay hidden in replays, checked on the bench only. The page layouts, the overlay bar, the local time in file names and the in-game update (from 1.5.3 to 1.5.4) have been tried in game;
 - with cars whose data is packed (`data.acd`): gear ratio files are read through CSP (see the J0 report, DIAGNOSTICS tab); with layout tracks: the layout's own `data` folder (surfaces, DRS zones).
 
