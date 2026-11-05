@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-beta.1.5.8 — 2026-11-05 — beta 1.5.8: repository renamed SetupLab
+
+Why this update: the GitHub repository is now named **SetupLab** (it was ACSetupLab). SetupLab now uses the new addresses directly, without going through GitHub's redirects. Nothing else changes. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
+
+- In-game update: SetupLab reads the latest version at `github.com/VincentChevalier44/SetupLab` and downloads from there. The version file (`update.txt`) keeps a line with the old address for the versions 1.5.4 to 1.5.7 already installed, so they still find this update.
+- Links in the app (HELP tab), the README and the user guide point to `github.com/VincentChevalier44/SetupLab`. The online user guide is now at `vincentchevalier44.github.io/SetupLab/notice.html` (the old address no longer works).
+- Offline test bench: 422 tests.
+
 ## 1.0.0-beta.1.5.7 — 2026-11-05 — beta 1.5.7: online mode, race setup refined during the race
 
 Why this update: SetupLab paused online; and in a race you start on the grid, without the setup menu, so SetupLab could not be used there, and the RACE tab needed a validated SetupLab qualifying setup first. Now SetupLab works online exactly as offline, and the race itself is analysed lap after lap: SetupLab offers a race setup at the finish, for your next race. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
@@ -27,7 +35,7 @@ Race setup refined during the race:
 
 ## 1.0.0-beta.1.5.6 — 2026-11-03 — beta 1.5.6: no longer inactive with the free CSP 0.2.11
 
-Why this update: with Custom Shaders Patch 0.2.11 (the free version installed by Content Manager), SetupLab stayed inactive and showed "Context unreadable: flag unreadable: isAltOnlineRace" ([issue #1](https://github.com/VincentChevalier44/ACSetupLab/issues/1)). This CSP does not have that flag at all. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
+Why this update: with Custom Shaders Patch 0.2.11 (the free version installed by Content Manager), SetupLab stayed inactive and showed "Context unreadable: flag unreadable: isAltOnlineRace" ([issue #1](https://github.com/VincentChevalier44/SetupLab/issues/1)). This CSP does not have that flag at all. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
 
 - CSP 0.2.11: the alt-online flag (`isAltOnlineRace`: a fake online race driven by a New Modes script) does not exist in this CSP, so SetupLab now reads it as "not an alt-online race" instead of staying inactive. Such a race needs a newer CSP, which has the flag. The three other safety flags (online race, replay, replay-only mode) exist in 0.2.11 and still make SetupLab inactive when they cannot be read.
 - Offline test bench: the simulated CSP 0.2.11 now lacks this flag, like the real one (checked against the 0.2.11 SDK), and the full cycle runs on it: discovery, computation, Validate, load in the pits.

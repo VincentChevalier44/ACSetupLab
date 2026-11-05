@@ -1,8 +1,8 @@
-<p align="center"><img src="https://raw.githubusercontent.com/VincentChevalier44/ACSetupLab/main/assets/banner.png" alt="SetupLab, race engineering for Assetto Corsa" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/VincentChevalier44/SetupLab/main/assets/banner.png" alt="SetupLab, race engineering for Assetto Corsa" width="100%"></p>
 
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5.7** (`1.0.0-beta.1.5.7`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.8** (`1.0.0-beta.1.5.8`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
 SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits in one click, keep or refuse each of its settings, and validate it.
 
@@ -44,7 +44,7 @@ The app is in **English by default**, with a full **French** translation (one cl
 
 Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free version installed by Content Manager) or newer, previews included; offline or online.
 
-1. Download the latest `SetupLab-….zip` from the [Releases](https://github.com/VincentChevalier44/ACSetupLab/releases).
+1. Download the latest `SetupLab-….zip` from the [Releases](https://github.com/VincentChevalier44/SetupLab/releases).
 2. **Close Assetto Corsa**, then extract the archive into `assettocorsa/apps/lua/`: it already contains the `SetupLab/` folder. In the end, `assettocorsa/apps/lua/SetupLab/` holds `SetupLab.lua` and `manifest.ini` (no `SetupLab` folder inside another `SetupLab`).
 3. In game, open **SetupLab** from the app bar or the setup screen. Three more windows exist: **SetupLab Track** (the same interface, opened from the app bar while driving: in a race you start on the grid), **SetupLab Overlay** (on track) and **SetupLab Debug** (diagnostics).
 
@@ -76,7 +76,7 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (421 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (422 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
@@ -88,7 +88,7 @@ Some settings are deliberately kept, with their reason shown: toe, coast and pre
 
 The J0 report and the copied lap (DIAGNOSTICS and MEASURE tabs), meant for development, are in French. The source code comments are in French.
 
-Feedback is welcome in the [Issues](https://github.com/VincentChevalier44/ACSetupLab/issues). For a problem, attach the report from the **DIAGNOSTICS** tab ("Copy the J0 report"). If AC is already closed, SetupLab's journal is also in CSP's log, `Documents\Assetto Corsa\logs\custom_shaders_patch.log` (lines `[Lua: App: SetupLab]`), until AC is started again.
+Feedback is welcome in the [Issues](https://github.com/VincentChevalier44/SetupLab/issues). For a problem, attach the report from the **DIAGNOSTICS** tab ("Copy the J0 report"). If AC is already closed, SetupLab's journal is also in CSP's log, `Documents\Assetto Corsa\logs\custom_shaders_patch.log` (lines `[Lua: App: SetupLab]`), until AC is started again.
 
 ## Development
 

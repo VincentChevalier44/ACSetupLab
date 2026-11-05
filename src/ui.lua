@@ -2649,7 +2649,7 @@ local HELP = {
   } },
   { 'Notice complète', {
     'Notice d\'utilisation, dans le dossier de l\'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en '
-      .. 'anglais. Problèmes et idées : https://github.com/VincentChevalier44/ACSetupLab/issues',
+      .. 'anglais. Problèmes et idées : https://github.com/VincentChevalier44/SetupLab/issues',
   } },
 }
 local function helpSection(host, palette)

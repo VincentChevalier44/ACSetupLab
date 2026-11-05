@@ -216,8 +216,8 @@ EN = {
     "Noms clairs : SetupLab_Qualif_v1.ini, SetupLab_Course_Pluie_v3.ini… ; votre meilleur tour s'ajoute au nom d'une version de qualification. Les fichiers d'essai, les versions non gardées et les copies inutiles partent à la Corbeille, voiture arrêtée. Vos propres fichiers ne sont jamais touchés.":
         'Clear names in the chosen language: SetupLab_Quali_v1.ini, SetupLab_Race_Wet_v3.ini…; your best lap is added to the name of a qualifying version. Trial files, versions not kept and useless copies go to the Recycle Bin, with the car stopped. Your own files are never touched.',
     'Notice complète': 'Full guide',
-    "Notice d'utilisation, dans le dossier de l'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en anglais. Problèmes et idées : https://github.com/VincentChevalier44/ACSetupLab/issues":
-        'User guide, in the app folder (apps/lua/SetupLab/docs): notice.html in English, notice.fr.html in French. Issues and ideas: https://github.com/VincentChevalier44/ACSetupLab/issues',
+    "Notice d'utilisation, dans le dossier de l'app (apps/lua/SetupLab/docs) : notice.fr.html en français, notice.html en anglais. Problèmes et idées : https://github.com/VincentChevalier44/SetupLab/issues":
+        'User guide, in the app folder (apps/lua/SetupLab/docs): notice.html in English, notice.fr.html in French. Issues and ideas: https://github.com/VincentChevalier44/SetupLab/issues',
     'MÉMOIRE': 'MEMORY',
     'MESURE': 'MEASURE',
     'RÉGLAGES': 'SETTINGS',

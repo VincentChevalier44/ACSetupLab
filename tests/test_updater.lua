@@ -329,4 +329,32 @@ tests['UP06 réglage décoché, ou réseau absent : aucune requête'] = function
   T.eq(app2.perf.errors, 0)
 end
 
+-- Dépôt renommé SetupLab (05/11/2026, demande de Vincent : « il faut pas de redirection, il faut tout mettre en mode
+-- natif ») : adresses du nouveau nom. update.txt garde « url= » à l'ancien nom pour les versions 1.5.4 à 1.5.7 déjà
+-- installées, et porte « download= » au nouveau nom, lue en premier ; le téléchargement se fait toujours au nouveau nom.
+tests['UP09 dépôt renommé SetupLab : adresses natives ; « download= » d\'abord, ancienne ligne « url= » acceptée'] = function()
+  local native = 'https://github.com/VincentChevalier44/SetupLab/releases/download/'
+  local legacy = 'https://github.com/VincentChevalier44/ACSetupLab/releases/download/'
+  T.eq(Updater.INFO_URL, 'https://raw.githubusercontent.com/VincentChevalier44/SetupLab/main/update.txt')
+  T.eq(Updater.DOWNLOAD_PREFIX, native)
+  T.ok(Updater.PAGE_PREFIX:find('/VincentChevalier44/SetupLab/releases/tag/', 1, true), Updater.PAGE_PREFIX)
+  local sha, v = string.rep('a', 64), '9.9.9'
+  local zip = 'v' .. v .. '/SetupLab-' .. v .. '.zip'
+  local function info(lines) return 'version=' .. v .. '\n' .. lines .. 'sha256=' .. sha .. '\nsize=1000\n' end
+  -- fichier tel que package.py l'écrit : les deux lignes
+  local both = Updater.parseInfo(info('url=' .. legacy .. zip .. '\ndownload=' .. native .. zip .. '\n'))
+  T.ok(both, 'les deux lignes : accepté')
+  T.eq(both.url, native .. zip, 'téléchargement au nouveau nom')
+  T.ok(both.page:find('/SetupLab/releases/tag/', 1, true), 'page de la release au nouveau nom')
+  -- ancienne ligne seule (update.txt d'avant le renommage) : acceptée, téléchargée au nouveau nom
+  local old = Updater.parseInfo(info('url=' .. legacy .. zip .. '\n'))
+  T.ok(old, 'ancienne ligne seule : accepté')
+  T.eq(old.url, native .. zip)
+  T.ok(Updater.parseInfo(info('url=' .. native .. zip .. '\n')), 'ligne url= au nouveau nom : accepté')
+  -- refus : download= à l'ancien nom ou ailleurs, url= d'un autre dépôt
+  T.eq(Updater.parseInfo(info('url=' .. legacy .. zip .. '\ndownload=' .. legacy .. zip .. '\n')), nil, 'download= à l\'ancien nom')
+  T.eq(Updater.parseInfo(info('download=https://example.com/' .. zip .. '\n')), nil, 'download= ailleurs')
+  T.eq(Updater.parseInfo(info('url=https://github.com/autre/SetupLab/releases/download/' .. zip .. '\n')), nil, 'autre dépôt')
+end
+
 return tests

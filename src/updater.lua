@@ -10,9 +10,15 @@
 -- Hôte injecté (D5) : host.web, host.io, host.ac.
 local M = {}
 
-M.INFO_URL = 'https://raw.githubusercontent.com/VincentChevalier44/ACSetupLab/main/update.txt'
-M.DOWNLOAD_PREFIX = 'https://github.com/VincentChevalier44/ACSetupLab/releases/download/'
-M.PAGE_PREFIX = 'https://github.com/VincentChevalier44/ACSetupLab/releases/tag/'
+-- Dépôt renommé SetupLab le 05/11/2026 (demande de Vincent : « il faut pas de redirection, il faut tout mettre en mode
+-- natif ») : adresses du nouveau nom.
+M.INFO_URL = 'https://raw.githubusercontent.com/VincentChevalier44/SetupLab/main/update.txt'
+M.DOWNLOAD_PREFIX = 'https://github.com/VincentChevalier44/SetupLab/releases/download/'
+M.PAGE_PREFIX = 'https://github.com/VincentChevalier44/SetupLab/releases/tag/'
+-- Ancien nom : les versions 1.5.4 à 1.5.7, déjà installées, exigent ce préfixe dans la ligne « url= » de update.txt (elle
+-- le garde pour elles) ; la ligne « download= » porte l'adresse du nouveau nom, lue en premier. Le téléchargement se fait
+-- toujours à l'adresse du nouveau nom.
+M.LEGACY_DOWNLOAD_PREFIX = 'https://github.com/VincentChevalier44/ACSetupLab/releases/download/'
 M.ROOT = 'SetupLab/'
 M.MAX_INFO = 4096
 M.MAX_ZIP = 8 * 1024 * 1024
@@ -74,12 +80,19 @@ function M.parseInfo(text)
   local version = f.version
   if M.parseVersion(version) == nil then return nil, 'version illisible' end
   local zip = 'SetupLab-' .. version .. '.zip'
-  if f.url ~= M.DOWNLOAD_PREFIX .. 'v' .. version .. '/' .. zip then return nil, 'adresse du téléchargement inattendue' end
+  local path = 'v' .. version .. '/' .. zip
+  local url = M.DOWNLOAD_PREFIX .. path
+  -- « download= » (nouveau nom) d'abord ; sinon « url= », au nouveau nom ou à l'ancien (même release)
+  if f.download ~= nil then
+    if f.download ~= url then return nil, 'adresse du téléchargement inattendue' end
+  elseif not (f.url == url or f.url == M.LEGACY_DOWNLOAD_PREFIX .. path) then
+    return nil, 'adresse du téléchargement inattendue'
+  end
   local sha = type(f.sha256) == 'string' and f.sha256:lower() or nil
   if not (sha and #sha == 64 and sha:match('^[0-9a-f]+$')) then return nil, 'empreinte SHA-256 illisible' end
   local size = tonumber(f.size)
   if not (size and size > 0 and size <= M.MAX_ZIP and size == math.floor(size)) then return nil, 'taille illisible' end
-  return { version = version, url = f.url, sha256 = sha, size = size, zip = zip,
+  return { version = version, url = url, sha256 = sha, size = size, zip = zip,
     page = M.PAGE_PREFIX .. 'v' .. version }
 end
 

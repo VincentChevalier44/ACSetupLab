@@ -2751,7 +2751,7 @@ local function helpPage(x, y, w)
   panel(x, cy, x + w, cy + nh)
   lab('Notice complète', x + 16, cy + 12, c.light)
   text('mono', 11, fitted('mono', 11, 'apps/lua/SetupLab/docs/notice.fr.html · notice.html', w - 32), x + 16, cy + 30, c.soft)
-  local ls = up(L.t('Problèmes et idées')) .. ' · github.com/VincentChevalier44/ACSetupLab/issues'
+  local ls = up(L.t('Problèmes et idées')) .. ' · github.com/VincentChevalier44/SetupLab/issues'
   text('section', 11.5, fitted('section', 11.5, ls, w - 32), x + 16, cy + 50, c.blueSoft)
   return cy + nh + 8 - y
 end

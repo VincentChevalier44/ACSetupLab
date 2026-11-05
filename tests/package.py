@@ -96,9 +96,12 @@ def main():
         target.unlink()
         sys.exit('archive refusée : banc d\'essai présent')
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
-    # fichier de version lu par la mise à jour en jeu : à pousser sur main APRÈS la publication de la release
+    # fichier de version lu par la mise à jour en jeu : à pousser sur main APRÈS la publication de la release.
+    # Dépôt renommé SetupLab (05/11/2026) : « download= » au nouveau nom (1.5.8 et plus) ; « url= » garde l'ancien nom,
+    # exigé par les versions 1.5.4 à 1.5.7 déjà installées (sinon elles ne trouveraient plus de mise à jour).
     (DIST / 'update.txt').write_text(
         f'version={version}\nurl=https://github.com/VincentChevalier44/ACSetupLab/releases/download/v{version}/{target.name}\n'
+        f'download=https://github.com/VincentChevalier44/SetupLab/releases/download/v{version}/{target.name}\n'
         f'sha256={digest}\nsize={target.stat().st_size}\n', encoding='utf-8', newline='\n')
     (DIST / f'SetupLab-{version}.sha256').write_text(f'{digest}  {target.name}\n', encoding='utf-8')
     print(f'{target} : {len(names)} fichiers, {target.stat().st_size} octets, SHA-256 {digest}')
