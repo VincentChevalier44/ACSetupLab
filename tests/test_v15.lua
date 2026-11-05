@@ -18,6 +18,8 @@ local function boot(opts)
   local h = Fake.new({ car = require('fixtures/cars/lamborghini_huracan_gt3_evo2'), track = require('fixtures/tracks/monza'),
     stored = opts.stored, lang = opts.lang, skin = opts.skin, cdata = opts.cdata })
   h.sim.raceSessionType = opts.session or 2
+  -- la séance courante a le même type (CSP : ac.getSession(currentSessionIndex)) ; nombre de tours lu en course
+  h.session.type = opts.session or 2
   h.texts = {}
   local function capture(text) h.texts[#h.texts + 1] = text end
   local text, wrapped, colored = h.ui.text, h.ui.textWrapped, h.ui.textColored
@@ -186,7 +188,10 @@ tests['NV02 setup de course : qualification validée, montée dans la voiture, n
   T.eq(app.perf.errors, 0)
 end
 
-tests['NV03 affinage en séance de course : en attente de la garde, sans calcul ni erreur'] = function()
+-- Amendé le 05/11/2026 (choix de Vincent « partir du setup en place ») : en séance de course, l'affinage de la course part
+-- du setup qui est dans la voiture, sans qualification validée ; le nombre de tours vient de la séance (course de 15 min
+-- au temps : estimé). Hors séance de course, la garde reste (RV07, NV21).
+tests['NV03 affinage en séance de course sans qualification : part du setup en place, sans erreur'] = function()
   local h, app = ready({ session = 3 })
   h.click = 'SetupLab actif'
   frames(h, 1)
@@ -194,9 +199,12 @@ tests['NV03 affinage en séance de course : en attente de la garde, sans calcul 
 
   T.ok(waitFor(h, function() return app.refine and app.refine.active end))
   T.eq(app.refine.kind, 'race')
+  T.ok(app.raceLaps and app.raceLaps >= 1, 'tours de la course estimés d\'après la séance : ' .. tostring(app.raceLaps))
+  T.eq(app.raceBlocker(), nil, 'aucune garde de qualification en séance de course')
+  -- course lancée : le setup se calcule à l'arrivée (constat de Vincent du 05/11/2026)
   frames(h, 300)
-  T.eq(app.race, nil, 'aucun calcul course sans qualification validée')
-  T.contains(app.refine.waiting, 'course : valider d\'abord')
+  T.eq(app.race, nil, 'aucun calcul pendant la course')
+  T.ok(tostring(app.refine.waiting):find('calculé à l\'arrivée', 1, true), tostring(app.refine.waiting))
   T.eq(app.perf.errors, 0)
 end
 
@@ -649,13 +657,17 @@ end
 
 -- Relecture du 29/10/2026 : en séance de course sans qualification validée, « Affiner le tour rapide » (carte d'étape)
 -- lance l'affinage du tour rapide, que SetupLab actif ne remplace plus ; une v1 validée débloque la course.
-tests['NV17 séance de course sans qualification : affiner le tour rapide, puis la course se débloque'] = function()
+-- Amendé le 05/11/2026 (choix de Vincent « partir du setup en place ») : en séance de course, l'onglet COURSE propose
+-- « Affiner pendant la course » (plus de garde de qualification) ; le tour rapide reste affinable, et la course partira
+-- alors de la qualification validée.
+tests['NV17 séance de course sans qualification : affiner pendant la course proposé ; le tour rapide reste affinable'] =
+function()
   local h, app = ready({ session = 3, skin = true })
   frames(h, 1)
-  T.ok(shownText(h, 'COURSE · AVANT LE CALCUL'), 'course : la garde d\'abord, pas de départ à choisir')
-  h.click = 'step_quali'
-  frames(h, 1)
-  T.eq(app.ui.tab, 'Tour rapide', 'vers l\'onglet QUALIF')
+  T.ok(shownText(h, 'AFFINER PENDANT LA COURSE'), 'course : la carte de la séance de course')
+  T.no(shownText(h, 'COURSE · AVANT LE CALCUL'), 'plus de garde de qualification en séance de course')
+  app.handleIntents({ refineStart = 'quali' })
+  app.ui.tab = 'Tour rapide'
   frames(h, 120)
   T.ok(app.refine and app.refine.kind == 'quali' and app.refine.active, 'tour rapide affiné, pas remplacé par la course')
   app.handleIntents({ start = 'mine' })
@@ -663,8 +675,8 @@ tests['NV17 séance de course sans qualification : affiner le tour rapide, puis 
   T.eq(r.kind, 'quali', 'départ choisi : toujours le tour rapide')
   T.ok(waitFor(h, function() return r.version > r.base and r.phase == 'tours' end), 'v1')
   app.handleIntents({ refineJudge = { version = r.version, verdict = 'valider' } })
-  local _, action = app.raceBlocker()
-  T.ok(action ~= 'qualif', 'course débloquée : ' .. tostring(action))
+  local _, action = app.raceQualiBase()
+  T.ok(action ~= 'qualif', 'la course partira de la qualification validée : ' .. tostring(action))
   T.eq(app.perf.errors, 0)
 end
 
@@ -738,17 +750,21 @@ end
 -- Demande de Vincent du 02/11/2026 : setups de qualification faits lors d'une séance précédente (v1, v2, v3, essais
 -- compris), AC relancé : la course part de celui qui est dans la voiture, reconnu par ses valeurs (même réenregistré
 -- depuis le menu d'AC) ; sinon l'onglet COURSE les liste et dit de charger l'un d'eux depuis le menu d'AC.
+-- 05/11/2026 : en séance de course, la garde ne bloque plus (setup en place) ; la base de qualification
+-- (app.raceQualiBase) garde la reconnaissance des setups de qualification, vérifiée ici.
 tests['NV21 course : setups de qualification d\'une séance précédente reconnus par leurs valeurs'] = function()
   local h, app = ready({ session = 3, skin = true })
+  -- avant le départ : l'onglet COURSE liste encore vos setups de qualification à charger depuis le menu d'AC
+  h.sim.isSessionStarted = false
   local folder = folderOf(h)
   local d = app.discovery
   local text = d.setup.text
   -- v1 : un autre setup ; v3 d'essai : le setup de la voiture, réenregistré par AC (texte différent, mêmes valeurs)
   local other = text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
   h.written[folder .. '/SetupLab_Qualif_v1.ini'] = other
-  T.eq(app.raceBlocker(), 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'cache : rien encore')
+  T.eq(app.raceQualiBase(), 'valider d\'abord un setup de tour rapide (qualification) sur ce circuit', 'cache : rien encore')
   app.qualiScan = nil
-  local why, action = app.raceBlocker()
+  local why, action = app.raceQualiBase()
   T.eq(action, 'loadfile', tostring(why))
   h.tab = 'Course'
   frames(h, 1)
@@ -757,7 +773,7 @@ tests['NV21 course : setups de qualification d\'une séance précédente reconnu
   h.tab = nil
   h.written[folder .. '/SetupLab_Qualif_v3_essai.ini'] = text .. '\n; réenregistré par AC\n'
   app.qualiScan = nil
-  why, action = app.raceBlocker()
+  why, action = app.raceQualiBase()
   T.ok(action ~= 'qualif' and action ~= 'loadfile' and action ~= 'load', 'setup de la voiture reconnu : ' .. tostring(why))
   T.eq(app.qualiInCar().file, 'SetupLab_Qualif_v3_essai.ini')
   -- voiture en mouvement : pas de relecture du dossier, la liste d'avant reste servie
@@ -787,19 +803,24 @@ end
 -- se calcule tout de suite, sans tour de plus (réglages par défaut : 2 tours, premier setup immédiat décoché).
 tests['NV22 séance de course : v4 chargé depuis le menu d\'AC, v1 de course sans tour de plus'] = function()
   local h, app = ready({ session = 3 })
+  -- avant le départ (05/11/2026) : la v1 de course part tout de suite d'une qualification de SetupLab dans la voiture
+  h.sim.isSessionStarted = false
   app.settings.refineMinLaps, app.settings.refineInstantFirst = 2, false
   local folder = folderOf(h)
   local d = app.discovery
-  local v4 = d.setup.text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
+  local v4 =d.setup.text:gsub('(%[ARB_FRONT%]%s*VALUE=)(%-?%d+)', function(a, v) return a .. tostring(tonumber(v) + 1) end, 1)
   T.ok(v4 ~= d.setup.text, 'v4 différent du setup de la voiture')
   h.written[folder .. '/SetupLab_Qualif_v4.ini'] = v4
   app.qualiScan = nil
   app.handleIntents({ raceLaps = 12 })
-  app.handleIntents({ refineStart = 'race' })
+  -- 05/11/2026 : en séance de course, la carte « Affiner pendant la course » lance l'affinage sans calcul forcé (il
+  -- attend le minimum avec le setup en place, ou part tout de suite d'une qualification de SetupLab dans la voiture)
+  app.handleIntents({ refineStart = 'race', raceSession = true })
   frames(h, 30)
   local r = app.refine
   T.ok(r and r.kind == 'race' and r.active, 'affinage course')
-  local _, action = app.raceBlocker()
+  -- (la garde ne bloque plus en séance de course ; la base de qualification dit encore de charger la v4)
+  local _, action = app.raceQualiBase()
   T.eq(action, 'loadfile', 'v4 pas encore dans la voiture')
   T.ok(app.race == nil or app.race.state == nil, 'rien calculé avant le chargement')
   -- chargé depuis le menu d'AC, après la découverte (le menu pose les valeurs du fichier : ici, une barre avant + 1)

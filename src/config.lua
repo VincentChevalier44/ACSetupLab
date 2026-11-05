@@ -8,7 +8,7 @@ local M = {}
 M.appName = 'SetupLab'
 -- Première bêta publique (décision de Vincent du 22/10/2026 : « on la présentera comme la version bêta numéro
 -- un, v1.0 ») ; les versions 1.0.0 à 1.7.0 d'avant étaient internes (CHANGELOG.md).
-M.version = '1.0.0-beta.1.5.6.1'
+M.version = '1.0.0-beta.1.5.7'
 M.milestone = 'J0 à J8 (qualification, course, mesure, DRS, ERS, interface, persistance), chargement dans la voiture, affinage, pluie, '
   .. 'activation, mémoire du circuit, validation avant enregistrement, vos temps réels, vos retouches gardées'
 M.schemaVersion = 1   -- version du format de stockage (§13) ; une version plus récente est ignorée
@@ -173,8 +173,9 @@ M.help = {
   language = 'Langue de toute l\'application : menus, messages, aides et overlay.',
   onlineActive = 'Coché (par défaut) : en ligne, SetupLab fonctionne exactement comme hors ligne, dans toutes les séances. '
     .. 'Comme hors ligne, un setup imposé par le serveur ne se charge pas, et un tour passé derrière ou à côté d\'une autre '
-    .. 'voiture (aspiration, gêne) n\'est pas compté. Rien n\'est envoyé au serveur. Décoché : SetupLab se met en pause en '
-    .. 'ligne (par exemple si le règlement d\'une ligue interdit les apps).',
+    .. 'voiture (aspiration, gêne) n\'est pas compté (en séance de course, il compte pour la course seulement). Rien n\'est '
+    .. 'envoyé au serveur. Décoché : SetupLab se met en pause en ligne (par exemple si le règlement d\'une ligue interdit les '
+    .. 'apps).',
 }
 
 -- Constantes internes (réglables ici uniquement).
@@ -198,6 +199,8 @@ M.K = {
   trafficBesideM = 8,         -- m derrière : à côté (roue dans roue)
   trafficMaxTime = 2.0,       -- s cumulées dans le tour au-delà desquelles le tour est rejeté
   trafficMaxCars = 64,        -- voitures examinées au plus par échantillon
+  raceFinishLapWindow = 5,    -- s : arrivée vue dans ce début de tour = tour après le drapeau (rejeté)
+  raceFinishSettle = 3,       -- s après l'arrivée avant le calcul du setup de course (dernier tour enregistré)
   updateCheckFrame = 300,    -- mise à jour : vérifiée après ~5 s (images), une fois par lancement
   contextPeriod = 1.0,        -- détection de contexte (s)
   fpsTarget = 60,             -- en dessous, la tranche est réduite
@@ -254,6 +257,7 @@ M.K = {
   raceQualiFilesMax = 40,     -- setups de qualification de SetupLab relus pour la course (dossier de la voiture et du circuit)
   raceQualiReadsPerFrame = 4, -- setups de qualification relus au plus par image (pas d'à-coup, les plus récents d'abord)
   inCarFamilyEvery = 0.5,     -- setup de la voiture relu au stand au plus toutes les … s (setup chargé depuis le menu d'AC)
+  setupWatchStable = 1.5,     -- s : séance de course, setup changé dans le menu d'AC et stable : nouvelle découverte
   scanMaxFiles = 2000,        -- fichiers du dossier lus pour numéroter les versions à la suite
   refineRetryDelay = 10,      -- affinage en continu : délai avant un nouvel essai après un calcul refusé (s)
   refineMinGain = 0.05,       -- affinage : gain prévu (s) à partir duquel un setup est proposé (en dessous : conservé)

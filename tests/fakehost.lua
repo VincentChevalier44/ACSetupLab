@@ -1133,9 +1133,9 @@ function F.install(h)
   rawset(_G, 'vec2', h.vec2)
   rawset(_G, 'vec3', h.vec3)
   rawset(_G, 'rgbm', h.rgbm)
-  -- chaque fenêtre dessinée repart d'une liste d'identifiants vide (une image, une fenêtre)
+  -- chaque fenêtre dessinée repart d'une liste d'identifiants vide (une image, une fenêtre ; fenêtre en piste comprise)
   local script = setmetatable({}, { __newindex = function(s, name, fn)
-    if type(fn) == 'function' and (name == 'SETUPLAB__MAIN' or name == 'SETUPLAB__DEBUG') then
+    if type(fn) == 'function' and (name == 'SETUPLAB__MAIN' or name == 'SETUPLAB__TRACK' or name == 'SETUPLAB__DEBUG') then
       local draw = fn
       fn = function(...)
         h.ids, h.idScope = {}, ''

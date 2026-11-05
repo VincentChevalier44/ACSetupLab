@@ -2,7 +2,7 @@
 
 # SetupLab — setup generator for Assetto Corsa
 
-**Version 1.0 — beta 1.5.6** (`1.0.0-beta.1.5.6`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
+**Version 1.0 — beta 1.5.7** (`1.0.0-beta.1.5.7`) · Lua app for Custom Shaders Patch (free version 0.2.11 or newer) · MIT licence
 
 SetupLab computes, for every car and track, a **qualifying** setup (practice, track day, hotlap, time attack, qualifying) and a **race** setup (full stint). It explains every setting, fits its model to your own laps, and refines the setup while you drive: it proposes a version, you try it in the pits in one click, keep or refuse each of its settings, and validate it.
 
@@ -42,11 +42,11 @@ The app is in **English by default**, with a full **French** translation (one cl
 
 ## Installation
 
-Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free version installed by Content Manager) or newer, previews included; offline mode.
+Requirements: Assetto Corsa with **Custom Shaders Patch 0.2.11** (the free version installed by Content Manager) or newer, previews included; offline or online.
 
 1. Download the latest `SetupLab-….zip` from the [Releases](https://github.com/VincentChevalier44/ACSetupLab/releases).
 2. **Close Assetto Corsa**, then extract the archive into `assettocorsa/apps/lua/`: it already contains the `SetupLab/` folder. In the end, `assettocorsa/apps/lua/SetupLab/` holds `SetupLab.lua` and `manifest.ini` (no `SetupLab` folder inside another `SetupLab`).
-3. In game, open **SetupLab** from the app bar or the setup screen. Two more windows exist: **SetupLab Overlay** (on track) and **SetupLab Debug** (diagnostics).
+3. In game, open **SetupLab** from the app bar or the setup screen. Three more windows exist: **SetupLab Track** (the same interface, opened from the app bar while driving: in a race you start on the grid), **SetupLab Overlay** (on track) and **SetupLab Debug** (diagnostics).
 
 ### Updating
 
@@ -56,7 +56,7 @@ To install by hand (and to go from 1.5.2 or older to this version): **delete the
 
 ## Quick start
 
-1. Start an offline session (practice, track day, qualifying or race). Open SetupLab **with the car in the pits** and wait for "Discovery finished".
+1. Start a session, offline or online (practice, track day, qualifying or race). Open SetupLab **with the car in the pits** and wait for "Discovery finished". In a race session, see "During a race" in the user guide: from the grid, **SetupLab Track**, RACE tab, **Refine during the race**; the race setup is computed at the finish, for your next race.
 2. Step 1, **Start**: choose **My current setup**, **Car's default setup** or **Resume my reference**. This activates SetupLab. Drive clean laps.
 3. When a version is ready, it is announced at the top of the screen. In the pits, **Try v1** puts it in the car in one click (its trial file then goes to the Recycle Bin). **Start over** puts the previous setup back.
 4. Drive with it, then click **Validate v1** (or **Modify…** to refuse a particular setting first). SetupLab then asks: **Carry on refining** (a new version with your next laps, starting from it) or **Lock v1**.
@@ -71,17 +71,17 @@ Every button, tab and setting is described in the [user guide](docs/notice.html)
 - It never touches your own files. It only tidies files it wrote, intact (recognised by name and content fingerprint), with the car stopped: to the **Windows Recycle Bin** for trial files once loaded, versions you do not keep and redundant backup copies; it **renames** a kept qualifying version to add your best lap. With CSP 0.2.11, the Recycle Bin is not yet available to apps: these files are deleted permanently.
 - The car setup only changes on your explicit request: in the pits, car stopped, setup menu open, in one click, after a backup copy when useful; only a file written by SetupLab can be loaded. When SetupLab loads a **race** setup this way, the selected quick pit preset also gets its tyre pressures and tyres, so a tyre change is planned at the stop (fuel and repairs are left as you set them).
 - No game or personal data is ever sent over the Internet (GitHub only sees your IP address, as for any web page). The only connection reads, once per AC launch, the latest version number in this repository (`update.txt`; setting **Check for updates at launch** can be unticked); an update is only downloaded on your click, and checked before anything is replaced. No `loadstring` or `dofile`, and no `os.*` except CSP's precise clock (`os.preciseClock`), used to time its computation slices, and `os.date`, read only for the local time in saved file names.
-- It is inactive online and in replays.
+- Online it works exactly as offline (setting **Active online**, ticked by default: untick it if a league's rules forbid apps). Nothing is sent to the server. It is inactive in replays.
 - It trusts no data it reads (car files, game state, storage): everything is bounded and validated.
 
 ## Beta status and known limitations
 
-This beta is built and checked on an **offline test bench** (400 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
+This beta is built and checked on an **offline test bench** (421 tests: models, optimiser, interface, translation, loading, persistence, fuzzing). It has been tried in game, but many cars and tracks have not been seen in game yet. To be confirmed in game:
 
 - how closely the simulated lap matches AC (target: lap time within 2 %); until calibration reaches its thresholds, gains are indicative and the app says so;
 - the rain model, which relies on assumptions: your wet laps calibrate it;
-- the free CSP 0.2.11: SetupLab is checked against its SDK and on the bench (simulated 0.2.11), not yet in game;
-- the 1.5.5 race laps entry during the race refinement, the folding setup settings table and the overlay hidden in replays, checked on the bench only. The page layouts, the overlay bar, the local time in file names and the in-game update (from 1.5.3 to 1.5.4) have been tried in game;
+- the free CSP 0.2.11: checked against its SDK and on the bench (simulated 0.2.11); a player confirmed that SetupLab starts normally with it since 1.5.6;
+- the 1.5.5 race laps entry during the race refinement, the folding setup settings table and the overlay hidden in replays, checked on the bench only. The page layouts, the overlay bar, the local time in file names, the in-game update (from 1.5.3 to 1.5.4 and from 1.5.5 to 1.5.6), the online mode and the race refinement during a race have been tried in game;
 - with cars whose data is packed (`data.acd`): gear ratio files are read through CSP (see the J0 report, DIAGNOSTICS tab); with layout tracks: the layout's own `data` folder (surfaces, DRS zones).
 
 Some settings are deliberately kept, with their reason shown: toe, coast and preload differential (transient effects outside the model), packers and bump stops (reference to confirm), springs and dampers until a valid dry lap has measured the track roughness, ride height until a load in the pits has verified the height reference, settings defined by a car's script (unknown effect).

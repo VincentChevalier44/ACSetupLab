@@ -11,6 +11,12 @@
 -- piste a un trou ou recule (retour au stand, téléportation), si la mémoire est pleine, si le setup
 -- est illisible ou change pendant le tour, si la répartition de freinage change en roulant, ou si une autre
 -- voiture roule juste devant ou à côté (trafic), en ligne comme hors ligne.
+-- Séance de course (demande de Vincent du 05/11/2026, context.raceSession) : un tour en trafic n'est pas rejeté ; il est
+-- marqué (lap.traffic) et compte pour l'analyse de la course (rythme, consommation, usure, pneus), jamais pour le meilleur
+-- tour d'un setup (calibration, validation, tour rapide). Le tour commencé après l'arrivée (drapeau) est rejeté.
+-- Même règle pour les incidents de pilotage (choix de Vincent du 05/11/2026) : en séance de course, un tour avec sortie de
+-- piste, coupe, tête-à-queue, glissade, blocage de roue, choc ou tour invalidé par AC est gardé, marqué (lap.incident,
+-- le premier) ; la voie des stands, la voiture replacée sur la piste et les autres raisons le rejettent toujours.
 -- L'origine de la ligne IA peut s'écarter de la ligne de chronométrage : les écarts de couverture se
 -- mesurent en tenant compte du bouclage de la progression.
 --
@@ -86,14 +92,16 @@ end
 
 -- Abandonne le tour en cours (le prochain passage de ligne en démarrera un nouveau).
 function M.abort(rec, reason)
-  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.trafficTime = 0, 0, nil, nil, 0
+  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.trafficTime, rec.trafficLap = 0, 0, nil, nil, 0, false
+  rec.raceIncident = nil
   rec.state = 'attente'
   rec.abortReason = reason
   rec.drsPrev = nil
 end
 
 local function startLap(rec, signature, lapCount, now, family)
-  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.inc, rec.trafficTime = 0, 0, nil, nil, nil, 0
+  rec.n, rec.maxGap, rec.lastP, rec.invalid, rec.inc, rec.trafficTime, rec.trafficLap = 0, 0, nil, nil, nil, 0, false
+  rec.raceIncident = nil
   rec.state = 'enregistrement'
   rec.signatureStart, rec.familyStart = signature, family
   rec.lapIndex = lapCount
@@ -142,6 +150,8 @@ local function keep(rec, lap)
   local laps = rec.laps
   laps.last = lap
   if not lap.valid then return end
+  -- tour de course en trafic ou avec un incident : jamais le meilleur tour d'un setup (calibration, validation, tour rapide)
+  if lap.traffic or lap.incident then return M.keepFamily(laps, lap) end
   local key = M.bestKey(lap.signature, lap.bucket)
   local best = laps.best[key]
   if best == nil then
@@ -157,19 +167,26 @@ local function keep(rec, lap)
     end
   end
   if best == nil or lap.time < best.time then laps.best[key] = lap end
-  -- vos temps par « famille » de setup (sans les réglages changés en roulant : carburant, répartition de
-  -- freinage) : meilleur tour, nombre de tours valides et somme des temps (moyenne de course)
+  M.keepFamily(laps, lap)
+end
+
+-- Vos temps par « famille » de setup (sans les réglages changés en roulant : carburant, répartition de freinage) :
+-- meilleur tour, nombre de tours valides et somme des temps (moyenne de course). Tour de course en trafic : compté dans
+-- le nombre et la moyenne (traffic : combien d'entre eux), jamais dans le meilleur tour (nil tant qu'aucun tour libre).
+function M.keepFamily(laps, lap)
   if lap.family == nil then return end
   local fkey = M.bestKey(lap.family, lap.bucket)
   local f = laps.family[fkey]
   if f == nil then
-    f = { best = lap.time, count = 0, sum = 0 }
+    f = { best = nil, count = 0, sum = 0, traffic = 0 }
     laps.family[fkey] = f
     laps.familyOrder[#laps.familyOrder + 1] = fkey
     if #laps.familyOrder > K.recorderMaxSignatures then laps.family[table.remove(laps.familyOrder, 1)] = nil end
   end
   f.count, f.sum = f.count + 1, f.sum + lap.time
-  if lap.time < f.best then f.best = lap.time end
+  if lap.traffic then f.traffic = (f.traffic or 0) + 1 end
+  if lap.incident then f.incident = (f.incident or 0) + 1 end
+  if not (lap.traffic or lap.incident) and (f.best == nil or lap.time < f.best) then f.best = lap.time end
 end
 
 -- Tour terminé, avant le temps officiel : copie, validité (hors temps), conditions moyennes.
@@ -192,6 +209,9 @@ local function buildLap(rec, signatureEnd, context)
     reason = 'trou de couverture de ' .. Util.fmt(gap * (context.trackLength or 0), 0) .. ' m (retour au stand ?)'
   end
   lap.reason = reason
+  -- séance de course : tour en trafic, ou avec un incident de pilotage, gardé et marqué
+  lap.traffic = rec.trafficLap == true or nil
+  lap.incident = rec.raceIncident
   local count = max(1, s.count)
   lap.tyreTemp, lap.pressure, lap.tyreKm = {}, {}, {}
   -- températures intérieure et extérieure : seulement si elles ont été lues à chaque échantillon
@@ -369,6 +389,10 @@ end
 -- cumulées, le tour est rejeté. Renvoie la raison, ou nil.
 M.TRAFFIC_REASON = 'trafic : une autre voiture à moins de ' .. K.trafficAheadM .. ' m devant ou à côté'
 
+-- Incidents de pilotage gardés en séance de course (le tour compte pour la course seulement).
+M.RACE_INCIDENTS = { ['choc (dégâts)'] = true, ['coupe de piste'] = true, ['tête-à-queue'] = true,
+  ['blocage de roue'] = true, ['grosse glissade'] = true }
+
 local function traffic(rec, host, p, context)
   local length, count = context.trackLength, context.carsCount
   if not (length and length > 0 and count and count > 1) then return nil end
@@ -391,7 +415,14 @@ local function traffic(rec, host, p, context)
     end
   end
   if near then rec.trafficTime = rec.trafficTime + 1 / K.recorderHz end
-  if rec.trafficTime >= K.trafficMaxTime then return M.TRAFFIC_REASON end
+  if rec.trafficTime >= K.trafficMaxTime then
+    -- séance de course : le tour reste valide, marqué en trafic (analyse de la course seulement)
+    if context.raceSession then
+      rec.trafficLap = true
+      return nil
+    end
+    return M.TRAFFIC_REASON
+  end
   return nil
 end
 
@@ -432,8 +463,22 @@ function M.update(rec, host, now, signatureFn, context)
   rec.peakArmed = rec.state == 'enregistrement'
   if rec.pending then finished = resolvePending(rec, car, now) or finished end
   if rec.state ~= 'enregistrement' then return finished end
-  -- invalidation (la première raison est conservée)
-  if rec.invalid == nil then
+  -- invalidation (la première raison est conservée) ; séance de course : incidents de pilotage gardés à part
+  if rec.invalid == nil and context.raceSession then
+    if bool(car, 'isInPitlane') == true then
+      rec.invalid = 'passage par la voie des stands'
+    elseif bool(car, 'isRaceFinished') == true and rec.startTime and now - rec.startTime < K.raceFinishLapWindow then
+      -- arrivée vue au début du tour : tour de décélération après le drapeau ; un drapeau vu plus tard dans le tour
+      -- (fin de course au temps, drapeau un peu avant le passage de ligne) ne rejette pas le tour qui s'achève
+      rec.invalid = 'tour après l\'arrivée'
+    elseif rec.raceIncident == nil then
+      if bool(car, 'isLapValid') == false then
+        rec.raceIncident = 'tour invalidé par AC'
+      elseif (num(car, 'wheelsOutside') or 0) > K.maxWheelsOutside then
+        rec.raceIncident = 'sortie de piste'
+      end
+    end
+  elseif rec.invalid == nil then
     if bool(car, 'isLapValid') == false then
       rec.invalid = 'tour invalidé par AC'
     elseif bool(car, 'isInPitlane') == true then
@@ -448,8 +493,16 @@ function M.update(rec, host, now, signatureFn, context)
   if rec.nextSampleAt and now < rec.nextSampleAt - 1e-4 then return finished end
   rec.nextSampleAt = (rec.nextSampleAt or now) + 1 / K.recorderHz
   if rec.nextSampleAt < now then rec.nextSampleAt = now end
-  -- incidents lus au rythme des échantillons (30 Hz) : assez pour un blocage de 0,3 s
-  if rec.invalid == nil then rec.invalid = incident(rec, car, now) end
+  -- incidents lus au rythme des échantillons (30 Hz) : assez pour un blocage de 0,3 s ; séance de course : un incident de
+  -- pilotage marque le tour (le premier), une voiture replacée le rejette
+  if rec.invalid == nil then
+    local why = incident(rec, car, now)
+    if why and context.raceSession and M.RACE_INCIDENTS[why] then
+      rec.raceIncident = rec.raceIncident or why
+    else
+      rec.invalid = why
+    end
+  end
   if rec.n >= rec.capacity then
     rec.invalid = rec.invalid or 'mémoire pleine'
     return finished
@@ -458,7 +511,7 @@ function M.update(rec, host, now, signatureFn, context)
   local v = num(car, 'speedMs')
   if p == nil or v == nil then return finished end
   -- trafic : dès qu'il y a d'autres voitures (context.carsCount), en ligne comme hors ligne
-  if rec.invalid == nil then rec.invalid = traffic(rec, host, p, context) end
+  if rec.invalid == nil and not rec.trafficLap then rec.invalid = traffic(rec, host, p, context) end
   if rec.lastP then
     local d = p - rec.lastP
     if d < -0.5 then d = d + 1 elseif d > 0.5 then d = d - 1 end

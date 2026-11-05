@@ -501,4 +501,144 @@ tests['R11 km virtuels par tour : mesurés pendant le tour, pas après un change
   T.eq(laps2[1].tyreKmDelta[1], nil, 'changement de pneus : aucune mesure')
 end
 
+-- Séance de course (choix de Vincent du 05/11/2026, « comptés pour la course ») : un tour roulé derrière une autre voiture
+-- reste valide, marqué en trafic ; il compte dans le nombre et la moyenne de la famille de setup, jamais dans le meilleur
+-- tour (calibration, validation, tour rapide). Hors séance de course, le même tour est rejeté (R21).
+tests['RS01 séance de course : tour en trafic gardé et marqué, compté pour la course, jamais meilleur tour'] = function()
+  local function follow(_, h)
+    local q = (h.car.splinePosition + 20 / cache.monza.track.length) % 1
+    if rawget(h, 'others') == nil then h.others = { Fake.otherCar(q) } else h.others[1].splinePosition = q end
+  end
+  local function sig() return 'S1', 'F1' end
+  local e = env('monza')
+  local rec = Recorder.new()
+  -- premier tour enregistré derrière l'autre voiture, le second libre (le trafic ne se reporte pas)
+  local laps = drive(e, 2, rec, function(i, h, r)
+    if h.car.lapCount <= 1 then return follow(i, h, r) end
+    h.others[1].splinePosition = (h.car.splinePosition + 0.5) % 1
+  end, sig, { carsCount = 2, raceSession = true })
+  T.eq(#laps, 2)
+  T.ok(laps[1].valid, 'tour de course en trafic valide : ' .. tostring(laps[1].reason))
+  T.eq(laps[1].traffic, true, 'marqué en trafic')
+  local free = laps[2]
+  T.ok(free.valid and free.traffic == nil, 'tour libre : ' .. tostring(free.reason))
+  T.ok(Recorder.best(rec, 'S1') == free, 'seul le tour libre est le meilleur tour')
+  local f = rec.laps.family.F1
+  T.ok(f ~= nil, 'comptés dans la famille')
+  T.eq(f.count, 2)
+  T.eq(f.traffic, 1, 'dont un en trafic')
+  T.near(f.best, free.time, 1e-9, 'meilleur tour : le tour libre')
+  T.near(f.sum, laps[1].time + free.time, 1e-6, 'moyenne : les deux tours')
+  T.ok(rec.laps.last == free, 'dernier tour')
+  -- un seul tour, en trafic : aucun meilleur tour
+  local e1 = env('monza')
+  local rec1 = Recorder.new()
+  local one = drive(e1, 1, rec1, follow, sig, { carsCount = 2, raceSession = true })
+  T.ok(one[1].valid and one[1].traffic, tostring(one[1].reason))
+  T.eq(Recorder.best(rec1, 'S1'), nil, 'jamais le meilleur tour du setup')
+  T.eq(rec1.laps.family.F1.best, nil, 'aucun meilleur tour tant qu\'aucun tour libre')
+  T.eq(rec1.laps.family.F1.count, 1)
+  -- hors séance de course : le même tour en trafic est rejeté
+  local e2 = env('monza')
+  local rec2 = Recorder.new()
+  local out = drive(e2, 1, rec2, follow, sig, { carsCount = 2 })
+  T.no(out[1].valid)
+  T.eq(out[1].reason, Recorder.TRAFFIC_REASON)
+  T.eq(rec2.laps.family.F1, nil, 'tour rejeté : pas compté')
+end
+
+-- Arrivée (05/11/2026) : le tour qui passe le drapeau compte ; le tour commencé après l'arrivée (décélération) est rejeté ;
+-- un drapeau vu tard dans un tour (au-delà de K.raceFinishLapWindow) ne rejette pas le tour qui s'achève.
+-- Incidents de pilotage en séance de course (choix de Vincent du 05/11/2026, « comptés pour la course ») : le tour reste
+-- valide, marqué (lap.incident, le premier) ; compté dans la famille, jamais meilleur tour. La voie des stands (même après
+-- un tour invalidé par AC) et la voiture replacée le rejettent toujours ; hors course, rien ne change (R02).
+tests['RS03 séance de course : incidents de pilotage gardés pour la course ; voie des stands et voiture replacée rejetées'] =
+function()
+  local function midLap(rec) return rec.state == 'enregistrement' and rec.n == 1500 end
+  local function sig() return 'S1', 'F1' end
+  local race = { raceSession = true }
+  local kept = {
+    { 'choc (dégâts)', function(_, h, rec)
+      h.car.damage = rawget(h.car, 'damage') or { [0] = 0, 0, 0, 0, 0 }
+      if midLap(rec) then h.car.damage[0] = h.car.damage[0] + 25 end
+    end },
+    { 'sortie de piste', function(_, h, rec)
+      h.car.wheelsOutside = (rec.state == 'enregistrement' and rec.n >= 1500 and rec.n < 1510) and 4 or 0
+    end },
+    { 'tour invalidé par AC', function(_, h, rec) if midLap(rec) then h.car.isLapValid = false end end },
+    { 'blocage de roue', function(_, h, rec)
+      local w = h.car.wheels[0]
+      w.slipRatio = 0
+      if rec.state == 'enregistrement' and rec.n >= 300 and h.car.brake > 0.1 and h.car.speedMs > 15 then w.slipRatio = -1 end
+    end },
+  }
+  for _, case in ipairs(kept) do
+    local e = env('monza')
+    local rec = Recorder.new()
+    local laps = drive(e, 1, rec, case[2], sig, race)
+    e.h.car.wheelsOutside, e.h.car.wheels[0].slipRatio = 0, 0
+    T.eq(#laps, 1)
+    T.ok(laps[1].valid, case[1] .. ' en course : gardé (' .. tostring(laps[1].reason) .. ')')
+    T.eq(laps[1].incident, case[1], 'marqué')
+    T.eq(Recorder.best(rec, 'S1'), nil, case[1] .. ' : jamais meilleur tour')
+    T.eq(rec.laps.family.F1.incident, 1, case[1] .. ' : compté avec incident')
+    T.eq(rec.laps.family.F1.best, nil)
+  end
+  local rejected = {
+    { 'voie des stands', function(_, h, rec) if midLap(rec) then h.car.isInPitlane = true end end },
+    -- invalidé par AC, puis passé par la voie des stands : rejeté quand même
+    { 'voie des stands', function(_, h, rec)
+      if midLap(rec) then h.car.isLapValid = false end
+      if rec.state == 'enregistrement' and rec.n == 2000 then h.car.isInPitlane = true end
+    end },
+    { 'voiture replacée', function(_, h, rec)
+      h.car.resetCounter = rawget(h.car, 'resetCounter') or 0
+      if midLap(rec) then h.car.resetCounter = h.car.resetCounter + 1 end
+    end },
+  }
+  for _, case in ipairs(rejected) do
+    local e = env('monza')
+    local rec = Recorder.new()
+    local laps = drive(e, 1, rec, case[2], sig, race)
+    T.eq(#laps, 1)
+    T.no(laps[1].valid, case[1] .. ' en course : rejeté')
+    T.contains(laps[1].reason, case[1])
+    T.eq(rec.laps.family.F1, nil, 'pas compté')
+  end
+  -- hors séance de course : le même choc rejette le tour
+  local e = env('monza')
+  local rec = Recorder.new()
+  local laps = drive(e, 1, rec, kept[1][2], sig)
+  T.no(laps[1].valid, 'hors course : rejeté')
+  T.contains(laps[1].reason, 'choc')
+end
+
+tests['RS02 séance de course : tour après l\'arrivée rejeté, tour du drapeau gardé'] = function()
+  local e = env('monza')
+  local rec = Recorder.new()
+  rawset(e.h.car, 'isRaceFinished', false)
+  local laps = drive(e, 2, rec, function(_, h)
+    -- drapeau au passage de ligne qui termine le premier tour enregistré
+    if h.car.lapCount >= 2 then h.car.isRaceFinished = true end
+  end, nil, { raceSession = true })
+  T.eq(#laps, 2)
+  T.ok(laps[1].valid, 'tour du drapeau : ' .. tostring(laps[1].reason))
+  T.no(laps[2].valid, 'tour après l\'arrivée')
+  T.eq(laps[2].reason, 'tour après l\'arrivée')
+  -- drapeau vu au milieu d'un tour : le tour qui s'achève reste valide
+  local e2 = env('monza')
+  local rec2 = Recorder.new()
+  rawset(e2.h.car, 'isRaceFinished', false)
+  local laps2 = drive(e2, 1, rec2, function(_, h, r)
+    if r.state == 'enregistrement' and r.n > 1500 then h.car.isRaceFinished = true end
+  end, nil, { raceSession = true })
+  T.ok(laps2[1].valid, 'drapeau en plein tour : ' .. tostring(laps2[1].reason))
+  -- hors séance de course : le drapeau n'est pas regardé
+  local e3 = env('monza')
+  rawset(e3.h.car, 'isRaceFinished', true)
+  local laps3 = drive(e3, 1, Recorder.new())
+  T.ok(laps3[1].valid, 'hors course : ' .. tostring(laps3[1].reason))
+  rawset(e3.h.car, 'isRaceFinished', nil)
+end
+
 return tests

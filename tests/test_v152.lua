@@ -94,6 +94,9 @@ end
 -- lieu d'exiger de nouveau un setup de qualification dans la voiture.
 local function raceGoesOn(withMemory)
   local h, app = ready({ session = 3, skin = true })
+  -- avant le départ (05/11/2026) : la v1 de course s'essaie et se charge au stand ; une fois la course lancée, rien ne
+  -- se charge avant l'arrivée (test_race_session.lua)
+  h.sim.isSessionStarted = false
   app.settings.refineMinLaps, app.settings.refineInstantFirst, app.settings.optBudgetEvalsC = 0, false, 300
   local folder = folderOf(h)
   if withMemory then
@@ -266,8 +269,9 @@ tests['RV06 v2 reprise, course v1 essayée et chargée : garde levée'] = functi
 end
 
 -- Relecture n° 8 : aucune qualification dans la voiture : l'affinage de la course dit ce qui manque (et pas « rouler »).
+-- Séance d'essai (05/11/2026 : en séance de course, l'affinage de la course part du setup en place, sans garde).
 tests['RV07 affinage de course sans qualification dans la voiture : il dit de la charger'] = function()
-  local h, app = ready({ session = 3, skin = true })
+  local h, app = ready({ session = 1, skin = true })
   app.settings.refineMinLaps, app.settings.refineInstantFirst = 2, false
   local folder = folderOf(h)
   h.written[folder .. '/SetupLab_Qualif_v4.ini'] = otherSetup(h.ac.stringifyCurrentSetup(true, false))
@@ -573,9 +577,10 @@ tests['UI02 carte d\'étape : dans l\'onglet de son genre seulement ; en séance
   local h2, app2 = ready({ session = 3, skin = true })
   frames(h2, 1)
   T.eq(app2.ui.tab, 'Course', 'course : COURSE d\'abord')
-  T.ok(shown(h2, 'COURSE · AVANT LE CALCUL'), 'carte de la course dans COURSE')
+  -- 05/11/2026 : en séance de course, la carte de la séance (« Affiner pendant la course »), sans garde de qualification
+  T.ok(shown(h2, 'AFFINER PENDANT LA COURSE'), 'carte de la course dans COURSE')
   onTab(h2, 'Tour rapide')
-  T.no(shown(h2, 'COURSE · AVANT LE CALCUL'), 'pas dans QUALIF')
+  T.no(shown(h2, 'AFFINER PENDANT LA COURSE'), 'pas dans QUALIF')
   T.eq(app.perf.errors + app2.perf.errors, 0)
 end
 

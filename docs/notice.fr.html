@@ -202,7 +202,7 @@
 
 <header class="top">
   <div class="inner">
-    <span class="badge">Version 1.0 — bêta 1.5.6</span>
+    <span class="badge">Version 1.0 — bêta 1.5.7</span>
     <p class="switch"><a href="notice.html" hreflang="en">English version</a></p>
     <h1>SetupLab — notice d'utilisation</h1>
     <p class="lead">L'app Custom Shaders Patch qui calcule, explique et affine vos setups dans Assetto Corsa, en se calant sur vos propres tours.</p>
@@ -256,12 +256,12 @@
   <h2>2. Installation</h2>
   <ol>
     <li>Prérequis : Assetto Corsa avec <strong>Custom Shaders Patch 0.2.11</strong> (la version gratuite, installée par Content Manager) ou plus récent, previews payantes comprises.</li>
-    <li>Décompresser l'archive <code>SetupLab-1.0.0-beta.1.5.6.zip</code> dans <code>assettocorsa/apps/lua/</code> : elle contient déjà le dossier <code>SetupLab/</code>. Au final, <code>assettocorsa/apps/lua/SetupLab/</code> contient <code>SetupLab.lua</code> et <code>manifest.ini</code> (pas de dossier <code>SetupLab</code> dans un autre <code>SetupLab</code>). Pour mettre à jour : fermer Assetto Corsa, <strong>supprimer l'ancien dossier <code>apps/lua/SetupLab</code></strong>, puis décompresser la nouvelle archive. Vos réglages, la mémoire des circuits et vos setups sont gardés : ils sont rangés hors de ce dossier. Depuis la 1.5.4, SetupLab peut aussi se mettre à jour lui-même (voir plus bas).</li>
-    <li>En jeu, ouvrir <strong>SetupLab</strong> depuis la barre d'apps ou l'écran de setup. Deux autres fenêtres existent : <strong>SetupLab Overlay</strong> (en piste) et <strong>SetupLab Debug</strong> (diagnostic).</li>
+    <li>Décompresser l'archive <code>SetupLab-1.0.0-beta.1.5.7.zip</code> dans <code>assettocorsa/apps/lua/</code> : elle contient déjà le dossier <code>SetupLab/</code>. Au final, <code>assettocorsa/apps/lua/SetupLab/</code> contient <code>SetupLab.lua</code> et <code>manifest.ini</code> (pas de dossier <code>SetupLab</code> dans un autre <code>SetupLab</code>). Pour mettre à jour : fermer Assetto Corsa, <strong>supprimer l'ancien dossier <code>apps/lua/SetupLab</code></strong>, puis décompresser la nouvelle archive. Vos réglages, la mémoire des circuits et vos setups sont gardés : ils sont rangés hors de ce dossier. Depuis la 1.5.4, SetupLab peut aussi se mettre à jour lui-même (voir plus bas).</li>
+    <li>En jeu, ouvrir <strong>SetupLab</strong> depuis la barre d'apps ou l'écran de setup. Trois autres fenêtres existent : <strong>SetupLab Track</strong> (la même interface, ouverte depuis la barre d'apps en roulant : en course, on part sur la grille), <strong>SetupLab Overlay</strong> (en piste) et <strong>SetupLab Debug</strong> (diagnostic).</li>
   </ol>
     <h3>Mise à jour en jeu</h3>
   <p>Depuis la bêta 1.5.4, une fois par lancement d'AC, SetupLab lit sur GitHub le numéro de la dernière version publiée (réglage <strong>Vérifier les mises à jour au lancement</strong>, onglet RÉGLAGES, coché par défaut). Si elle est plus récente, la ligne « Mise à jour disponible » apparaît en haut de la fenêtre avec <span class="btn go">Mettre à jour</span>, à cliquer au stand, voiture arrêtée. Rien n'est téléchargé sans ce clic. SetupLab télécharge alors l'archive de la release, vérifie sa taille et son empreinte SHA-256, contrôle son contenu, puis remplace les fichiers de l'app d'un coup (ceux d'avant sont remis en cas d'échec) ; les fichiers de l'ancienne version qui n'existent plus partent à la Corbeille. CSP recharge ensuite SetupLab, qui revient en veille. Aucune donnée de jeu ni personnelle n'est envoyée ; GitHub voit seulement votre adresse IP, comme pour toute page web.</p>
-  <p>SetupLab fonctionne <strong>hors ligne</strong> seulement : il se met en pause en ligne et en replay.</p>
+  <p>En ligne, SetupLab fonctionne <strong>exactement comme hors ligne</strong>, dans toutes les séances (réglage <strong>Actif en ligne</strong>, onglet RÉGLAGES, coché par défaut : le décocher si le règlement d'une ligue interdit les apps ; SetupLab se met alors en pause en ligne). Rien n'est envoyé au serveur ; un setup imposé par le serveur ne se charge pas. Il se met en pause en replay.</p>
 </section>
 
 <section id="langue">
@@ -277,7 +277,7 @@
 <section id="demarrage">
   <h2>4. Premier lancement</h2>
   <ol>
-    <li>Lancer une séance hors ligne et ouvrir SetupLab <strong>voiture au stand</strong> : c'est là qu'il mesure la hauteur de caisse de référence.</li>
+    <li>Lancer une séance, hors ligne ou en ligne, et ouvrir SetupLab <strong>voiture au stand</strong> : c'est là qu'il mesure la hauteur de caisse de référence.</li>
     <li>Attendre « <strong>Découverte terminée</strong> ». L'en-tête indique la voiture, le circuit, la séance détectée, la source des données et l'état du modèle (calibré ou non).</li>
     <li>La carte <strong>Étape N/4</strong>, toujours en haut de la fenêtre, dit à chaque instant ce qu'il faut faire, avec le bouton de l'étape. Étape 1 : choisir le setup de départ.</li>
   </ol>
@@ -340,6 +340,7 @@
       <tr><td><span class="btn go">Charger le setup … dans la voiture</span></td><td>Met le setup enregistré dans la voiture, en un clic (voir <a href="#chargement">Charger un setup</a>).</td></tr>
       <tr><td><span class="btn primary">Continuer l'affinage</span> / <span class="btn plain">Figer vN</span></td><td>La question posée après chaque validation : une nouvelle version avec vos prochains tours, ou la version verrouillée.</td></tr>
       <tr><td><span class="btn primary">Partir de la qualif vN</span> / <span class="btn plain">Reprendre ma course vN</span></td><td>Onglet COURSE : le départ de la course, en un clic (voir <a href="#course">Setup de course</a>).</td></tr>
+      <tr><td><span class="btn primary">Affiner pendant la course</span></td><td>Onglet COURSE, en séance de course (fenêtre SetupLab Track) : analyse cette course à partir du setup dans la voiture ; le setup de course est proposé à l'arrivée (voir Pendant une course).</td></tr>
       <tr><td><span class="btn go">Mettre à jour</span></td><td>Installe la nouvelle version publiée (voir <a href="#installation">Installation</a>).</td></tr>
       <tr><td><span class="btn plain">Arrêter l'affinage</span></td><td>Arrête l'affinage ; si SetupLab est actif, il passe aussi en veille.</td></tr>
       <tr><td><span class="btn plain">Libérer vos retouches</span></td><td>Rend au calcul les réglages modifiés à la main et les réglages refusés.</td></tr>
@@ -410,6 +411,17 @@
     <li><strong>Nombre de tours de la course</strong>, au curseur (Ctrl + clic pour le saisir au clavier), gardé pour cette voiture sur ce circuit. Le nombre de tours prévu par la séance est rappelé.</li>
   </ol>
   <p>Ensuite le calcul simule le relais complet : carburant embarqué, usure des pneus par essieu, trafic (DRS dans l'air sale). Le composé n'est changé que si l'usure a été mesurée. SetupLab actif, la première version de course se calcule tout de suite, sans tours de plus : vos tours avec ce setup ont été faits en qualification. C'est vrai aussi pendant l'affinage de la qualification : la course devient alors l'affinage en cours et part du setup de qualification dans la voiture (v1, v2…), sans attendre une version de qualification suivante ; la qualification garde ses versions et se reprend depuis l'onglet QUALIF. Un calcul de qualification en cours est interrompu pour que la course parte tout de suite ; il est refait à la reprise de la qualification. Les versions de course suivantes attendent le minimum de tours propres. Quand SetupLab charge le setup de course (un clic au stand), le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus : un changement de pneus est donc prévu à l'arrêt ; carburant et réparations restent les vôtres.</p>
+  <h3>Pendant une course</h3>
+  <p>En course, on part directement sur la grille, sans passer par le menu de setup. Ouvrez alors la fenêtre <strong>SetupLab Track</strong> depuis la barre d'apps de CSP : c'est la même interface, utilisable en roulant. Dans l'onglet <strong>COURSE</strong>, <span class="btn primary">Affiner pendant la course</span> (ou SetupLab actif) lance l'affinage de la course :</p>
+  <ul>
+    <li>il part du <strong>setup qui est dans la voiture</strong>, sans qualification de SetupLab ; le nombre de tours est lu dans la séance (estimé pour une course au temps) ;</li>
+    <li>le clic <strong>active SetupLab</strong> (interrupteur ACTIF), comme le choix d'un départ en qualif ;</li>
+    <li>le setup que vous chargez ou modifiez dans le menu de setup d'AC, voiture arrêtée, est <strong>relu tout seul</strong> (environ 1,5 s) et devient la base de l'affinage, quel qu'il soit (carburant et répartition de freinage exclus) ;</li>
+    <li>vos <strong>tours de course comptent, trafic et incidents compris</strong> (sortie de piste, coupe, tête-à-queue, glissade, blocage de roue, choc, tour invalidé par AC) : rythme, consommation, usure, pneus. Un tel tour ne sert jamais à la calibration ni au tour rapide ; hors séance de course, il reste rejeté. Le passage par la voie des stands, la voiture replacée sur la piste et le tour qui suit le drapeau ne comptent pas ;</li>
+    <li>pendant la séance de course, SetupLab <strong>analyse seulement</strong> vos tours : le setup est <strong>calculé une fois, à l'arrivée</strong>, quelques secondes après votre drapeau (pas celui du premier), d'après toute la course. Exceptions : le bouton « Calculer le setup course », et, avant le départ, partir d'une qualif de SetupLab (sa v1 se calcule tout de suite, pour l'essayer au stand). Une fois le départ donné, <strong>rien n'est chargé dans la voiture</strong>, arrêt au stand compris : pas d'« Essayer », et « Valider » enregistre seulement le fichier, pour votre prochaine course. Avant le départ, rien ne change : vous pouvez encore partir de la qualif de votre choix et essayer la v1 de course au stand ;</li>
+    <li>à l'<strong>arrivée</strong>, une seule annonce : « setup course vN pour votre prochaine course », d'après les tours de cette course. Triez ses réglages (« Modifier… ») et validez-la : elle devient votre référence de course sur ce circuit.</li>
+  </ul>
+  <p>Quand la fenêtre du menu de setup est affichée, SetupLab Track lui laisse la main et affiche une seule ligne.</p>
 </section>
 
 <section id="manuel">
@@ -473,7 +485,7 @@
     <li>Toucher à vos propres fichiers.</li>
     <li>Écrire sans votre clic : seuls « Setup par défaut de la voiture » (étape 1), « Essayer », « Enregistrer », « Valider », « Figer » et la copie de sauvegarde avant un chargement écrivent un fichier.</li>
     <li>Changer le setup de la voiture sans votre clic au stand. Quand il charge ainsi un setup de course, le preset sélectionné du menu d'arrêt rapide prend ses pressions et ses pneus (un changement de pneus est alors prévu à l'arrêt) ; carburant et réparations restent les vôtres.</li>
-    <li>Envoyer vos données de jeu ou personnelles sur Internet, fonctionner en ligne ou en replay. Sa seule connexion lit, une fois par lancement, le numéro de la dernière version sur GitHub (réglage décochable) ; une mise à jour ne se télécharge que sur votre clic.</li>
+    <li>Envoyer vos données de jeu ou personnelles sur Internet (ni au serveur en ligne), ou fonctionner en replay. Sa seule connexion lit, une fois par lancement, le numéro de la dernière version sur GitHub (réglage décochable) ; une mise à jour ne se télécharge que sur votre clic.</li>
   </ul>
 </section>
 
@@ -516,7 +528,7 @@
 
 <footer>
   <div class="inner">
-    SetupLab 1.0 — bêta 1.5.6 (<code>1.0.0-beta.1.5.6</code>) · Licence MIT ·
+    SetupLab 1.0 — bêta 1.5.7 (<code>1.0.0-beta.1.5.7</code>) · Licence MIT ·
     <a href="https://github.com/VincentChevalier44/ACSetupLab">github.com/VincentChevalier44/ACSetupLab</a><br>
     Assetto Corsa est une marque de Kunos Simulazioni. SetupLab est un projet indépendant.
   </div>

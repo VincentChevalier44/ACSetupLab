@@ -195,6 +195,30 @@ local function realTime(stats, kind)
   return kind == 'race' and stats.sum / stats.count or stats.best
 end
 
+-- Séance de course (demande de Vincent du 05/11/2026) : course lancée (rien ne se charge avant l'arrivée, arrêt au stand
+-- compris) ; séance de course avant l'arrivée (le setup proposé l'est à l'arrivée) ; terminée (le setup proposé l'est pour
+-- votre prochaine course).
+local function raceRun(app)
+  return app.raceRunning ~= nil and app.raceRunning() == true
+end
+local function raceIn(app)
+  return app.raceIn ~= nil and app.raceIn() == true
+end
+local function raceEnd(app)
+  return app.raceSession ~= nil and app.raceSession() == true and not raceRun(app)
+end
+
+-- Tours de course analysés pour une version, trafic compris : « 12 tours de course analysés (dont 9 en trafic) ».
+local function raceLapsLine(app, e)
+  local f = realLaps(app, e.originFamily, e.bucket)
+  local n, t, i = f and f.count or 0, f and f.traffic or 0, f and f.incident or 0
+  local s = n > 1 and 's' or ''
+  local parts = {}
+  if t > 0 then parts[#parts + 1] = t .. ' en trafic' end
+  if i > 0 then parts[#parts + 1] = i .. ' avec incident' end
+  return n .. ' tour' .. s .. ' de course analysé' .. s .. (#parts > 0 and (' (dont ' .. table.concat(parts, ', ') .. ')') or '')
+end
+
 -- vec2 réutilisable, créé une fois (aucune allocation par image).
 local function vec(host, state, name)
   state.vecs = state.vecs or {}
@@ -933,6 +957,11 @@ local LOAD_TIP = 'Un clic remplace le setup en cours dans la voiture, modificati
 
 local function loadButton(host, app, intents, kind, palette)
   if not (app.saved and app.saved[kind]) then return end
+  -- course en cours (05/11/2026) : rien ne se charge avant l'arrivée ; le fichier sert à la prochaine course
+  if raceRun(app) then
+    small(host, 'Enregistré pour votre prochaine course : ' .. tostring(app.saved[kind].name), palette.text)
+    return
+  end
   small(host, 'À charger : ' .. tostring(app.saved[kind].name), palette.text)
   loadReadiness(host, app, kind, palette)
   if actionButton(host, app.ui, palette, loadLabel(app, kind), 'go', true) then intents.load = kind end
@@ -1132,7 +1161,15 @@ function M.versionModel(app, r, e, kind, suffix)
   m.base, m.laps = base, mine and mine.count or 0
   local acts = {}
   m.actions = acts
-  if e.status == nil then
+  local running = raceRun(app)
+  if e.status == nil and running then
+    -- course en cours : pas d'essai ; la version validée est enregistrée pour votre prochaine course
+    acts.validate = { label = 'Valider' .. partial .. ' · pour la prochaine course###Valider ' .. v .. suffix,
+      short = 'Valider pour la prochaine course',
+      intent = { refineJudge = { version = e.version, verdict = 'valider' } },
+      tip = 'Enregistre tout de suite ' .. base .. '.ini (réglages gardés), pour votre prochaine course : rien n\'est chargé '
+        .. 'pendant la course. Il devient le setup de référence de la course sur ce circuit, gardé en mémoire.' }
+  elseif e.status == nil then
     local trial = base .. '_' .. (app.fileWords and app.fileWords().trial or 'essai')
     acts.try = { label = 'Essayer ' .. v .. suffix, intent = { refineJudge = { version = e.version, verdict = 'essayer' } },
       tip = 'Écrit ' .. trial .. '.ini (le setup proposé entier) et le met dans la voiture, au stand ; ce fichier part à la '
@@ -1198,13 +1235,18 @@ local function versionBlock(host, app, intents, r, e, palette, suffix, kind)
     wrapped(host, v .. (ready and ' prête : gain prévu ' or ' en préparation : gain prévu provisoire ') .. Util.fmt(e.gain, 3) .. ' s'
       .. (tBefore and (' ; objectif estimé ' .. M.lapTime(tBefore - e.gain) .. ' (votre ' .. M.lapTime(tBefore)
         .. ' moins le gain prévu)') or ' ; roulez un tour propre pour un objectif sur vos temps'), palette.accent)
-    if not ready then
+    if raceRun(app) or (raceIn(app) and not ready) then
+      small(host, 'SetupLab continue d\'analyser vos tours de course (' .. raceLapsLine(app, e) .. ') ; elle vous sera proposée '
+        .. 'à l\'arrivée, pour votre prochaine course. Rien n\'est chargé pendant la course.', palette.pending)
+    elseif not ready then
       small(host, 'SetupLab continue d\'analyser vos tours (' .. analyzed .. ' analysé' .. (analyzed > 1 and 's' or '')
         .. ') ; elle sera prête à votre retour au stand.', palette.pending)
     end
     effectsList(host, app, intents, e, palette, kind)
-    if actionButton(host, app.ui, palette, acts.try.label, nil, true) then apply(intents, acts.try.intent) end
-    tip(host, acts.try.tip)
+    if acts.try then
+      if actionButton(host, app.ui, palette, acts.try.label, nil, true) then apply(intents, acts.try.intent) end
+      tip(host, acts.try.tip)
+    end
     if ui.button(acts.validate.label) then apply(intents, acts.validate.intent) end
     tip(host, acts.validate.tip)
     nextInline(host, acts.restart.label)
@@ -1655,8 +1697,11 @@ local function racePanel(host, app, intents, palette)
   local why, action = app.raceBlocker()
   local m = app.raceReference()
   local inCar = app.qualiInCar and app.qualiInCar() or nil
+  -- séance de course (05/11/2026) : la course part du setup en place ; course lancée : rien n'est chargé avant l'arrivée
+  local running, inRace = raceRun(app), raceIn(app)
   card(host, app.ui, palette[why and 'pending' or 'available'], function()
-    colored(host, 'Le setup de course part de votre setup de qualification', palette.text)
+    colored(host, inRace and 'Le setup de course part du setup en place' or 'Le setup de course part de votre setup de '
+      .. 'qualification', palette.text)
     tip(host, 'Le calcul de course part d\'un de vos setups de qualification de SetupLab (v1, v2, v3…, d\'une séance précédente '
       .. 'comprise), monté dans la voiture : vos tours avec lui donnent votre rythme. Il prépare le nombre de tours saisi '
       .. '(carburant, usure, relais).\nQuand SetupLab charge le setup de course (un clic au stand), le preset sélectionné '
@@ -1665,7 +1710,14 @@ local function racePanel(host, app, intents, palette)
     local started = app.raceStarted and app.raceStarted() or false
     -- 1.5.3 (décision de Vincent du 02/11/2026) : départ de la course au choix, en un clic
     local rr = app.refine and app.refine.active and app.refine.kind == 'race'
-    if not rr and app.raceChoices then
+    if running then
+      colored(host, 'Course en cours : le setup de course part du setup qui est dans la voiture et vos tours de course, trafic '
+        .. 'compris, donnent le rythme ; rien n\'est chargé avant l\'arrivée.', palette.available)
+    elseif inRace then
+      colored(host, 'Séance de course : le setup de course part du setup qui est dans la voiture (ou de la qualification de '
+        .. 'votre choix, avant le départ) et vos tours de course, trafic compris, donnent le rythme.', palette.available)
+    end
+    if not rr and app.raceChoices and not running then
       local choices = app.raceChoices()
       local any = false
       for _, c in ipairs(choices) do any = any or c.loadable or c.inCar end
@@ -1697,10 +1749,12 @@ local function racePanel(host, app, intents, palette)
     end
     local ref = inCar and inCar.file or (m and m.file)
     if ref == nil and started then ref = 'course commencée : elle continue depuis le setup dans la voiture' end
-    colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),
-      palette[ref and 'available' or 'pending'])
-    local mounted = inCar ~= nil or started or (m ~= nil and action ~= 'load' and action ~= 'loadfile')
-    colored(host, '2. Dans la voiture : ' .. (mounted and 'oui' or 'non'), palette[mounted and 'available' or 'pending'])
+    local mounted = inRace or inCar ~= nil or started or (m ~= nil and action ~= 'load' and action ~= 'loadfile')
+    if not inRace or ref ~= nil then
+      colored(host, '1. Setup de qualification : ' .. (ref and tostring(ref) or 'aucun — en faire un dans l\'onglet QUALIF'),
+        palette[ref and 'available' or 'pending'])
+      colored(host, '2. Dans la voiture : ' .. (mounted and 'oui' or 'non'), palette[mounted and 'available' or 'pending'])
+    end
     if not mounted and app.qualiFiles then
       -- vos setups de qualification du dossier : à charger depuis le menu de setup d'AC
       local names = {}
@@ -2118,6 +2172,14 @@ function M.autoLine(app)
     for _, e in ipairs(r.history) do
       if e.version and e.version == r.version and e.status == nil then pending = e end
     end
+    if pending and (raceRun(app) or (raceIn(app) and pending.ready == false)) then
+      return 'Actif : v' .. pending.version .. ' en préparation (' .. where .. ', ' .. raceLapsLine(app, pending)
+        .. ') — proposée à l\'arrivée.', 'pending'
+    end
+    if pending and raceEnd(app) and kind == 'race' then
+      return 'Actif : v' .. pending.version .. ' pour votre prochaine course (' .. where .. ') — à valider, ou recommencer.',
+        'accent'
+    end
     if pending and pending.ready == false then
       local f = realLaps(app, pending.originFamily, pending.bucket)
       local n = f and f.count or 0
@@ -2130,6 +2192,9 @@ function M.autoLine(app)
     local saved = app.saved and app.saved[kind]
     for _, e in ipairs(r.history) do
       if e.version and e.status == 'validée' and r.driven ~= e.version and saved and saved.signature == e.signature then
+        if raceRun(app) then
+          return 'Actif : v' .. e.version .. ' validée (' .. where .. ') — pour votre prochaine course.', 'accent'
+        end
         return 'Actif : v' .. e.version .. ' validée (' .. where .. ') — à charger au stand.', 'accent'
       end
     end
@@ -2248,7 +2313,20 @@ function M.stepModel(app, selected)
     for k, value in pairs(unlock) do intent[k] = value end
     return intent
   end
-  if kind == 'race' and raceWhy then
+  local running, finished = raceRun(app), kind == 'race' and raceEnd(app)
+  local inRace = kind == 'race' and raceIn(app)
+  local sessionStart = false
+  if inRace and not (r and r.active) and not locked then
+    -- séance de course, affinage pas lancé (demande de Vincent du 05/11/2026) : il part du setup en place
+    sessionStart, step = true, 1
+    title, text = 'Séance de course · Affiner pendant la course', 'SetupLab part du setup qui est dans la voiture et analyse '
+      .. 'vos tours de course, trafic et incidents compris. Il calcule le setup à l\'arrivée, d\'après toute la course, pour '
+      .. 'votre prochaine course. Rien n\'est chargé pendant la course.'
+    if raceWhy then text = text .. ' À faire : ' .. raceWhy .. '.' end
+    actions[1] = { label = 'Affiner pendant la course###step_race_session', intent = { refineStart = 'race', raceSession = true },
+      style = 'primary', tip = 'Lance l\'affinage du setup de course sur cette course : un setup proposé à l\'arrivée, d\'après '
+        .. 'vos tours de course.' }
+  elseif kind == 'race' and raceWhy then
     -- course : elle part de la qualification validée (pas de départ à choisir)
     title, text, color = 'Course · avant le calcul', 'À faire : ' .. raceWhy .. '.', 'pending'
     if raceAction == 'qualif' then
@@ -2311,7 +2389,11 @@ function M.stepModel(app, selected)
     done = not pendingLoad
     title, text, color = 'Étape 4/4 · ' .. v .. ' validée', 'Enregistrée : ' .. file .. '. Continuer l\'affinage (une '
       .. 'nouvelle version avec vos prochains tours), ou la figer ?', 'available'
-    if r.driven ~= r.choice then
+    if (running or finished) and r.driven ~= r.choice then
+      -- séance de course : enregistrée pour la prochaine course (rien ne se charge pendant la course)
+      step, pendingLoad, done = 4, false, true
+      text = 'Enregistrée : ' .. file .. ', pour votre prochaine course. Continuer l\'affinage, ou la figer ?'
+    elseif r.driven ~= r.choice then
       text = 'Enregistrée : ' .. file .. '. Elle n\'est pas encore dans la voiture (bouton vert « Charger »). Continuer '
         .. 'l\'affinage, ou la figer ?'
     end
@@ -2350,6 +2432,22 @@ function M.stepModel(app, selected)
     title, text = 'v' .. keptInCar.version .. ' validée · à charger au stand', 'L\'essai complet est encore dans la voiture : '
       .. 'au stand, bouton vert « Charger » (onglet ' .. tabName .. ') pour mettre v' .. keptInCar.version .. ' (réglages '
       .. 'gardés), puis roulez.'
+  elseif pending and (running or (inRace and pending.ready == false)) then
+    -- course lancée (ou séance de course, version pas encore prête) : la version reste provisoire, mise à jour à chaque
+    -- tour ; proposée à l'arrivée
+    step = 2
+    title, text, color = 'Course · v' .. pending.version .. ' provisoire', 'Gain prévu ' .. Util.fmt(pending.gain, 3) .. ' s, '
+      .. 'd\'après ' .. raceLapsLine(app, pending) .. '. SetupLab la recalcule à l\'arrivée, d\'après toute la course, pour '
+      .. 'votre prochaine course. Rien n\'est chargé pendant la course.', 'pending'
+  elseif pending and finished then
+    -- arrivée : le setup de cette course, pour la prochaine
+    local v = 'v' .. pending.version
+    step = 4
+    title, text = 'Course terminée · ' .. v .. ' pour votre prochaine course', 'Gain prévu ' .. Util.fmt(pending.gain, 3)
+      .. ' s, d\'après ' .. raceLapsLine(app, pending) .. '. Pour refuser un réglage : « Modifier… » ; puis Valider : le '
+      .. 'fichier est enregistré pour votre prochaine course.'
+    actions[1] = { label = 'Valider ' .. v .. '###step_action', intent = { refineJudge = { version = pending.version,
+      verdict = 'valider' } }, style = 'primary' }
   elseif pending and pending.ready == false then
     step = 2
     title, text, color = 'Étape 2/4 · Rouler', 'v' .. pending.version .. ' en préparation : SetupLab continue d\'analyser vos '
@@ -2361,6 +2459,25 @@ function M.stepModel(app, selected)
       .. 'voiture, au stand, en un clic.'
     actions[1] = { label = 'Essayer ' .. v .. '###step_action', intent = { refineJudge = { version = pending.version,
       verdict = 'essayer' } }, style = 'primary' }
+  elseif finished and r and r.active and not r.choice then
+    -- arrivée (constat de Vincent du 05/11/2026 : « il ne m'affiche absolument rien ») : le calcul du setup de cette
+    -- course, avec sa progression ; avant lui, l'enregistrement du dernier tour
+    local q = app.race
+    local d = app.discovery
+    local laps = d and raceLapsLine(app, { originFamily = d.family, bucket = app.wet and app.wet.state or 'sec' }) or nil
+    step, color = 4, 'pending'
+    title = 'Course terminée · calcul du setup de course'
+    if q and q.state == 'running' and q.opt and q.budget then
+      local pct = math.floor(Util.clamp((q.opt.evaluations or 0) / math.max(1, q.budget), 0, 1) * 100 + 0.5)
+      text = 'SetupLab calcule le setup de cette course' .. (laps and (', d\'après ' .. laps) or '') .. ' : ' .. pct
+        .. ' %. Il vous sera annoncé dès qu\'il est prêt, pour votre prochaine course.'
+    else
+      text = tostring(r.waiting or 'calcul du setup de course à l\'arrivée')
+    end
+  elseif validated and (running or finished) then
+    step, done = 4, true
+    title, text = 'v' .. validated.version .. ' validée · pour votre prochaine course', 'Enregistrée : ' .. tostring(validated.file)
+      .. '. Rien n\'est chargé pendant la course : chargez-la au stand avant votre prochaine course.'
   elseif validated then
     step, pendingLoad = 4, true
     title, text = 'v' .. validated.version .. ' validée · à charger au stand', 'Au stand, bouton vert « Charger », puis roulez : '
@@ -2368,6 +2485,7 @@ function M.stepModel(app, selected)
   else
     step = 2
     title, text = 'Étape 2/4 · Rouler', tostring(r and r.waiting or 'Nouveau calcul au prochain tour propre.')
+    if inRace then title = 'Course · analyse de vos tours' end
     local last = app.recorder and app.recorder.laps and app.recorder.laps.last
     if last and last.valid == false and r and r.phase == 'tours' then
       text = text .. ' — dernier tour non compté : ' .. L.t(tostring(last.reason or 'non valide'))
@@ -2378,6 +2496,7 @@ function M.stepModel(app, selected)
   end
   return { kind = kind, tabName = tabName, tabId = tabId, title = title, text = text, color = color, actions = actions,
     step = step, done = done, pendingLoad = pendingLoad, start = kind ~= 'race' and start or nil, refine = r,
+    sessionStart = sessionStart, raceRunning = running,
     pending = pending, trial = trial, validated = validated, keptInCar = keptInCar, rejectedInCar = rejectedInCar,
     memory = memory, memoryKey = memoryKey, locked = locked }
 end
@@ -2507,6 +2626,10 @@ local HELP = {
     'Le setup de course part d\'une de vos qualifs validées sur ce circuit (v1, v2…, même d\'un lancement d\'AC précédent) : '
       .. '« Partir de la qualif vN » la met dans la voiture et lance l\'affinage de la course, en un clic ; « Reprendre ma '
       .. 'course vN » reprend une course validée. Saisissez le nombre de tours de la course (onglet COURSE).',
+    'Pendant une course (départ sur la grille) : ouvrez « SetupLab Track » depuis la barre d\'apps de CSP ; onglet COURSE, '
+      .. '« Affiner pendant la course ». SetupLab part du setup qui est dans la voiture et analyse vos tours de course, trafic '
+      .. 'compris (jamais pour la calibration). Rien n\'est chargé pendant la course ; à l\'arrivée, il vous propose le setup '
+      .. 'de cette course : validez-le pour la prochaine.',
   } },
   { 'Overlay en jeu', {
     'La fenêtre « SetupLab Overlay » (barre d\'apps de CSP) montre en roulant si le setup en piste est mieux ou moins bien que '
@@ -2660,6 +2783,13 @@ function M.main(host, app, intents)
   end)
   if pushed > 0 then ui.popStyleColor(pushed) end
   if not ok then error(err, 0) end
+end
+
+-- Fenêtre en piste pendant que celle du menu de setup s'affiche : une ligne, sans bouton (une seule fenêtre traite les
+-- clics).
+function M.trackYield(host, app)
+  host = hostFor(host, app)
+  wrapped(host, 'SetupLab est ouvert dans le menu de setup ; cette fenêtre reprend en piste.', colors(app.ui, host).muted)
 end
 
 -- Onglet Capacités : panneau du J0, rapport, test d'écriture.
@@ -2858,7 +2988,11 @@ function M.overlay(host, app, intents)
       local n = f and f.count or 0
       colored(host, 'v' .. pending.version .. ' en préparation : ' .. signedGain(pending.gain or 0) .. ' s prévu (provisoire), '
         .. n .. ' tour' .. (n > 1 and 's' or '') .. ' analysé' .. (n > 1 and 's' or ''), palette.pending)
-      small(host, 'Prête à votre retour au stand.', palette.muted)
+      small(host, raceIn(app) and 'Proposée à l\'arrivée, pour votre prochaine course.' or 'Prête à votre retour au stand.',
+        palette.muted)
+    elseif raceRun(app) or raceEnd(app) then
+      colored(host, 'v' .. pending.version .. ' : ' .. signedGain(pending.gain or 0) .. ' s prévu, onglet COURSE : Valider pour '
+        .. 'votre prochaine course', palette.accent)
     else
       colored(host, 'v' .. pending.version .. ' prête : ' .. signedGain(pending.gain or 0) .. ' s prévu, au stand : Essayer, puis Valider',
         palette.accent)
@@ -2903,6 +3037,7 @@ end
 
 -- Aides partagées avec les pages Racing 26 (src/dash.lua)
 M.tip, M.realLaps, M.realTime, M.versionLaps, M.realText = tip, realLaps, realTime, versionLaps, realText
+M.raceRun, M.raceIn, M.raceEnd, M.raceLapsLine = raceRun, raceIn, raceEnd, raceLapsLine
 M.gainText, M.effectGain, M.itemText, M.KIND, M.loadLabel, M.LOAD_TIP = gainText, effectGain, itemText, KIND, loadLabel, LOAD_TIP
 M.START_NAMES, M.sessionRaceLaps = START_NAMES, sessionRaceLaps
 M.FACTOR_ORDER, M.FACTOR_LABELS = FACTOR_ORDER, FACTOR_LABELS

@@ -217,6 +217,13 @@ EN = {
         'Pit strategy (selected preset) updated for %s: pressures %s.',
     "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pneus %s (changement de pneus prévu à l'arrêt).":
         'Pit strategy (selected preset) updated for %s: %s tyres (tyre change planned at the stop).',
+    # onglet DIAGNOSTIC : la même note sans son point final, suivie de « ; menu d'arrêt : … » (src/caps.lua)
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pneus %s (changement de pneus prévu à l'arrêt), pressions %s":
+        'Pit strategy (selected preset) updated for %s: %s tyres (tyre change planned at the stop), pressures %s',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pressions %s":
+        'Pit strategy (selected preset) updated for %s: pressures %s',
+    "Stratégie d'arrêt (preset sélectionné) mise à jour pour %s : pneus %s (changement de pneus prévu à l'arrêt)":
+        'Pit strategy (selected preset) updated for %s: %s tyres (tyre change planned at the stop)',
     "Stratégie d'arrêt non mise à jour pour %s : refusée par le jeu (%s).":
         'Pit strategy not updated for %s: refused by the game (%s).',
     "Stratégie d'arrêt non mise à jour pour %s : aucun réglage de pression ou de pneus modifiable dans le menu d'arrêt.":

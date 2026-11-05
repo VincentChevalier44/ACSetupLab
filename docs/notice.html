@@ -202,7 +202,7 @@
 
 <header class="top">
   <div class="inner">
-    <span class="badge">Version 1.0 — beta 1.5.6</span>
+    <span class="badge">Version 1.0 — beta 1.5.7</span>
     <p class="switch"><a href="notice.fr.html" hreflang="fr">Version française</a></p>
     <h1>SetupLab — user guide</h1>
     <p class="lead">The Custom Shaders Patch app that computes, explains and refines your Assetto Corsa setups, fitted to your own laps.</p>
@@ -256,12 +256,12 @@
   <h2>2. Installation</h2>
   <ol>
     <li>Requirements: Assetto Corsa with <strong>Custom Shaders Patch 0.2.11</strong> (the free version installed by Content Manager) or newer, paid previews included.</li>
-    <li>Extract <code>SetupLab-1.0.0-beta.1.5.6.zip</code> into <code>assettocorsa/apps/lua/</code>: it already contains the <code>SetupLab/</code> folder. In the end, <code>assettocorsa/apps/lua/SetupLab/</code> holds <code>SetupLab.lua</code> and <code>manifest.ini</code> (no <code>SetupLab</code> folder inside another <code>SetupLab</code>). To update: close Assetto Corsa, <strong>delete the old <code>apps/lua/SetupLab</code> folder</strong>, then extract the new archive. Your settings, track memory and saved setups are kept: they are stored outside this folder. Since 1.5.4, SetupLab can also update itself (see below).</li>
-    <li>In game, open <strong>SetupLab</strong> from the app bar or the setup screen. Two more windows exist: <strong>SetupLab Overlay</strong> (on track) and <strong>SetupLab Debug</strong> (diagnostics).</li>
+    <li>Extract <code>SetupLab-1.0.0-beta.1.5.7.zip</code> into <code>assettocorsa/apps/lua/</code>: it already contains the <code>SetupLab/</code> folder. In the end, <code>assettocorsa/apps/lua/SetupLab/</code> holds <code>SetupLab.lua</code> and <code>manifest.ini</code> (no <code>SetupLab</code> folder inside another <code>SetupLab</code>). To update: close Assetto Corsa, <strong>delete the old <code>apps/lua/SetupLab</code> folder</strong>, then extract the new archive. Your settings, track memory and saved setups are kept: they are stored outside this folder. Since 1.5.4, SetupLab can also update itself (see below).</li>
+    <li>In game, open <strong>SetupLab</strong> from the app bar or the setup screen. Three more windows exist: <strong>SetupLab Track</strong> (the same interface, opened from the app bar while driving: in a race you start on the grid), <strong>SetupLab Overlay</strong> (on track) and <strong>SetupLab Debug</strong> (diagnostics).</li>
   </ol>
     <h3>In-game update</h3>
   <p>Since beta 1.5.4, once per AC launch, SetupLab reads the number of the latest published version on GitHub (setting <strong>Check for updates at launch</strong>, SETTINGS tab, ticked by default). If it is newer, an "Update available" line appears at the top of the window with <span class="btn go">Update</span>, to click in the pits, car stopped. Nothing is downloaded without that click. SetupLab then downloads the release archive, checks its size and SHA-256 fingerprint, checks its content, then replaces the app's files in one go (the previous ones are put back if anything fails); files of the old version that no longer exist go to the Recycle Bin. CSP then reloads SetupLab, which comes back on standby. No game or personal data is sent; GitHub only sees your IP address, as for any web page.</p>
-  <p>SetupLab works <strong>offline</strong> only: it pauses online and in replays.</p>
+  <p>Online, SetupLab works <strong>exactly as offline</strong>, in every session (setting <strong>Active online</strong>, SETTINGS tab, ticked by default: untick it if a league's rules forbid apps; SetupLab then pauses online). Nothing is sent to the server; a setup imposed by the server is not loaded. It pauses in replays.</p>
 </section>
 
 <section id="language">
@@ -276,7 +276,7 @@
 <section id="first">
   <h2>4. First launch</h2>
   <ol>
-    <li>Start an offline session and open SetupLab <strong>with the car in the pits</strong>: that is where it measures the reference ride height.</li>
+    <li>Start a session, offline or online, and open SetupLab <strong>with the car in the pits</strong>: that is where it measures the reference ride height.</li>
     <li>Wait for "<strong>Discovery finished</strong>". The header shows the car, the track, the detected session, the data source and the model state (calibrated or not).</li>
     <li>The <strong>Step N/4</strong> card, always at the top of the window, tells you what to do next, with the button for that step. Step 1: choose the setup to start from.</li>
   </ol>
@@ -339,6 +339,7 @@
       <tr><td><span class="btn go">Load the … setup into the car</span></td><td>Puts the saved setup in the car, in one click (see <a href="#loading">Loading a setup</a>).</td></tr>
       <tr><td><span class="btn primary">Carry on refining</span> / <span class="btn plain">Lock vN</span></td><td>The question asked after every validation: a new version with your next laps, or the locked version.</td></tr>
       <tr><td><span class="btn primary">Start from qualifying vN</span> / <span class="btn plain">Resume my race vN</span></td><td>RACE tab: the race start, in one click (see Race setup).</td></tr>
+      <tr><td><span class="btn primary">Refine during the race</span></td><td>RACE tab, in a race session (SetupLab Track window): analyses this race from the setup in the car; the race setup is offered at the finish (see During a race).</td></tr>
       <tr><td><span class="btn go">Update</span></td><td>Installs the newly published version (see <a href="#installation">Installation</a>).</td></tr>
       <tr><td><span class="btn plain">Stop the refinement</span></td><td>Stops the refinement; if SetupLab is active, it also goes on standby.</td></tr>
       <tr><td><span class="btn plain">Release your changes</span></td><td>Gives the settings you changed by hand, and the refused settings, back to the computation.</td></tr>
@@ -409,6 +410,17 @@
     <li><strong>Race lap count</strong>, with the slider (Ctrl + click to type it), kept for this car on this track. The lap count planned by the session is shown.</li>
   </ol>
   <p>The computation then simulates the full stint: fuel load, tyre wear per axle, traffic (DRS in dirty air). The compound is only changed if wear has been measured. With SetupLab active, the first race version is computed straight away, without extra laps: your laps with this setup were driven in qualifying. This also holds while qualifying is being refined: the race then becomes the active refinement and starts from the qualifying setup in the car (v1, v2…), without waiting for a next qualifying version; qualifying keeps its versions and can be resumed from the QUALIFYING tab. A qualifying computation in progress is interrupted so the race starts at once; it is redone when qualifying is resumed. The next race versions wait for the minimum of clean laps. When SetupLab loads the race setup (one click in the pits), the selected quick pit preset gets its pressures and tyres, so a tyre change is planned at the stop; fuel and repairs stay yours.</p>
+  <h3>During a race</h3>
+  <p>In a race you start directly on the grid, without going through the setup menu. Open the <strong>SetupLab Track</strong> window from the CSP app bar: it is the same interface, usable while driving. In the <strong>RACE</strong> tab, <span class="btn primary">Refine during the race</span> (or SetupLab Active) starts the race refinement:</p>
+  <ul>
+    <li>it starts from the <strong>setup in the car</strong>, without a SetupLab qualifying setup; the lap count is read from the session (estimated for a timed race);</li>
+    <li>the click <strong>turns SetupLab on</strong> (Active toggle), like choosing a qualifying start;</li>
+    <li>the setup you load or change in AC's setup menu, car stopped, is <strong>read again on its own</strong> (about 1.5 s) and becomes the base of the refinement, whatever it is (fuel and brake bias excluded);</li>
+    <li>your <strong>race laps count, traffic and incidents included</strong> (off-track, cut, spin, slide, wheel lock-up, impact, lap invalidated by AC): pace, fuel use, wear, tyres. Such a lap is never used for the calibration or the qualifying lap; outside a race session it is still rejected. A lap through the pit lane, after the car was reset to the track, or after the chequered flag does not count;</li>
+    <li>during the race session SetupLab <strong>only analyses</strong> your laps: the setup is <strong>computed once, at the finish</strong>, a few seconds after your own chequered flag (not the leader's), from the whole race. Exceptions: the "Compute the race setup" button, and, before the start, starting from a SetupLab qualifying version (its v1 is computed at once so you can try it in the pits). Once the race has started, <strong>nothing is loaded into the car</strong>, pit stop included: no "Try", and "Validate" only saves the file, for your next race. Before the start, nothing changes: you can still start from the qualifying version of your choice and try the race v1 in the pits;</li>
+    <li>at the <strong>finish</strong>, a single announcement: "race setup vN for your next race", based on the laps of this race. Sort its settings ("Modify…") and validate it: it becomes your race reference on this track.</li>
+  </ul>
+  <p>While the setup-menu window is shown, SetupLab Track gives way to it and shows a single line.</p>
 </section>
 
 <section id="manual">
@@ -472,7 +484,7 @@
     <li>Touch your own files.</li>
     <li>Write without your click: only "Car's default setup" (step 1), "Try", "Save", "Validate", "Lock" and the backup copy before a load write a file.</li>
     <li>Change the car setup without your click in the pits. When it loads a race setup this way, the selected quick pit preset gets its tyre pressures and tyres (a tyre change is then planned at the stop); fuel and repairs stay yours.</li>
-    <li>Send your game or personal data over the Internet, run online or in replays. Its only connection reads, once per launch, the number of the latest version on GitHub (setting can be unticked); an update is only downloaded on your click.</li>
+    <li>Send your game or personal data over the Internet (nor to the online server), or run in replays. Its only connection reads, once per launch, the number of the latest version on GitHub (setting can be unticked); an update is only downloaded on your click.</li>
   </ul>
 </section>
 
@@ -515,7 +527,7 @@
 
 <footer>
   <div class="inner">
-    SetupLab 1.0 — beta 1.5.6 (<code>1.0.0-beta.1.5.6</code>) · MIT licence ·
+    SetupLab 1.0 — beta 1.5.7 (<code>1.0.0-beta.1.5.7</code>) · MIT licence ·
     <a href="https://github.com/VincentChevalier44/ACSetupLab">github.com/VincentChevalier44/ACSetupLab</a><br>
     Assetto Corsa is a trademark of Kunos Simulazioni. SetupLab is an independent project.
   </div>

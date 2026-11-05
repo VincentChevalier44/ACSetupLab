@@ -670,7 +670,7 @@ local function cardActions(model, vm, kind)
   if first then
     main = first
     for i = 2, #model.actions do more[#more + 1] = model.actions[i] end
-  elseif app.saved and app.saved[kind] then
+  elseif app.saved and app.saved[kind] and not X.U.raceRun(app) then
     main = { label = X.U.loadLabel(app, kind), intent = { load = kind }, style = 'go', tip = X.U.LOAD_TIP, load = true }
     X.loadShown[kind] = true
   end
@@ -679,7 +679,7 @@ local function cardActions(model, vm, kind)
     local a = vm.actions
     if a.try and verdict ~= 'essayer' and main == nil then main = a.try end
     if a.validate and verdict ~= 'valider' then
-      local short = a.validate.label:find('sans essai', 1, true) and 'Valider sans essai' or nil
+      local short = a.validate.short or (a.validate.label:find('sans essai', 1, true) and 'Valider sans essai' or nil)
       -- libellé court (« Valider sans essai ») : le nombre de réglages gardés le suit ; le libellé complet le porte déjà
       more[#more + 1] = { label = a.validate.label, intent = a.validate.intent, tip = a.validate.tip, short = short,
         partial = (short and vm.kept < vm.total) and (vm.kept .. '/' .. vm.total) or nil }
@@ -961,6 +961,8 @@ local function loadBar(kind, x, y, w, dry)
   local app, c = X.app, X.c
   local saved = app.saved and app.saved[kind]
   if saved == nil or X.loadShown[kind] then return 0 end
+  -- course en cours (05/11/2026) : rien ne se charge avant l'arrivée (la carte d'étape dit le fichier enregistré)
+  if X.U.raceRun(app) then return 0 end
   -- déjà dans la voiture (chargé et vérifié) : rien à proposer ici
   local loaded = app.loaded and app.loaded[kind]
   if loaded and loaded.name == saved.name then return 0 end
@@ -1422,7 +1424,8 @@ local function toolsPanel(kind, x, y, w, dry)
   if dry then return h end
   panel(x, y, x + w, y + h)
   local px = x + 14
-  lab('Calcul à la main', px, y + 10)
+  -- calcul lancé par l'affinage : dit tel quel (constat de Vincent du 05/11/2026 : « un calcul à la main en dessous »)
+  lab((refining and r.phase == 'calcul' and running) and 'Calcul de l\'affinage' or 'Calcul à la main', px, y + 10)
   local cy = y + 22
   if running then
     local o = q.opt
@@ -1772,6 +1775,17 @@ local function lapsPanel(x, y, w, dry)
   return h
 end
 
+-- Départs de course à choisir : une qualification validée chargeable ou dans la voiture, vos setups de qualification à
+-- charger depuis le menu d'AC, ou une course à reprendre.
+local function raceStartable(app)
+  for _, ch in ipairs(app.raceChoices and app.raceChoices() or {}) do
+    if ch.loadable or ch.inCar then return true end
+  end
+  if app.qualiFiles and #app.qualiFiles() > 0 then return true end
+  local race = app.memory and app.memory['course|' .. bucketOf(app)]
+  return race ~= nil and race.text ~= nil and not race.problem
+end
+
 local function raceStartCard(x, y, w, wide, dry)
   local app, c = X.app, X.c
   local choices = app.raceChoices and app.raceChoices() or {}
@@ -1997,12 +2011,19 @@ local function racePage(x, y, w)
     return cy - y
   end
   X.loadShown.quali, X.loadShown.race = nil, nil
-  if not (r and r.active) then
+  local sessionStart = model and model.kind == 'race' and model.sessionStart
+  -- avant le départ, vos qualifications validées restent au choix (sous la carte de la séance ; leur carte a le nombre
+  -- de tours)
+  local picks = sessionStart and not X.U.raceRun(app) and raceStartable(app)
+  if sessionStart then
+    cy = cy + stepCard(model, 'race', x, cy, w, wide) + 8
+    if picks then cy = cy + raceStartCard(x, cy, w, wide) + 8 end
+  elseif not (r and r.active) then
     cy = cy + raceStartCard(x, cy, w, wide) + 8
   elseif model then
     cy = cy + stepCard(model, 'race', x, cy, w, wide) + 8
   end
-  if r and r.active then cy = cy + lapsPanel(x, cy, w) + 8 end
+  if (r and r.active) or (sessionStart and not picks) then cy = cy + lapsPanel(x, cy, w) + 8 end
   local hl = loadBar('race', x, cy, w)
   if hl > 0 then cy = cy + hl + 8 end
   cy = cy + pinsBar('race', x, cy, w)
@@ -2657,6 +2678,9 @@ local HELP_STEPS = {
 local HELP_MORE = {
   { 'Course', 'Après un setup de qualif SetupLab (au moins une v1), monté dans la voiture. Saisissez seulement le nombre de tours : '
     .. 'carburant, usure, relais et trafic suivent.' },
+  { 'Pendant une course', 'Sur la grille : « SetupLab Track » (barre d\'apps CSP), onglet COURSE, « Affiner pendant la course ». '
+    .. 'SetupLab part du setup en place et analyse vos tours, trafic compris ; il propose le setup à l\'arrivée, pour la '
+    .. 'prochaine course.' },
   { 'Overlay en jeu', '« SetupLab Overlay » (barre d\'apps CSP) : en roulant, mieux ou moins bien que le setup d\'avant sur vos '
     .. 'tours, et les réglages qui ont changé.' },
   { 'Fichiers', 'SetupLab_Qualif_v1.ini, _Course_Pluie_v3.ini… Essais et versions non gardées partent à la Corbeille. Vos '
@@ -3010,9 +3034,10 @@ local function overlayBody(app, U, info, W, top, H)
       local s = L.f('v%s en préparation', pending.version) .. ' · ' .. gs .. ' ' .. L.t('provisoire')
       text('section', 12, fitted('section', 12, up(s), W - 28), px, cy + 8, c.warn)
       text('text', 11, fitted('text', 11, L.f(n > 1 and '%s tours analysés' or '%s tour analysé', n) .. ' · '
-        .. L.t('prête à votre retour au stand'), W - 28), px, cy + 24, c.grey)
+        .. L.t(U.raceIn(app) and 'proposée à l\'arrivée' or 'prête à votre retour au stand'), W - 28), px, cy + 24, c.grey)
     else
-      local s = L.f('v%s prête', pending.version) .. ' · ' .. gs .. ' · ' .. L.t('au stand : Essayer, puis Valider')
+      local s = L.f('v%s prête', pending.version) .. ' · ' .. gs .. ' · '
+        .. L.t((U.raceRun(app) or U.raceEnd(app)) and 'onglet COURSE : Valider' or 'au stand : Essayer, puis Valider')
       text('section', 12, fitted('section', 12, up(s), W - 28), px, cy + 8, c.blueSoft)
     end
   elseif info.waiting and H - cy > 18 then
@@ -3038,15 +3063,19 @@ local function overlayPending(app, U, info, W, top, H)
     local n = f and f.count or 0
     cy = cy + overlayText(12, L.f('Gain provisoire %s', gs) .. ' · ' .. L.f(n > 1 and '%s tours analysés' or '%s tour analysé', n),
       px, cy, W - 28, c.soft, H - 6) + 4
-    cy = cy + overlayText(12, L.f('Rentrez au stand quand vous voulez : v%s y sera prête, « Essayer v%s » la met dans la voiture.',
-      p.version, p.version), px, cy, W - 28, c.light, H - 6) + 8
+    local nextText = U.raceIn(app) and L.f('v%s vous sera proposée à l\'arrivée, pour votre prochaine course.', p.version)
+      or L.f('Rentrez au stand quand vous voulez : v%s y sera prête, « Essayer v%s » la met dans la voiture.', p.version, p.version)
+    cy = cy + overlayText(12, nextText, px, cy, W - 28, c.light, H - 6) + 8
   else
     local gw = measure('display', 22, gs)
     text('display', 26, fitted('display', 26, up(L.f('v%s prête', p.version)), W - 28 - gw - 12), px, cy, c.blue)
     text('display', 22, gs, W - 14 - gw, cy + 3, g >= 0 and c.go or c.danger)
     cy = cy + 34
-    cy = cy + overlayText(12, L.f('Rentrez au stand : « Essayer v%s » la met dans la voiture, puis roulez avec elle.', p.version),
-      px, cy, W - 28, c.light, H - 6) + 8
+    -- prête avant le départ, puis course lancée : proposée à l'arrivée ; course terminée : à valider pour la prochaine
+    local nextText = U.raceRun(app) and L.f('v%s vous sera proposée à l\'arrivée, pour votre prochaine course.', p.version)
+      or (U.raceEnd(app) and L.f('Course terminée : onglet COURSE, validez v%s pour votre prochaine course.', p.version))
+      or L.f('Rentrez au stand : « Essayer v%s » la met dans la voiture, puis roulez avec elle.', p.version)
+    cy = cy + overlayText(12, nextText, px, cy, W - 28, c.light, H - 6) + 8
   end
   overlayChanges(U.overlayChanges(p), px, cy, W, H, 0)
 end

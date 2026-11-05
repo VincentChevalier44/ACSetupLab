@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.0-beta.1.5.7 — 2026-11-05 — beta 1.5.7: online mode, race setup refined during the race
+
+Why this update: SetupLab paused online; and in a race you start on the grid, without the setup menu, so SetupLab could not be used there, and the RACE tab needed a validated SetupLab qualifying setup first. Now SetupLab works online exactly as offline, and the race itself is analysed lap after lap: SetupLab offers a race setup at the finish, for your next race. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).
+
+Online mode:
+
+- **SetupLab works online exactly as offline**, in every session, race included: same steps, versions, files, announcements and loads. Nothing is sent to the server. A setup imposed by the server is not loaded, as offline.
+- New setting **Active online** (SETTINGS tab), ticked by default. Untick it if a league's rules forbid apps: SetupLab then pauses online. While it is paused for that reason, an **Enable SetupLab online** button appears under the pause banner, on every tab.
+- **Traffic filter, online and offline (AI cars included)**: outside a race session, a lap with another car less than 40 m ahead or 8 m behind for more than 2 s in total is not counted (slipstream, blocking): it no longer skews the calibration or the clean-lap count. The J0 report shows the online state and the number of laps rejected for traffic.
+
+Race setup refined during the race:
+
+- **New window "SetupLab Track"**, opened from the CSP app bar while driving: the same interface as the setup-menu window. When the setup-menu window is shown, it gives way and shows a single line, so a click is never handled twice.
+- **RACE tab, in a race session: "Refine during the race"** (or SetupLab Active) starts from the setup in the car, without a SetupLab qualifying setup. The lap count is read from the session (estimated from the duration and the simulated lap time for a timed race); a count you set during the race is kept until the next session. Outside a race session, the race still starts from a validated qualifying setup.
+- **Race laps in traffic count for the race**: in a race session, a lap driven close to another car is kept and marked "in traffic". It counts for the race refinement (pace, fuel use, wear, tyres) and in the lap counts shown ("12 race laps analysed (9 in traffic)"), never for the calibration, the qualifying lap or the best lap of a setup. Outside a race session, such a lap is still rejected. The lap after the chequered flag does not count.
+- **Nothing is loaded once the race has started**, pit stop included: no "Try", no "Load", "Start over" does not put a setup back, and "Validate" only saves the file, for your next race (it becomes the race reference on this track). Before the start, nothing changes: you can still start from the qualifying version of your choice and try the race v1 in the pits.
+- **Laps with a driving incident count for the race too**: in a race session, a lap with an off-track, a cut, a spin, a big slide, a wheel lock-up, an impact or invalidated by AC is kept and marked (it counts for the race refinement, never for the calibration or the qualifying lap). A lap through the pit lane, or after the car was reset to the track, is still rejected. Outside a race session, nothing changes.
+- **The race setup is computed once, at the finish**: during the race session SetupLab only analyses your laps (no computation slowing the game down); a few seconds after your own chequered flag (not the leader's), once your last lap is recorded, it computes the setup from the whole race and announces it once: "race setup vN for your next race", with the laps analysed. Exceptions: the "Compute the race setup" button, and, before the start, starting from a SetupLab qualifying version (its race v1 is computed at once so you can try it in the pits). The overlay says the same. The start and the finish of the race are written to the log.
+- **The setup you load counts**: in a race session, a setup loaded or changed in AC's setup menu (car stopped) is read again on its own after about 1.5 s and becomes the base of the race refinement, whatever it is. Fuel and brake bias do not count. Outside a race session, nothing changes.
+- **After your flag, the computation runs at full speed**: below 60 frames per second SetupLab normally keeps a quarter of its share of each frame, which made the race computation take 5 to 10 minutes; after your finish it uses its full share (about 1 to 2 minutes; the cool-down lap may be slightly less smooth meanwhile). The step card shows "Race finished · computing the race setup" with its progress, and the bottom panel says "Refinement computation" instead of "Manual computation".
+- **Choosing a race start turns SetupLab on**: "Refine during the race", "Start from qualifying vN" and "Resume my race vN" switch the Active toggle on, like choosing a qualifying start.
+- In-app help and user guide: new "During a race" section.
+- Offline test bench: 421 tests. Tried in game: the online mode, and a full race refined from the grid (setup loaded from AC's menu, laps in traffic and with incidents counted, race setup computed at the finish, validated and loaded after the race).
+- DIAGNOSTICS tab: the pit strategy line is translated into English again after a race setup is loaded.
+
 ## 1.0.0-beta.1.5.6 — 2026-11-03 — beta 1.5.6: no longer inactive with the free CSP 0.2.11
 
 Why this update: with Custom Shaders Patch 0.2.11 (the free version installed by Content Manager), SetupLab stayed inactive and showed "Context unreadable: flag unreadable: isAltOnlineRace" ([issue #1](https://github.com/VincentChevalier44/ACSetupLab/issues/1)). This CSP does not have that flag at all. From 1.5.4, click **Update** in the SetupLab window; from 1.5.2 or older, delete the old `SetupLab` folder first, then extract the archive (see the README).

@@ -170,6 +170,55 @@ local function autoKind()
   return app.manualKind or sessionKind()
 end
 
+-- Séance de course (demande de Vincent du 05/11/2026 : « quand on fait des courses, on arrive sur la partie et on est
+-- directement positionné sur la grille… à la fin de la course on propose un setup adapté par rapport à cette course ») :
+-- l'affinage de la course part du setup en place et analyse vos tours de course, trafic compris ; rien n'est chargé avant
+-- l'arrivée ; le setup proposé l'est à l'arrivée, pour votre prochaine course.
+local function raceSession()
+  return app.context ~= nil and app.context.sessionType == K.sessionTypeRace
+end
+
+-- Arrivée passée : votre voiture a vu le drapeau ; la fin de la séance seulement si ce champ est illisible (la séance
+-- peut finir avec la voiture de tête, avant votre propre arrivée).
+local function raceOver()
+  local okC, car = Util.call(Util.get(host.ac, 'getCar'), 0)
+  local finished = nil
+  if okC and car ~= nil then finished = Util.get(car, 'isRaceFinished') end
+  if type(finished) == 'boolean' then return finished end
+  local okS, sim = Util.call(Util.get(host.ac, 'getSim'))
+  return okS and sim ~= nil and Util.get(sim, 'isSessionFinished') == true
+end
+
+-- Séance de course, arrivée pas encore passée (grille avant le départ comprise) : le setup proposé l'est à l'arrivée.
+local function raceIn()
+  return raceSession() and not raceOver()
+end
+
+-- Course lancée : séance de course, départ donné (séance commencée ; illisible : lancée, par prudence), arrivée pas encore
+-- passée. Rien ne se charge alors dans la voiture, arrêt au stand compris. Avant le départ, tout reste comme avant
+-- (partir de sa qualification, essayer la v1 de course au stand).
+local function raceRunning()
+  if not raceIn() then return false end
+  local okS, sim = Util.call(Util.get(host.ac, 'getSim'))
+  return not (okS and sim ~= nil and Util.get(sim, 'isSessionStarted') == false)
+end
+app.raceSession, app.raceOver, app.raceIn, app.raceRunning = raceSession, raceOver, raceIn, raceRunning
+
+-- Tours de la course de la séance en cours : ceux de la séance ; course au temps : estimés d'après sa durée et le temps
+-- au tour simulé du setup en place (tour supplémentaire compris) ; nil hors course ou sans donnée.
+local function sessionRaceLaps(d)
+  local s = d and d.session and d.session.session
+  if not (s and s.type == K.sessionTypeRace) then return nil end
+  if Util.isFinite(s.laps) and s.laps >= 1 and s.isTimedRace ~= true then return math.min(math.floor(s.laps), K.raceMaxLaps) end
+  local lap = d.simCurrent and d.simCurrent.time
+  if Util.isFinite(s.durationMinutes) and s.durationMinutes > 0 and Util.isFinite(lap) and lap > 0 then
+    local n = math.ceil(s.durationMinutes * 60 / lap) + (s.hasAdditionalLap and 1 or 0)
+    return math.max(1, math.min(n, K.raceMaxLaps))
+  end
+  return nil
+end
+app.sessionRaceLaps = sessionRaceLaps
+
 -- Nom de fichier choisi pour un genre (sans accent ni espace) ; '' si aucun.
 local function customName(kind)
   return Util.fileNameFrom(app.names[kind], K.nameMaxChars)
@@ -702,6 +751,12 @@ local function restoreStored(d)
   -- nombre de tours de la course saisi pour ce circuit
   local rlaps = Store.get(app.store, storeKey('rlaps', d), now)
   app.raceLaps = rlaps and rlaps.laps or nil
+  -- séance de course (05/11/2026) : le nombre de tours de cette course, lu dans la séance (estimé pour une course au temps),
+  -- sauf s'il a été saisi pendant elle
+  if raceSession() and app.raceLapsTyped ~= app.conditionsKey then
+    local n = app.sessionRaceLaps and app.sessionRaceLaps(d) or nil
+    if n then app.raceLaps = n end
+  end
   app.lastSaved = {}
   local folder = Exporter.targetFolder(host)
   for _, kind in ipairs({ 'quali', 'race' }) do
@@ -912,6 +967,15 @@ local function refreshContext()
     end
   else
     app.pendingSessionKey = nil
+  end
+  -- séance de course (05/11/2026) : avant le départ, course lancée, arrivée ; chaque passage au journal (champs de CSP
+  -- isSessionStarted et isRaceFinished, à confirmer en jeu)
+  local raceState = raceSession() and (raceOver() and 'arrivée' or (raceRunning() and 'course lancée' or 'avant le départ'))
+    or nil
+  if raceState ~= app.raceState then
+    app.raceState = raceState
+    app.raceFinishAt = raceState == 'arrivée' and app.now or nil
+    if raceState then log('INFO', 'race', 'Séance de course : ' .. raceState) end
   end
   -- résultats calculés dans d'autres conditions de piste : signalés, sans blocage (décision de Vincent
   -- du 20/10/2026) ; un calcul en cours va au bout et son résultat est signalé
@@ -1171,7 +1235,9 @@ local function startMeasureOnly(lap)
 end
 
 local function onLap(lap)
-  log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (lap.valid and 'valide' or
+  local raceOnly = lap.valid and (lap.traffic or lap.incident) and ('valide pour la course seulement ('
+    .. tostring(lap.incident or 'trafic') .. ')') or nil
+  log('INFO', 'lap', 'Tour enregistré : ' .. Util.fmt(lap.time, 3) .. ' s, ' .. (raceOnly or lap.valid and 'valide' or
     ('rejeté (' .. tostring(lap.reason) .. ')')))
   if not lap.valid then
     -- tours rejetés pour trafic comptés (rapport J0, réglage des seuils)
@@ -1186,11 +1252,15 @@ local function onLap(lap)
     end
     return
   end
+  -- tour de course en trafic ou avec un incident de pilotage (séance de course, choix de Vincent du 05/11/2026 : « comptés
+  -- pour la course ») : il compte pour l'affinage de la course seulement ; jamais pour la calibration, la rugosité, la
+  -- validation ni le tour rapide
+  local trafficLap = lap.traffic == true or lap.incident ~= nil
   -- meilleur tour réel dans le nom des fichiers de qualification (renommés voiture arrêtée)
-  if app.queueBestRename then app.queueBestRename(lap) end
+  if app.queueBestRename and not trafficLap then app.queueBestRename(lap) end
   -- affinage : tours propres avec le même setup, comptés depuis la fin du dernier calcul ; version roulée
   local r = app.refine
-  if r and r.active then
+  if r and r.active and not (trafficLap and r.kind ~= 'race') then
     -- minimum avant une proposition (décision de Vincent du 26/10/2026) : tours propres avec le setup en cours
     if lap.family ~= nil and lap.family == r.minFamily then
       r.minLaps = (r.minLaps or 0) + 1
@@ -1201,7 +1271,9 @@ local function onLap(lap)
       r.waiting = app.refineMinReached(r) and 'tour propre compté : calcul du setup en cours'
         or app.refineMinText(r)
       -- le message de la fenêtre suit (sinon « 0/1 tour propre » restait affiché après le tour)
-      app.ui.message = 'Tour propre compté (' .. Util.fmt(lap.time, 3) .. ' s) : ' .. r.waiting .. '.'
+      local what = (lap.incident and ('Tour de course compté, avec incident (' .. lap.incident .. ', '))
+        or (trafficLap and 'Tour de course compté, en trafic (') or 'Tour propre compté ('
+      app.ui.message = what .. Util.fmt(lap.time, 3) .. ' s) : ' .. r.waiting .. '.'
     end
     if r.phase == 'tours' then
       local lapKey = Recorder.bestKey(lap.signature, lap.bucket)
@@ -1214,6 +1286,7 @@ local function onLap(lap)
       if entry.version and entry.signature == lap.signature then r.driven = entry.version end
     end
   end
+  if trafficLap then return end
   local d = app.discovery
   -- sans ligne IA : premier tour valide -> reconnaissance du circuit, puis nouvelle découverte ;
   -- nouvelle tentative au tour suivant si elle échoue (K.reconnaissanceMaxTries au plus)
@@ -1268,6 +1341,8 @@ local function recordFrame()
   rc.ers = d ~= nil and d.ers ~= nil and d.ers.enabled == true
   -- trafic : autres voitures examinées en ligne comme hors ligne (IA comprise)
   rc.carsCount = app.context and app.context.carsCount or nil
+  -- séance de course (choix de Vincent du 05/11/2026) : tours en trafic gardés pour la course, tour après l'arrivée rejeté
+  rc.raceSession = raceSession()
   local lap = Recorder.update(app.recorder, host, app.now, liveSignature, rc)
   if lap then onLap(lap) end
 end
@@ -1309,6 +1384,7 @@ local function update(dt)
     Recorder.abort(app.recorder, 'mode inerte')
   end
   if app.auto and app.autoTick then app.autoTick() end
+  if app.raceSetupWatch then app.raceSetupWatch() end
   if app.refine and app.refine.active then app.refineTick() end
   -- mise à jour : une seule vérification par lancement d'AC, quelques secondes après le démarrage (hors ligne)
   if app.updater.state == 'idle' and app.settings.updateCheck and app.frameNo >= K.updateCheckFrame and not app.inert then
@@ -1345,7 +1421,8 @@ local function update(dt)
   local budget = app.settings.sliceBudgetMs / 1000
   local quota = K.workQuotaFallback
   local fps = okSim and Util.get(sim, 'fps') or nil
-  if Util.isFinite(fps) and fps > 0 and fps < K.fpsTarget then
+  -- après votre arrivée (séance de course) : la course est finie, le calcul du setup de course passe à pleine part
+  if Util.isFinite(fps) and fps > 0 and fps < K.fpsTarget and not (raceSession() and raceOver()) then
     budget, quota = budget * K.slowFpsSliceFactor, math.max(1, math.floor(quota * K.slowFpsSliceFactor))
     app.perf.slowFrames = app.perf.slowFrames + 1
   end
@@ -1455,7 +1532,7 @@ local function raceStarted()
 end
 app.raceStarted = raceStarted
 
-local function raceBlocker()
+local function raceQualiBase()
   local m = raceReference()
   -- un setup de qualification de SetupLab dans la voiture (validé ou essai, d'une séance précédente comprise, réenregistré
   -- depuis le menu d'AC compris) sert de référence (demande de Vincent du 02/11/2026) ; course commencée : celui de la
@@ -1481,10 +1558,18 @@ local function raceBlocker()
         .. (#files > 1 and ' ; ou un autre de vos setups de qualification depuis le menu de setup d\'AC' or ''), 'load'
     end
   end
+  return nil, nil
+end
+
+-- Garde de la course : départ (setup de qualification de SetupLab ; en séance de course, le setup en place suffit,
+-- choix de Vincent du 05/11/2026 « partir du setup en place ») et nombre de tours. Renvoie la raison et l'action.
+local function raceBlocker()
+  local why, action = raceQualiBase()
+  if why and not raceSession() then return why, action end
   if not (Util.isFinite(app.raceLaps) and app.raceLaps >= 1) then return 'saisir le nombre de tours de la course', 'laps' end
   return nil, nil
 end
-app.raceReference, app.raceBlocker = raceReference, raceBlocker
+app.raceReference, app.raceBlocker, app.raceQualiBase = raceReference, raceBlocker, raceQualiBase
 
 -- Premier réglage dont le cran du jeu diffère de celui de l'espace (setup changé depuis la découverte).
 local function changedSetting(d)
@@ -1517,6 +1602,10 @@ local function raceMeasures(d, bucket)
     fuelPerLapCsp = live.ok and live.values.fuelPerLap or nil,
   }
   local lap = Recorder.best(app.recorder, d.signature, bucket)
+  -- séance de course : à défaut d'un tour libre, le dernier tour de course (en trafic) du setup donne la consommation et
+  -- l'usure (choix de Vincent du 05/11/2026)
+  local last = app.recorder.laps.last
+  if lap == nil and last and last.valid and last.signature == d.signature and last.bucket == bucket then lap = last end
   if lap then
     m.lapTimeMeasured = lap.time
     if lap.fuelStart and lap.fuelEnd and lap.fuelStart > lap.fuelEnd then m.fuelPerLapMeasured = lap.fuelStart - lap.fuelEnd end
@@ -1841,6 +1930,8 @@ local function loadBlocker(kind)
   -- gardes de l'image (en ligne, replay), pas seulement celles du contexte relu à 1 Hz
   if not okS or inertNow(sim) then return app.inert or 'séance en ligne ou replay' end
   if app.loadCheck then return 'vérification du chargement précédent en cours' end
+  -- course en cours (demande de Vincent du 05/11/2026) : rien dans la voiture avant l'arrivée, arrêt au stand compris
+  if raceRunning() then return 'course en cours : rien n\'est chargé avant l\'arrivée' end
   local saved = app.saved[kind]
   if not (saved and saved.text and saved.signature == app.proposals[kind]) then
     return 'enregistrer d\'abord le setup ' .. COMPUTE[kind].label
@@ -1857,6 +1948,8 @@ local function loadBlocker(kind)
   if not (okI and saved.carId and carId == saved.carId) then return 'voiture différente de celle du calcul' end
   return nil
 end
+
+app.loadBlocker = loadBlocker
 
 -- Valeurs (VALUE) de chaque section d'un setup au format d'AC, hors [CAR] et [__EXT_PATCH] :
 -- carburant et composé compris.
@@ -1992,6 +2085,42 @@ local function inCarFamily()
   return family
 end
 app.inCarFamily = inCarFamily
+
+-- Séance de course (constat de Vincent du 05/11/2026 : « il faut qu'il charge le setup actuel que l'utilisateur a chargé et
+-- non pas sa référence à lui… l'utilisateur peut choisir n'importe quel setup, l'affinage en course sert à ça ») : un setup
+-- chargé ou changé dans le menu de setup d'AC (voiture arrêtée) devient la base de l'affinage : nouvelle découverte dès
+-- qu'il est stable (K.setupWatchStable), sans calcul ni chargement en cours. Carburant et répartition de freinage exclus
+-- (famille du setup). Hors séance de course, rien ne change.
+local function raceSetupWatch()
+  if not raceIn() or app.inert or app.discoveryState ~= 'done' or app.loadCheck then
+    app.setupWatch = nil
+    return
+  end
+  local d = app.discovery
+  if not (d and d.family) or not carStopped() or Util.schedulerBusy(app.scheduler) then return end
+  local family = inCarFamily()
+  if family == nil or family == d.family then
+    app.setupWatch = nil
+    return
+  end
+  local w = app.setupWatch
+  if not (w and w.family == family) then
+    app.setupWatch = { family = family, since = app.now }
+    return
+  end
+  if app.now - w.since < K.setupWatchStable then return end
+  app.setupWatch = nil
+  app.ui.message = 'Setup changé dans le menu de setup : SetupLab le relit, l\'affinage de la course part de lui.'
+  log('INFO', 'rediscover', 'Séance de course : setup changé dans le menu de setup, nouvelle découverte')
+  startDiscovery()
+end
+app.raceSetupWatch = function()
+  local ok, err = pcall(raceSetupWatch)
+  if not ok then
+    app.perf.errors = app.perf.errors + 1
+    log('ERROR', 'setup_watch', err)
+  end
+end
 
 -- Setup de qualification de SetupLab monté dans la voiture (reconnu par ses valeurs), ou nil.
 local function qualiInCar()
@@ -2748,19 +2877,54 @@ local function lapsText(n)
   return n .. ' tour' .. s .. ' propre' .. s .. ' analysé' .. s
 end
 
+-- Tours de course analysés (séance de course) : en trafic compris, et combien.
+local function raceLapsText(e)
+  local f = e.originFamily and app.recorder.laps.family[Recorder.bestKey(e.originFamily, e.bucket)]
+  local n, t, i = f and f.count or 0, f and f.traffic or 0, f and f.incident or 0
+  local s = n > 1 and 's' or ''
+  local parts = {}
+  if t > 0 then parts[#parts + 1] = t .. ' en trafic' end
+  if i > 0 then parts[#parts + 1] = i .. ' avec incident' end
+  return n .. ' tour' .. s .. ' de course analysé' .. s .. (#parts > 0 and (' (dont ' .. table.concat(parts, ', ') .. ')') or '')
+end
+
+-- Moment d'annoncer une version prête : au stand (voie des stands comprise) ; en séance de course, à l'arrivée seulement
+-- (pendant la course, rien ne se charge : elle reste provisoire, arrêt au stand compris).
+local function readyNow()
+  if raceRunning() then return false end
+  if raceSession() and raceOver() then return true end
+  return carAtPit()
+end
+app.readyNow = readyNow
+
 -- Annonce à l'écran (messages d'AC en haut de l'écran) : version prête, au stand.
 local function refineAnnounce(r, e)
   if e.ready and e.readyAt == e.updates then return end
+  -- arrivée (relecture du 05/11/2026) : une seule annonce par version ; le tour du drapeau, compté quelques images après
+  -- elle, la met à jour sans nouveau message
+  local finish = raceSession() and raceOver()
+  if finish and e.finishNoticed then
+    e.ready, e.readyAt = true, e.updates
+    return
+  end
   -- déjà annoncée : ses mises à jour en piste restent silencieuses jusqu'au stand suivant
   e.ready, e.readyAt, e.noticed = true, e.updates, true
+  if finish then e.finishNoticed = true end
   local n = lapsAnalyzed(e)
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' prêt'
   local text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s' .. (n > 0 and (', d\'après ' .. lapsText(n)) or '')
     .. '. Dans SetupLab, au stand : Essayer (la met dans la voiture), trier ses réglages et Valider ; ou Recommencer.'
+  if raceSession() and raceOver() then
+    -- arrivée (demande de Vincent du 05/11/2026) : le setup de cette course, pour la prochaine
+    title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' pour votre prochaine course'
+    text = 'Gain prévu ' .. Util.fmt(e.gain, 2) .. ' s, d\'après ' .. raceLapsText(e) .. '. Dans SetupLab, onglet COURSE : '
+      .. 'trier ses réglages (« Modifier… ») et Valider ; ou Recommencer.'
+  end
   L.set(app.settings.language)
   Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
 end
+app.refineAnnounce = refineAnnounce
 
 -- En piste : version provisoire ; une seule annonce par version (le minimum d'informations est là).
 local function refinePreparing(r, e)
@@ -2771,6 +2935,10 @@ local function refinePreparing(r, e)
   e.noticed = true
   local title = 'SetupLab : setup ' .. COMPUTE[r.kind].label .. ' v' .. e.version .. ' en préparation'
   local text = 'J\'ai le minimum d\'informations ; je continue d\'analyser vos tours. Le setup sera prêt à votre retour au stand.'
+  if raceIn() then
+    text = 'J\'ai le minimum d\'informations ; je continue d\'analyser vos tours de course. Le setup vous sera proposé à '
+      .. 'l\'arrivée, pour votre prochaine course.'
+  end
   L.set(app.settings.language)
   Util.call(Util.get(host.ac, 'setMessage'), L.t(title), L.t(text), nil, K.alertSeconds)
   log('INFO', 'refine', title .. ' — ' .. text)
@@ -2799,10 +2967,9 @@ local function refineMinReached(r)
   if first and app.settings.refineInstantFirst then return true end
   -- course (demande de Vincent du 02/11/2026) : la première version part tout de suite d'un setup de qualification de
   -- SetupLab dans la voiture (ses tours ont été faits en qualification) ; les suivantes attendent le minimum
-  if first and r.kind == 'race' then
-    local _, action = raceBlocker()
-    if action == nil or action == 'laps' then return true end
-  end
+  -- (un départ du setup en place en séance de course, sans qualification de SetupLab, attend le minimum : ce sont vos
+  -- tours de course qui donnent le rythme)
+  if first and r.kind == 'race' and raceQualiBase() == nil then return true end
   local laps, minutes = app.settings.refineMinLaps or 0, app.settings.refineMinMinutes or 0
   return (r.minLaps or 0) >= laps and (r.minTime or 0) >= minutes * 60
 end
@@ -2817,6 +2984,23 @@ local function refineMinText(r)
   return text
 end
 app.refineMinReached, app.refineMinText = refineMinReached, refineMinText
+
+-- Séance de course (constat de Vincent du 05/11/2026 : « on va affiner directement par rapport au setup qui a été chargé…
+-- pour l'instant, il n'y a rien besoin de calculer… le calcul, il est à la fin de la course ») : l'affinage de la course
+-- analyse vos tours, et le setup se calcule une fois, à l'arrivée, après l'enregistrement de votre dernier tour. Sauf :
+-- un clic de calcul (« Calculer le setup course »), et avant le départ, une v1 tout de suite depuis une qualification de
+-- SetupLab dans la voiture (1.5.2 : elle s'essaie au stand avant le départ). Renvoie la raison d'attendre, ou nil.
+local function raceComputeWait(r)
+  if r.kind ~= 'race' or not raceSession() or r.forceNext then return nil end
+  if raceOver() then
+    local settled = app.raceFinishAt ~= nil and app.now - app.raceFinishAt >= K.raceFinishSettle
+    if app.recorder.pending or not settled then return 'arrivée : enregistrement de votre dernier tour, puis calcul du setup' end
+    return nil
+  end
+  if not raceRunning() and raceQualiBase() == nil then return nil end
+  return 'analyse de vos tours de course : le setup sera calculé à l\'arrivée'
+end
+app.raceComputeWait = raceComputeWait
 
 -- Effets d'une version (décision de Vincent du 26/10/2026) : ses réglages changés regroupés (Config.effectGroups),
 -- chacun gardé par défaut ; un groupe déjà trié garde son choix quand la version est mise à jour.
@@ -3095,7 +3279,7 @@ local function refineFinish(r, q)
         e.file, e.path, e.hash = nil, nil, nil
       end
       shown = e
-      if carAtPit() then refineAnnounce(r, e) else refinePreparing(r, e) end
+      if readyNow() then refineAnnounce(r, e) else refinePreparing(r, e) end
     end
   end
   if note.note then refineNote(r, note) end
@@ -3103,7 +3287,8 @@ local function refineFinish(r, q)
   app.ui.message = 'Affinage ' .. COMPUTE[r.kind].label .. ' : ' .. (shown and ('v' .. shown.version
     .. (shown.ready and (shown.updates > 0 and ' mise à jour' or ' prête') or ' en préparation') .. ', gain prévu '
     .. Util.fmt(shown.gain, 3) .. ' s' .. (shown.ready and ' : l\'essayer, trier ses réglages et la valider, ou recommencer'
-      or ' (provisoire) : analyse de vos tours jusqu\'au retour au stand')) or note.note)
+      or (raceIn() and ' (provisoire) : analyse de vos tours de course jusqu\'à l\'arrivée'
+        or ' (provisoire) : analyse de vos tours jusqu\'au retour au stand'))) or note.note)
     .. ' ; nouveau calcul ' .. (app.settings.refineLaps > 1 and ('après ' .. app.settings.refineLaps .. ' tours propres.')
       or 'au prochain tour propre.')
   log('INFO', 'refine', app.ui.message)
@@ -3150,12 +3335,15 @@ local function refineTick()
     r.waiting = startWaiting(kind)
   elseif raceWhy then
     r.waiting = 'course : ' .. raceWhy
+  elseif r.phase == 'tours' and raceComputeWait(r) then
+    r.waiting = raceComputeWait(r)
   elseif r.phase == 'tours' and not refineMinReached(r) then
     r.waiting = refineMinText(r)
   end
-  -- retour au stand : la version en préparation est annoncée prête (calcul en cours : à sa fin)
+  -- retour au stand (en séance de course : l'arrivée) : la version en préparation est annoncée prête (calcul en cours : à
+  -- sa fin)
   local pending = refinePending(r)
-  if pending and not pending.ready and r.phase ~= 'calcul' and carAtPit() then refineAnnounce(r, pending) end
+  if pending and not pending.ready and r.phase ~= 'calcul' and readyNow() then refineAnnounce(r, pending) end
   -- chargement vérifié : nouvelle découverte au stand (repère de hauteur, A25), une fois les tâches en
   -- cours terminées (une calibration en cours n'est pas perdue)
   if r.needsDiscovery then
@@ -3208,6 +3396,11 @@ local function refineTick()
         r.waiting = 'course : ' .. why
         return
       end
+    end
+    local wait = raceComputeWait(r)
+    if wait then
+      r.waiting = wait
+      return
     end
     if not refineMinReached(r) then
       r.waiting = refineMinText(r)
@@ -3297,11 +3490,12 @@ local function refineStart(kind)
   if f then r.minFamily, r.minLaps, r.minTime = d.family, f.count, f.sum end
   log('INFO', 'refine', 'Affinage ' .. COMPUTE[kind].label .. ' lancé')
   local why = kind == 'race' and raceBlocker() or nil
-  if not startReady(kind) or not refineMinReached(r) or why then
+  local wait = raceComputeWait(r)
+  if not startReady(kind) or not refineMinReached(r) or why or wait then
     r.due, r.nextAt = true, nil
-    r.waiting = (not startReady(kind) and startWaiting(kind)) or (why and ('course : ' .. why)) or refineMinText(r)
+    r.waiting = (not startReady(kind) and startWaiting(kind)) or (why and ('course : ' .. why)) or wait or refineMinText(r)
     -- la raison seule dans le message (« course : » devant une raison à deux propositions ne se traduit pas)
-    local reason = (not startReady(kind) and startWaiting(kind)) or why or refineMinText(r)
+    local reason = (not startReady(kind) and startWaiting(kind)) or why or wait or refineMinText(r)
     app.ui.message = 'Affinage ' .. COMPUTE[kind].label .. ' lancé, en attente : ' .. reason .. '.'
     return
   end
@@ -3436,6 +3630,13 @@ local function refineValidate(r, e)
   local loadIt = not same
   local validated = 'v' .. e.version .. ' validée et enregistrée : ' .. e.file .. ' ; setup de référence ('
     .. memoryTitle(entry) .. ') gardé en mémoire pour ce circuit. '
+  if loadIt and raceRunning() then
+    -- course en cours (demande de Vincent du 05/11/2026) : rien dans la voiture avant l'arrivée
+    app.ui.message = validated .. 'Course en cours : rien n\'est chargé avant l\'arrivée ; elle servira à votre prochaine '
+      .. 'course.'
+    log('INFO', 'memory', app.ui.message)
+    return entry
+  end
   if loadIt then
     -- dans la voiture en un clic ; refusé (hors du stand…) : le message de la validation reste, la raison est dite sous
     -- « Charger »
@@ -3502,7 +3703,7 @@ local function refineReject(r, e)
   log('INFO', 'memory', app.ui.message)
   -- 1.5.3 (décision de Vincent du 02/11/2026) : la version refusée est dans la voiture : le setup d'avant y revient (la
   -- référence, sinon la copie de sauvegarde faite avant l'essai)
-  if r.driven == e.version then
+  if r.driven == e.version and not raceRunning() then
     local before = e.before
     if before then
       local okB, text = Util.call(Util.get(host.io, 'load'), before.path)
@@ -3524,6 +3725,11 @@ end
 local function refineTry(r, e)
   if e.status ~= nil and e.status ~= 'essai' then
     app.ui.message = 'v' .. e.version .. ' : déjà ' .. tostring(e.status) .. '.'
+    return
+  end
+  if raceRunning() then
+    app.ui.message = 'v' .. e.version .. ' : pas d\'essai pendant la course (rien n\'est chargé avant l\'arrivée) ; validez-la '
+      .. 'pour votre prochaine course.'
     return
   end
   if e.trial == nil or app.written[e.trial.file] ~= e.trial.hash then
@@ -3988,10 +4194,24 @@ local function handleIntents(intents)
     local kind = intents.refineStart
     if kind ~= 'race' and app.start[kind] == nil then app.start[kind] = { mode = 'mine', ready = true } end
     app.manualKind = kind ~= sessionKind() and kind or nil
+    -- départ de la course choisi (« Affiner pendant la course », « Partir de la qualif vN », « Reprendre ma course vN ») :
+    -- il active SetupLab, comme le choix d'un départ du tour rapide (constat de Vincent du 05/11/2026 : l'interrupteur
+    -- restait en veille)
+    if kind == 'race' and (intents.raceSession or intents.raceFrom or intents.raceResume) and not app.auto then
+      app.auto = true
+      log('INFO', 'auto', 'SetupLab actif : départ de la course choisi')
+    end
     refineStart(kind)
     -- course demandée d'un clic : un calcul tout de suite, même en reprenant un affinage qui a déjà des versions
     local r = app.refine
-    if kind == 'race' and r and r.kind == 'race' and r.active then r.forceNext, r.due, r.nextAt = true, true, nil end
+    if kind == 'race' and r and r.kind == 'race' and r.active and not intents.raceSession then
+      r.forceNext, r.due, r.nextAt = true, true, nil
+    end
+    if kind == 'race' and intents.raceSession and r and r.kind == 'race' and r.active and raceIn() then
+      app.ui.message = 'Affinage course lancé : SetupLab analyse vos tours de course (trafic et incidents compris) et calcule '
+        .. 'le setup à l\'arrivée, pour votre prochaine course. Rien n\'est chargé pendant la course.'
+      log('INFO', 'refine', app.ui.message)
+    end
   end
   if intents.refineJudge then refineJudge(intents.refineJudge.version, intents.refineJudge.verdict) end
   if intents.effect then effectToggle(intents.effect.version, intents.effect.key, intents.effect.keep) end
@@ -4000,6 +4220,8 @@ local function handleIntents(intents)
     local n = tonumber(intents.raceLaps)
     if n and n >= 1 and n <= K.raceMaxLaps and n == math.floor(n) then
       app.raceLaps = n
+      -- saisi pendant une séance de course : il remplace celui de la séance jusqu'à la séance suivante
+      if raceSession() then app.raceLapsTyped = app.conditionsKey end
       local key = storeKey('rlaps', app.discovery)
       if key then Store.put(app.store, key, { laps = n }, stamp()) end
       app.ui.message = 'Course : ' .. n .. ' tours, gardés pour ce circuit.'
@@ -4154,6 +4376,8 @@ end
 
 function script.SETUPLAB__MAIN(_)
   if app.released then return end
+  -- fenêtre du menu de setup dessinée à cette image : la fenêtre en piste lui laisse la main (une seule par image)
+  app.mainDrawFrame = app.frameNo or 0
   local intents = {}
   local ok, err = measure(Ui.main, host, app, intents)
   if not ok then
@@ -4162,6 +4386,31 @@ function script.SETUPLAB__MAIN(_)
   end
   local okI, errI = measure(handleIntents, intents)
   -- état du stand après les clics de l'image (un setup validé à l'instant est déjà « à charger »)
+  measure(loadReadiness)
+  if not okI then
+    app.perf.errors = app.perf.errors + 1
+    app.ui.message = 'Erreur interne : ' .. Util.truncate(tostring(errI), 200)
+    log('ERROR', 'intents', errI)
+  end
+end
+
+-- Fenêtre en piste (demande de Vincent du 05/11/2026 : en course, on part sur la grille, sans menu de setup) : la même
+-- interface que la fenêtre du menu de setup, ouverte depuis la barre d'apps en roulant. Une seule des deux dessine à
+-- chaque image : celle du menu de setup, dessinée à cette image ou à la précédente, garde la main (les clics et l'état de
+-- l'interface ne sont jamais traités deux fois).
+function script.SETUPLAB__TRACK(_)
+  if app.released then return end
+  if app.mainDrawFrame ~= nil and (app.frameNo or 0) - app.mainDrawFrame <= 1 then
+    measure(Ui.trackYield, host, app)
+    return
+  end
+  local intents = {}
+  local ok, err = measure(Ui.main, host, app, intents)
+  if not ok then
+    app.perf.errors = app.perf.errors + 1
+    log('ERROR', 'ui_track', err)
+  end
+  local okI, errI = measure(handleIntents, intents)
   measure(loadReadiness)
   if not okI then
     app.perf.errors = app.perf.errors + 1

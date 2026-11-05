@@ -314,6 +314,8 @@ end
 
 tests['RC03 « Reprendre ma course vN » : la course validée revient dans la voiture et son affinage reprend'] = function()
   local h, app = boot({ session = 3 })
+  -- avant le départ (05/11/2026) : essai et reprise se chargent au stand ; course lancée : rien avant l'arrivée
+  h.sim.isSessionStarted = false
   T.ok(waitFor(h, function() return app.discoveryState == 'done' end))
   app.settings.refineMinLaps, app.settings.refineInstantFirst, app.settings.optBudgetEvalsC = 0, false, 300
   Fake.raceReady(h, app, 12)
